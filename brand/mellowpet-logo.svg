@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 780" width="1200" height="780" font-family="Nunito, Quicksand, Poppins, 'Trebuchet MS', system-ui, sans-serif">
+  <title>MellowPet — identidade visual</title>
+  <defs>
+    <linearGradient id="warm" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFC9A8"/>
+      <stop offset="55%" stop-color="#F3AEB6"/>
+      <stop offset="100%" stop-color="#C6A9F0"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#FFFDFB"/>
+      <stop offset="100%" stop-color="#FBE8DA"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#7A5A6B" flood-opacity="0.18"/>
+    </filter>
+
+    <!-- Mellow: versão colorida -->
+    <g id="mark">
+      <g fill="url(#body)">
+        <ellipse cx="38" cy="93" rx="11" ry="7" transform="rotate(-15 38 93)"/>
+        <ellipse cx="62" cy="93" rx="11" ry="7" transform="rotate(15 62 93)"/>
+        <ellipse cx="14" cy="76" rx="12" ry="7" transform="rotate(-20 14 76)"/>
+        <ellipse cx="86" cy="76" rx="12" ry="7" transform="rotate(20 86 76)"/>
+      </g>
+      <path d="M 50 9 C 75 9 89 29 89 53 C 89 78 72 91 50 91 C 28 91 11 78 11 53 C 11 29 25 9 50 9 Z" fill="url(#body)"/>
+      <circle cx="21" cy="57" r="6" fill="#FFA9A0" opacity="0.65"/>
+      <circle cx="79" cy="57" r="6" fill="#FFA9A0" opacity="0.65"/>
+      <ellipse cx="50" cy="68" rx="18" ry="12.5" fill="#F7D9C6" opacity="0.55"/>
+      <g fill="none" stroke="#4A3550" stroke-width="4.2" stroke-linecap="round">
+        <path d="M 30 51 q 7 -9 14 0"/>
+        <path d="M 56 51 q 7 -9 14 0"/>
+      </g>
+      <g fill="none" stroke="#BCA7BA" stroke-width="1.6" stroke-linecap="round">
+        <path d="M 34 65 L 13 60"/><path d="M 34 68 L 11 68"/><path d="M 34 71 L 14 76"/>
+        <path d="M 66 65 L 87 60"/><path d="M 66 68 L 89 68"/><path d="M 66 71 L 86 76"/>
+      </g>
+      <path d="M 44.5 58 Q 50 55.5 55.5 58 Q 55 64.5 50 67 Q 45 64.5 44.5 58 Z" fill="#4A3550"/>
+      <g fill="none" stroke="#4A3550" stroke-width="2.6" stroke-linecap="round">
+        <path d="M 50 67 Q 50 72 44 72"/>
+        <path d="M 50 67 Q 50 72 56 72"/>
+      </g>
+    </g>
+
+    <!-- Mellow: sólido escuro (monocromático) -->
+    <g id="markSolid">
+      <g fill="#4A3550">
+        <ellipse cx="38" cy="93" rx="11" ry="7" transform="rotate(-15 38 93)"/>
+        <ellipse cx="62" cy="93" rx="11" ry="7" transform="rotate(15 62 93)"/>
+        <ellipse cx="14" cy="76" rx="12" ry="7" transform="rotate(-20 14 76)"/>
+        <ellipse cx="86" cy="76" rx="12" ry="7" transform="rotate(20 86 76)"/>
+        <path d="M 50 9 C 75 9 89 29 89 53 C 89 78 72 91 50 91 C 28 91 11 78 11 53 C 11 29 25 9 50 9 Z"/>
+      </g>
+      <ellipse cx="50" cy="68" rx="18" ry="12.5" fill="#FAF6F2" opacity="0.16"/>
+      <g fill="none" stroke="#FAF6F2" stroke-width="1.8" stroke-linecap="round" opacity="0.85">
+        <path d="M 34 65 L 15 60"/><path d="M 34 68 L 13 68"/><path d="M 34 71 L 16 76"/>
+        <path d="M 66 65 L 85 60"/><path d="M 66 68 L 87 68"/><path d="M 66 71 L 84 76"/>
+      </g>
+      <g fill="none" stroke="#FAF6F2" stroke-width="4.2" stroke-linecap="round">
+        <path d="M 30 51 q 7 -9 14 0"/>
+        <path d="M 56 51 q 7 -9 14 0"/>
+      </g>
+      <path d="M 44.5 58 Q 50 55.5 55.5 58 Q 55 64.5 50 67 Q 45 64.5 44.5 58 Z" fill="#FAF6F2"/>
+      <g fill="none" stroke="#FAF6F2" stroke-width="2.6" stroke-linecap="round">
+        <path d="M 50 67 Q 50 72 44 72"/>
+        <path d="M 50 67 Q 50 72 56 72"/>
+      </g>
+    </g>
+
+    <!-- Mellow: sólido claro -->
+    <g id="markLight">
+      <g fill="#FAF6F2">
+        <ellipse cx="38" cy="93" rx="11" ry="7" transform="rotate(-15 38 93)"/>
+        <ellipse cx="62" cy="93" rx="11" ry="7" transform="rotate(15 62 93)"/>
+        <ellipse cx="14" cy="76" rx="12" ry="7" transform="rotate(-20 14 76)"/>
+        <ellipse cx="86" cy="76" rx="12" ry="7" transform="rotate(20 86 76)"/>
+        <path d="M 50 9 C 75 9 89 29 89 53 C 89 78 72 91 50 91 C 28 91 11 78 11 53 C 11 29 25 9 50 9 Z"/>
+      </g>
+      <ellipse cx="50" cy="68" rx="18" ry="12.5" fill="#4A3550" opacity="0.10"/>
+      <g fill="none" stroke="#4A3550" stroke-width="1.8" stroke-linecap="round" opacity="0.6">
+        <path d="M 34 65 L 15 60"/><path d="M 34 68 L 13 68"/><path d="M 34 71 L 16 76"/>
+        <path d="M 66 65 L 85 60"/><path d="M 66 68 L 87 68"/><path d="M 66 71 L 84 76"/>
+      </g>
+      <g fill="none" stroke="#4A3550" stroke-width="4.2" stroke-linecap="round">
+        <path d="M 30 51 q 7 -9 14 0"/>
+        <path d="M 56 51 q 7 -9 14 0"/>
+      </g>
+      <path d="M 44.5 58 Q 50 55.5 55.5 58 Q 55 64.5 50 67 Q 45 64.5 44.5 58 Z" fill="#4A3550"/>
+      <g fill="none" stroke="#4A3550" stroke-width="2.6" stroke-linecap="round">
+        <path d="M 50 67 Q 50 72 44 72"/>
+        <path d="M 50 67 Q 50 72 56 72"/>
+      </g>
+    </g>
+  </defs>
+
+  <rect width="1200" height="780" fill="#FAF6F2"/>
+
+  <g filter="url(#soft)">
+    <rect x="80" y="90" width="240" height="240" rx="62" fill="url(#warm)"/>
+  </g>
+  <g transform="translate(140,145) scale(1.2)">
+    <use href="#mark"/>
+  </g>
+
+  <g transform="translate(400,152) scale(0.9)">
+    <use href="#mark"/>
+  </g>
+  <text x="505" y="248" font-size="92" font-weight="700" fill="#4A3550" letter-spacing="-2">mellowpet</text>
+  <text x="509" y="292" font-size="20" font-weight="600" fill="#9B8AA6" letter-spacing="5">SEU BICHINHO PERCEBE ANTES DE VOCÊ</text>
+
+  <line x1="80" y1="410" x2="1120" y2="410" stroke="#E5DCD4" stroke-width="2"/>
+
+  <g>
+    <rect x="80" y="460" width="200" height="200" rx="36" fill="#4A3550"/>
+    <g transform="translate(130,510)"><use href="#markLight"/></g>
+    <text x="180" y="700" font-size="17" font-weight="600" fill="#9B8AA6" text-anchor="middle">Ícone do app</text>
+  </g>
+  <g>
+    <rect x="320" y="460" width="200" height="200" rx="36" fill="#FFFFFF" stroke="#E5DCD4" stroke-width="2"/>
+    <g transform="translate(370,510)"><use href="#markSolid"/></g>
+    <text x="420" y="700" font-size="17" font-weight="600" fill="#9B8AA6" text-anchor="middle">Monocromático (in-app)</text>
+  </g>
+  <g>
+    <rect x="560" y="460" width="200" height="200" rx="36" fill="url(#warm)"/>
+    <g transform="translate(610,510)"><use href="#mark"/></g>
+    <text x="660" y="700" font-size="17" font-weight="600" fill="#9B8AA6" text-anchor="middle">Colorido</text>
+  </g>
+
+  <g>
+    <circle cx="850" cy="520" r="34" fill="#FFC9A8"/>
+    <circle cx="925" cy="520" r="34" fill="#F3AEB6"/>
+    <circle cx="1000" cy="520" r="34" fill="#C6A9F0"/>
+    <circle cx="1075" cy="520" r="34" fill="#4A3550"/>
+    <text x="850" y="578" font-size="14" fill="#9B8AA6" text-anchor="middle">#FFC9A8</text>
+    <text x="925" y="578" font-size="14" fill="#9B8AA6" text-anchor="middle">#F3AEB6</text>
+    <text x="1000" y="578" font-size="14" fill="#9B8AA6" text-anchor="middle">#C6A9F0</text>
+    <text x="1075" y="578" font-size="14" fill="#9B8AA6" text-anchor="middle">#4A3550</text>
+    <text x="962" y="700" font-size="17" font-weight="600" fill="#9B8AA6" text-anchor="middle">Paleta</text>
+  </g>
+</svg>

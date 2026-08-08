@@ -1,0 +1,9 @@
+# Dependência do gerador de assets da marca.
+#
+# A versão é fixada porque o CI regera os PNGs e compara byte a byte com os
+# arquivos versionados: uma versão diferente do Pillow pode rasterizar com
+# mínimas diferenças e deixar o build vermelho sem que nada tenha mudado.
+#
+# Ao atualizar: rode `python brand/generate_assets.py` e versione os PNGs novos
+# no mesmo commit.
+pillow==12.3.0
