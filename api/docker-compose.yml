@@ -1,0 +1,25 @@
+services:
+  api:
+    build: .
+    ports:
+      # Só na loopback: quem expõe para a internet é o proxy TLS na frente.
+      # Troque para "8000:8000" se for publicar direto (não recomendado).
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    environment:
+      # SQLite fora do container, no volume nomeado.
+      - DATABASE_URL=sqlite+aiosqlite:////data/mellowpet.db
+      # Os pesos ja vem baixados e verificados na imagem.
+      - MELLOWPET_MODEL_DIR=/models
+    volumes:
+      - mellowpet_data:/data
+    restart: unless-stopped
+    # ONNX Runtime + MediaPipe cabem folgados em 2 GB. Antes eram 4 GB por
+    # causa do TensorFlow, que saiu do projeto.
+    mem_limit: 2g
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  mellowpet_data:

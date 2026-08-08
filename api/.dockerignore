@@ -1,0 +1,23 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Segredos e banco local nunca entram na imagem.
+.env
+.env.*
+!.env.example
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+.git/
+.gitignore
+README.md
+scripts/
