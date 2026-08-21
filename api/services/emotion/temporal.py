@@ -4,9 +4,9 @@ Estado temporal por sessao: calibracao, votacao, suavizacao e sequencias.
 Um frame isolado e um sinal ruidoso. O que transforma isso em leitura estavel
 sao quatro mecanismos, todos dependentes de historico e por isso reunidos aqui:
 
-  1. Calibracao — aprende o rosto em repouso da pessoa nos primeiros frames e
-     subtrai esse baseline. Sem isso, quem tem a boca naturalmente curvada para
-     baixo aparece triste o tempo todo.
+  1. Calibracao — durante um fluxo explicitamente iniciado, aprende o rosto em
+     repouso e subtrai esse baseline. Sem isso, quem tem a boca naturalmente
+     curvada para baixo pode aparecer triste o tempo todo.
   2. Votacao    — media dos ultimos N frames, para um frame ruim nao virar uma
      troca de emocao.
   3. Suavizacao — media exponencial com histerese, para a emocao exibida nao
@@ -31,6 +31,12 @@ from .models import ActionUnits, EmotionResult, MicroExpression, SessionTemporal
 from .util import clip01, normalize_scores
 
 logger = setup_logger(__name__)
+
+# Sementes de configuracao aprovadas na spec V2. Permanecem centralizadas para
+# o benchmark P1 ajustar a curva entre estabilidade e atraso sem mudar codigo.
+ENTRY_SCORE = 0.55
+ENTRY_MARGIN = 0.15
+ENTRY_UPDATES = 3
 
 
 class TemporalTracker:
@@ -79,7 +85,7 @@ class TemporalTracker:
                     self._fallback_prev_scores.pop(key, None)
 
     def update_calibration(self, au: 'ActionUnits', session_id: str) -> None:
-        """Accumulate AU data from early frames to establish resting-face baseline."""
+        """Acumula AUs de um fluxo explicito para estabelecer o rosto em repouso."""
         state = self._sessions.get(session_id)
         if state is None or state.calibration_done:
             return
@@ -368,12 +374,13 @@ class TemporalTracker:
                 state.pending_emotion = candidate
                 state.pending_count = 1
 
-            # Immediate switch when the new emotion has any meaningful lead.
-            # No pending needed — the EMA already provides smoothing.
-            immediate_switch = gap >= 0.04
-            confirmed_switch = state.pending_count >= 2 and gap >= 0.015
+            confirmed_switch = (
+                state.pending_count >= ENTRY_UPDATES
+                and candidate_score >= ENTRY_SCORE
+                and gap >= ENTRY_MARGIN
+            )
 
-            if immediate_switch or confirmed_switch:
+            if confirmed_switch:
                 logger.info("emotion switch | %s -> %s (gap=%.3f conf=%.3f pending=%d)",
                     state.last_emotion, candidate, gap, result.confidence, state.pending_count,
                 )
@@ -389,13 +396,25 @@ class TemporalTracker:
             state.pending_emotion = None
             state.pending_count = 0
 
-        confidence = clip01((result.confidence * 0.50) + (candidate_score * 0.50))
+        # Quando a histerese segura o estado anterior, a confianca exibida deve
+        # pertencer a esse estado — nao ao candidato ainda nao confirmado.
+        chosen_score = smoothed_scores.get(chosen, 0.0)
+        confidence = clip01(chosen_score)
+        secondary = next(
+            (emotion for emotion, _score in ranking if emotion != chosen),
+            None,
+        )
 
         # Force neutral for very weak signals only
         if chosen != "neutral" and confidence < 0.10:
             chosen = "neutral"
             state.last_emotion = "neutral"
-            variant, zone, tip = derive_variant(chosen, confidence, secondary)
+
+        # Variante, zona e dica pertencem ao estado finalmente escolhido. Na
+        # implementacao anterior elas so eram inicializadas no fallback de
+        # baixa confianca, causando UnboundLocalError em qualquer leitura
+        # normal a partir do segundo frame da sessao.
+        variant, zone, tip = derive_variant(chosen, confidence, secondary)
 
         state.scores_ema = smoothed_scores
         state.updated_at = now_ts

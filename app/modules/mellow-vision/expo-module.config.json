@@ -1,0 +1,9 @@
+{
+  "platforms": ["android", "apple"],
+  "apple": {
+    "modules": ["MellowVisionModule"]
+  },
+  "android": {
+    "modules": ["com.mellowpet.vision.MellowVisionModule"]
+  }
+}

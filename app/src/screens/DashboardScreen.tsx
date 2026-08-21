@@ -1,322 +1,295 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, ActivityIndicator, Dimensions, RefreshControl,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { BarChart, PieChart } from 'react-native-chart-kit';
-import { MellowMark } from '../components/MellowMark';
-import { ApiService, DashboardData } from '../services/api';
-import { useAppStore } from '../hooks/useStore';
-import { Colors, Typography, Spacing, Radius, Shadow, EMOTION_COLORS } from '../theme';
+import React from 'react';
+import { View } from 'react-native';
+import Svg, { Circle, G } from 'react-native-svg';
 
-const { width } = Dimensions.get('window');
-const CHART_WIDTH = width - Spacing.xl * 2;
+import { Icon } from '../components/Icon';
+import { ScreenScroll, Section } from '../components/ScreenScroll';
+import { Bar, Card, ScreenTitle, Segmented, Txt } from '../components/ui';
+import { ICONS, PERIOD_DATA, PERIOD_LABELS, TIMELINE, TRIGGERS } from '../data/content';
+import { EMOTIONS, FACE_ICON } from '../data/emotions';
+import { useApp, useTheme } from '../state/AppContext';
+import { DANGER, OK, WARN, hexA } from '../theme/palette';
 
-const PERIODS = [
-  { label: '24h', hours: 24 },
-  { label: '3 dias', hours: 72 },
-  { label: '7 dias', hours: 168 },
-];
+const RING_C = 2 * Math.PI * 50; // 314.16
+const DONUT_C = 2 * Math.PI * 45; // 282.74
 
-export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
-  const sessionId = useAppStore((state) => state.sessionId);
-  const userId = useAppStore((state) => state.settings.userId);
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState(0);
+function scoreColor(v: number) {
+  return v >= 70 ? OK : v >= 40 ? WARN : DANGER;
+}
 
-  const fetchData = useCallback(async (hours: number) => {
-    try {
-      const result = await ApiService.getDashboard({
-        sessionId,
-        userId: userId ?? undefined,
-        hours,
-      });
-      setData(result);
-    } catch (err) {
-      console.warn('Dashboard fetch error:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [sessionId, userId]);
+export function DashboardScreen() {
+  const { state, actions } = useApp();
+  const { T, isDark, full } = useTheme();
 
-  useEffect(() => {
-    setLoading(true);
-    fetchData(PERIODS[selectedPeriod].hours);
-  }, [selectedPeriod, fetchData]);
+  const P = PERIOD_DATA[state.period];
+  const wbColor = scoreColor(P.wb);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchData(PERIODS[selectedPeriod].hours);
-  }, [fetchData, selectedPeriod]);
+  // Fatias do donut: cada uma começa onde a soma das anteriores parou.
+  const donut = P.dist.map(([name, pct, color], i) => {
+    const before = P.dist.slice(0, i).reduce((sum, d) => sum + d[1], 0);
+    return {
+      name,
+      pct,
+      color,
+      dash: (pct / 100) * DONUT_C,
+      offset: -(before / 100) * DONUT_C,
+    };
+  });
 
-  const wellbeingColor = (score: number) => {
-    if (score >= 70) return Colors.success;
-    if (score >= 40) return Colors.warning;
-    return Colors.error;
-  };
-
-  // Build pie chart data
-  const pieData = useMemo(() => data
-    ? Object.entries(data.emotion_distribution)
-        .filter(([, pct]) => pct > 0)
-        .map(([emotion, pct]) => ({
-          name: EMOTION_COLORS[emotion]?.label || emotion,
-          population: pct,
-          color: EMOTION_COLORS[emotion]?.bg || Colors.neutral,
-          legendFontColor: Colors.textSecondary,
-          legendFontSize: 12,
-        }))
-    : [], [data]);
-
-  // Build bar chart data from timeline
-  const barData = useMemo(() => data?.timeline.length
-    ? {
-        labels: data.timeline.slice(-8).map((t) => `${t.hour}h`),
-        datasets: [{
-          data: data.timeline.slice(-8).map((t) => t.total),
-        }],
-      }
-    : null, [data]);
+  const maxBar = Math.max(...P.bars.map((b) => b[1]));
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Seu Bem-Estar</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <ScreenScroll>
+      <ScreenTitle label="BEM-ESTAR" title="Seus padrões" />
 
-      {/* Period selector */}
-      <View style={styles.periodRow}>
-        {PERIODS.map((p, i) => (
-          <TouchableOpacity
-            key={p.hours}
-            style={[styles.periodBtn, i === selectedPeriod && styles.periodBtnActive]}
-            onPress={() => setSelectedPeriod(i)}
-          >
-            <Text style={[styles.periodLabel, i === selectedPeriod && styles.periodLabelActive]}>
-              {p.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <Section top={0} style={{ marginBottom: 12 }}>
+        <Segmented
+          items={PERIOD_LABELS}
+          index={state.period}
+          onChange={(period) => actions.set({ period })}
+        />
+      </Section>
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-      >
-        {loading ? (
-          <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 60 }} />
-        ) : !data || data.total_events === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <MellowMark size={64} color={Colors.textTertiary} detail={Colors.background} />
+      {/* índice geral */}
+      <Section top={0}>
+        <Card radius={24} padding={20} style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+          <View style={{ width: 104, height: 104 }}>
+            <Svg width={104} height={104} viewBox="0 0 120 120">
+              <G rotation={-90} origin="60, 60">
+                <Circle cx={60} cy={60} r={50} fill="none" stroke={T.bdL} strokeWidth={11} />
+                <Circle
+                  cx={60}
+                  cy={60}
+                  r={50}
+                  fill="none"
+                  stroke={wbColor}
+                  strokeWidth={11}
+                  strokeLinecap="round"
+                  strokeDasharray={RING_C}
+                  strokeDashoffset={RING_C * (1 - P.wb / 100)}
+                />
+              </G>
+            </Svg>
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Txt s={29} w={800} c={wbColor} ls={-1} lh={1}>
+                {P.wb}
+              </Txt>
+              <Txt s={10} w={700} c={T.t3}>
+                /100
+              </Txt>
             </View>
-            <Text style={styles.emptyTitle}>Sem dados ainda</Text>
-            <Text style={styles.emptySubtitle}>
-              Continue usando o MellowPet para ver seus padrões emocionais aqui!
-            </Text>
           </View>
-        ) : (
-          <>
-            {/* Wellbeing Score Card */}
-            <View style={[styles.card, Shadow.md]}>
-              <Text style={styles.cardTitle}>Índice de Bem-Estar</Text>
-              <View style={styles.scoreRow}>
-                <Text style={[styles.scoreNumber, { color: wellbeingColor(data.wellbeing_score) }]}>
-                  {data.wellbeing_score.toFixed(0)}
-                </Text>
-                <Text style={styles.scoreMax}>/100</Text>
-              </View>
-              <View style={styles.scoreBar}>
+          <View style={{ flex: 1 }}>
+            <Txt s={15} w={800} c={T.t1}>
+              Índice de bem-estar
+            </Txt>
+            <Txt s={12.5} lh={1.55} c={T.t2} style={{ marginTop: 6 }}>
+              {P.events.toLocaleString('pt-BR')} leituras nas últimas {P.label}.
+            </Txt>
+          </View>
+        </Card>
+      </Section>
+
+      {/* linha do dia */}
+      <Section>
+        <Card radius={24} padding={20}>
+          <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 14 }}>
+            Linha do dia
+          </Txt>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 76 }}>
+            {TIMELINE.map(([hour, key], i) => (
+              <View
+                key={`${hour}-${i}`}
+                style={{ flex: 1, alignItems: 'center', gap: 7, height: '100%', justifyContent: 'flex-end' }}
+              >
                 <View
-                  style={[
-                    styles.scoreFill,
-                    {
-                      width: `${data.wellbeing_score}%`,
-                      backgroundColor: wellbeingColor(data.wellbeing_score),
-                    },
-                  ]}
+                  style={{
+                    width: '100%',
+                    height: key === 'neutral' ? 34 : key === 'happy' ? 62 : 48,
+                    borderRadius: 6,
+                    backgroundColor: EMOTIONS[key].c,
+                  }}
                 />
+                <Txt s={9.5} c={T.t3}>
+                  {hour}
+                </Txt>
               </View>
-              <Text style={styles.totalReadings}>{data.total_events} leituras realizadas</Text>
-            </View>
+            ))}
+          </View>
+        </Card>
+      </Section>
 
-            {/* AI Insight Card */}
-            <View style={[styles.card, styles.insightCard, Shadow.md]}>
-              <View style={styles.insightHeader}>
-                <MaterialCommunityIcons name="robot-outline" size={22} color={Colors.primary} />
-                <Text style={styles.insightTitle}>Insight da IA</Text>
+      {/* gatilhos */}
+      <Section>
+        <Card radius={24} padding={20}>
+          <Txt s={13.5} w={800} c={T.t1}>
+            Gatilhos frequentes
+          </Txt>
+          <Txt s={11.5} c={T.t3} style={{ marginTop: 4 }}>
+            O que costuma vir antes de uma emoção difícil
+          </Txt>
+          <View style={{ gap: 11, marginTop: 15 }}>
+            {TRIGGERS.map(([name, count, pct]) => (
+              <View key={name}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Txt s={12.5} c={T.t1}>
+                    {name}
+                  </Txt>
+                  <Txt s={11.5} w={800} c={T.t3}>
+                    {count}x
+                  </Txt>
+                </View>
+                <View style={{ marginTop: 6 }}>
+                  <Bar pct={pct} color={T.pri} />
+                </View>
               </View>
-              <Text style={styles.insightText}>{data.ai_insight}</Text>
-              <Text style={styles.insightProvider}>
-                {data.ai_provider === 'openai'
-                  ? 'Gerado por OpenAI'
-                  : data.ai_provider === 'anthropic'
-                    ? 'Gerado por Anthropic'
-                    : 'Gerado em modo fallback'}
-              </Text>
-            </View>
+            ))}
+          </View>
+        </Card>
+      </Section>
 
-            {/* Dominant emotion */}
-            <View style={styles.dominantRow}>
-              {data.peak_emotions.slice(0, 3).map(([emotion, count]) => {
-                const meta = EMOTION_COLORS[emotion] || EMOTION_COLORS.neutral;
-                return (
+      {/* insight */}
+      <Section>
+        <View style={{ borderRadius: 24, padding: 18, backgroundColor: T.priL }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Icon d={ICONS.robot} size={17} color={T.pri} sw={1.9} />
+            <Txt s={13} w={800} c={T.pri}>
+              Insight da IA
+            </Txt>
+          </View>
+          <Txt s={13.5} lh={1.6} c={T.t2} style={{ marginTop: 9 }}>
+            {P.insight}
+          </Txt>
+        </View>
+      </Section>
+
+      {/* distribuição */}
+      <Section>
+        <Card radius={24} padding={20}>
+          <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 14 }}>
+            Distribuição emocional
+          </Txt>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+            <Svg width={118} height={118} viewBox="0 0 120 120">
+              <G rotation={-90} origin="60, 60">
+                <Circle cx={60} cy={60} r={45} fill="none" stroke={T.bdL} strokeWidth={16} />
+                {donut.map((d) => (
+                  <Circle
+                    key={d.name}
+                    cx={60}
+                    cy={60}
+                    r={45}
+                    fill="none"
+                    stroke={d.color}
+                    strokeWidth={16}
+                    strokeDasharray={`${d.dash} ${DONUT_C - d.dash}`}
+                    strokeDashoffset={d.offset}
+                  />
+                ))}
+              </G>
+            </Svg>
+            <View style={{ flex: 1, gap: 9 }}>
+              {donut.map((d) => (
+                <View key={d.name} style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
                   <View
-                    key={emotion}
-                    style={[styles.dominantChip, { backgroundColor: meta.light }, Shadow.sm]}
-                  >
-                    <MaterialCommunityIcons name={meta.icon as any} size={24} color={meta.bg} />
-                    <Text style={styles.dominantLabel}>{meta.label}</Text>
-                    <Text style={[styles.dominantCount, { color: meta.bg }]}>{count}x</Text>
-                  </View>
-                );
-              })}
+                    style={{ width: 9, height: 9, borderRadius: 3, backgroundColor: d.color }}
+                  />
+                  <Txt s={12.5} c={T.t2} style={{ flex: 1 }}>
+                    {d.name}
+                  </Txt>
+                  <Txt s={12.5} w={800} c={T.t1}>
+                    {d.pct}%
+                  </Txt>
+                </View>
+              ))}
             </View>
+          </View>
+        </Card>
+      </Section>
 
-            {/* Pie Chart */}
-            {pieData.length > 0 && (
-              <View style={[styles.card, Shadow.sm]}>
-                <Text style={styles.cardTitle}>Distribuição Emocional</Text>
-                <PieChart
-                  data={pieData}
-                  width={CHART_WIDTH - Spacing.xl}
-                  height={180}
-                  chartConfig={chartConfig}
-                  accessor="population"
-                  backgroundColor="transparent"
-                  paddingLeft="0"
-                  hasLegend={true}
-                />
+      {full ? (
+        <>
+          <Section>
+            <Card radius={24} padding={20}>
+              <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 16 }}>
+                Atividade por hora
+              </Txt>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 7, height: 112 }}>
+                {P.bars.map(([hour, value]) => (
+                  <View
+                    key={hour}
+                    style={{
+                      flex: 1,
+                      alignItems: 'center',
+                      gap: 7,
+                      height: '100%',
+                      justifyContent: 'flex-end',
+                    }}
+                  >
+                    <Txt s={9.5} w={700} c={T.t3}>
+                      {value}
+                    </Txt>
+                    <View
+                      style={{
+                        width: '100%',
+                        height: `${Math.round((value / maxBar) * 78)}%`,
+                        borderTopLeftRadius: 7,
+                        borderTopRightRadius: 7,
+                        borderBottomLeftRadius: 3,
+                        borderBottomRightRadius: 3,
+                        backgroundColor: T.pri,
+                      }}
+                    />
+                    <Txt s={9.5} c={T.t3}>
+                      {hour}
+                    </Txt>
+                  </View>
+                ))}
               </View>
-            )}
+            </Card>
+          </Section>
 
-            {/* Bar Chart */}
-            {barData && (
-              <View style={[styles.card, Shadow.sm]}>
-                <Text style={styles.cardTitle}>Atividade por Hora</Text>
-                <BarChart
-                  data={barData}
-                  width={CHART_WIDTH - Spacing.xl}
-                  height={180}
-                  chartConfig={chartConfig}
-                  style={styles.chart}
-                  showValuesOnTopOfBars
-                  fromZero
-                  yAxisLabel=""
-                  yAxisSuffix=""
-                />
+          <Section style={{ flexDirection: 'row', gap: 8 }}>
+            {P.peaks.map(([name, count, color, key]) => (
+              <View
+                key={name}
+                style={{
+                  flex: 1,
+                  borderRadius: 20,
+                  padding: 14,
+                  alignItems: 'center',
+                  gap: 5,
+                  backgroundColor: isDark ? hexA(color, 0.16) : EMOTIONS[key].l,
+                }}
+              >
+                <Icon d={FACE_ICON[key]} size={22} color={color} sw={1.9} circle />
+                <Txt s={11.5} w={600} c={T.t2}>
+                  {name}
+                </Txt>
+                <Txt s={13} w={800} c={color}>
+                  {count}x
+                </Txt>
               </View>
-            )}
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+            ))}
+          </Section>
+        </>
+      ) : null}
+    </ScreenScroll>
   );
-};
-
-const chartConfig = {
-  backgroundGradientFrom: Colors.surface,
-  backgroundGradientTo: Colors.surface,
-  color: (opacity = 1) => `rgba(108, 99, 255, ${opacity})`,
-  labelColor: () => Colors.textSecondary,
-  strokeWidth: 2,
-  barPercentage: 0.7,
-  propsForLabels: { fontSize: 11 },
-};
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.base,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: Typography.lg,
-    fontWeight: Typography.bold,
-    color: Colors.textPrimary,
-  },
-  periodRow: {
-    flexDirection: 'row',
-    marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.base,
-    backgroundColor: Colors.borderLight,
-    borderRadius: Radius.full,
-    padding: 3,
-  },
-  periodBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-  },
-  periodBtnActive: {
-    backgroundColor: Colors.surface,
-    ...Shadow.sm,
-  },
-  periodLabel: { fontSize: Typography.sm, color: Colors.textTertiary, fontWeight: Typography.medium },
-  periodLabelActive: { color: Colors.textPrimary, fontWeight: Typography.semibold },
-  scroll: { padding: Spacing.xl, gap: Spacing.md, paddingBottom: 40 },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-  },
-  cardTitle: {
-    fontSize: Typography.base,
-    fontWeight: Typography.semibold,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.md,
-  },
-  scoreRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
-  scoreNumber: { fontSize: Typography.display1, fontWeight: Typography.extrabold, lineHeight: 56 },
-  scoreMax: { fontSize: Typography.lg, color: Colors.textTertiary, marginBottom: 8 },
-  scoreBar: {
-    height: 8, borderRadius: Radius.full,
-    backgroundColor: Colors.borderLight, marginTop: Spacing.sm, overflow: 'hidden',
-  },
-  scoreFill: { height: '100%', borderRadius: Radius.full },
-  totalReadings: {
-    marginTop: Spacing.sm, fontSize: Typography.sm, color: Colors.textTertiary,
-  },
-  insightCard: { backgroundColor: Colors.primaryLight },
-  insightHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
-  insightTitle: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.primary },
-  insightText: { fontSize: Typography.sm, color: Colors.textSecondary, lineHeight: 20 },
-  insightProvider: { marginTop: 8, fontSize: Typography.xs, color: Colors.textTertiary },
-  dominantRow: { flexDirection: 'row', gap: Spacing.sm },
-  dominantChip: {
-    flex: 1, borderRadius: Radius.lg, padding: Spacing.md, alignItems: 'center', gap: 4,
-  },
-  dominantLabel: { fontSize: Typography.xs, color: Colors.textSecondary, fontWeight: Typography.medium },
-  dominantCount: { fontSize: Typography.sm, fontWeight: Typography.bold },
-  chart: { marginTop: -8, borderRadius: Radius.md },
-  emptyState: { alignItems: 'center', paddingTop: 80, paddingHorizontal: Spacing.xxl },
-  emptyIcon: { marginBottom: Spacing.base },
-  emptyTitle: {
-    fontSize: Typography.xl, fontWeight: Typography.bold,
-    color: Colors.textPrimary, marginBottom: Spacing.sm,
-  },
-  emptySubtitle: {
-    fontSize: Typography.base, color: Colors.textSecondary,
-    textAlign: 'center', lineHeight: 22,
-  },
-});
+}

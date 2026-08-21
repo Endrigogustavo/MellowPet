@@ -12,7 +12,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 from config import settings
-from routers import emotion, history, alerts, dashboard, ai_chat, tools
+from routers import emotion, history, alerts, dashboard, ai_chat, tools, vision_v2
 from utils.database import init_db, close_db
 from utils.logger import setup_logger
 from utils.security import (
@@ -59,13 +59,16 @@ API responsável por:
 - Dashboard com histórico emocional
 - Chat empático com o Mellow, baseado na emoção detectada
 
-### Emoções detectadas
-`happy` · `sad` · `angry` · `anxious` · `surprised` · `neutral` · `disgusted` · `fearful`
+### Expressões faciais observadas
+`happy` · `sad` · `angry` · `surprised` · `neutral` · `disgusted` · `fearful` · `unknown`
+
+`unknown` significa ausência de evidência visual suficiente. A API descreve
+expressões observadas e não diagnostica o estado emocional da pessoa.
 
 ### Autenticação
 Envie a chave compartilhada no header `X-API-Key` em todas as rotas `/api/v1/*`.
     """,
-    version="1.0.0",
+    version="2.0.0",
     contact={"name": "MellowPet Team"},
     lifespan=lifespan,
     # Swagger sai do ar em producao para nao publicar a superficie da API.
@@ -118,6 +121,7 @@ app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["Alerts"])
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["Dashboard"])
 app.include_router(ai_chat.router, prefix="/api/v1/chat", tags=["AI Chat"])
 app.include_router(tools.router, prefix="/api/v1/tools", tags=["Tools"])
+app.include_router(vision_v2.router, prefix="/api/v2", tags=["On-device Vision V2"])
 
 
 # ── Health Check ─────────────────────────────────────────────────────────────
@@ -126,7 +130,7 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "MellowPet API",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "env": settings.app_env,
         "timestamp": time.time(),
     }

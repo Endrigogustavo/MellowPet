@@ -102,15 +102,6 @@ def au_to_emotion_scores(au: ActionUnits) -> dict[str, float]:
     if eye_wide > 0 and a1 > 0 and a26 < 0.1:
         fear_ev += 0.10 * min(eye_wide, a1)
 
-    # Anxious: subtle micro-tensions, self-soothing mouth movements
-    anx_base = (0.22 * a4 + 0.18 * a20 + 0.14 * a1
-                + 0.12 * a43 + 0.12 * m_roll + 0.10 * m_press + 0.06 * jaw_lat + 0.04 * m_shrug)
-    # Self-soothing gestures (lip rolling, pressing) amplify anxiety
-    anx_ev = anx_base * (1.0 + 0.6 * (m_roll + m_press))
-    # Lip rolling alone is a strong anxiety cue
-    if m_roll > 0.1:
-        anx_ev += 0.12 * m_roll
-
     # Disgusted: nose wrinkle dominant, upper lip raise, pucker, cheek involvement
     disg_base = (0.28 * a9 + 0.18 * a15 + 0.14 * a4
                  + 0.16 * m_pucker + 0.10 * cheek_pf + 0.08 * m_shrug
@@ -130,7 +121,6 @@ def au_to_emotion_scores(au: ActionUnits) -> dict[str, float]:
     sad_ev   *= 1.50
     angry_ev *= 1.45
     fear_ev  *= 1.40
-    anx_ev   *= 1.55
     disg_ev  *= 1.45
 
     # ── Contradictory suppression (minimal to avoid cancelling weak emotions) ──
@@ -139,7 +129,6 @@ def au_to_emotion_scores(au: ActionUnits) -> dict[str, float]:
     angry_sup  = 0.08 * a12 + 0.05 * a1
     surpr_sup  = 0.15 * a43 + 0.05 * a4
     fear_sup   = 0.08 * a12 + 0.04 * a6
-    anx_sup    = 0.10 * a12 + 0.05 * a6
     disg_sup   = 0.08 * a12 + 0.04 * eye_wide
 
     scores = {
@@ -148,13 +137,15 @@ def au_to_emotion_scores(au: ActionUnits) -> dict[str, float]:
         "angry":     max(0.0, angry_ev - angry_sup),
         "surprised": max(0.0, surpr_ev - surpr_sup),
         "fearful":   max(0.0, fear_ev  - fear_sup),
-        "anxious":   max(0.0, anx_ev   - anx_sup),
         "disgusted": max(0.0, disg_ev  - disg_sup),
     }
 
     # Neutral: adaptive — strong when nothing fires, decays fast when emotions
     # separate clearly. Extended AUs help distinguish true neutral from subtle emotions.
-    max_emotion = max(scores.values()) or 0.001
+    # Evidencias compostas podem passar de 1 antes da normalizacao. Usar esse
+    # valor diretamente como base fracionaria produzia numero complexo em
+    # expressoes fortes. O termo de neutralidade opera em probabilidade 0..1.
+    max_emotion = clip01(max(scores.values()) or 0.001)
     second_max = sorted(scores.values(), reverse=True)[1] if len(scores) > 1 else 0.0
     separation_factor = 1.0 + max(0.0, max_emotion - second_max) * 2.5
     total_facial_activity = (a1 + a2 + a4 + a6 + a9 + a12 + a15 + a20 +
@@ -166,6 +157,26 @@ def au_to_emotion_scores(au: ActionUnits) -> dict[str, float]:
     scores["neutral"] = clip01(neutral_base)
 
     return normalize_scores(scores)
+
+
+def compute_tension_signal(au: ActionUnits) -> float:
+    """Resume movimentos faciais de tensao sem inferir ansiedade.
+
+    Testa contraida, labios esticados/pressionados e movimentos de contencao
+    podem ser descritos visualmente, mas nao identificam de forma especifica
+    o estado interno da pessoa. Por isso o valor fica fora da distribuicao de
+    expressoes e serve apenas para a UI formular uma pergunta opcional.
+    """
+    mouth_press = (au.mouth_press_left + au.mouth_press_right) / 2.0
+    mouth_roll = (au.mouth_roll_lower + au.mouth_roll_upper) / 2.0
+    tension = (
+        0.30 * au.au4_brow_lowerer
+        + 0.25 * au.au20_lip_stretch
+        + 0.20 * mouth_press
+        + 0.15 * mouth_roll
+        + 0.10 * au.au43_eyes_closed
+    )
+    return clip01(tension)
 
 def post_fusion_corrections(scores: dict[str, float], au: Optional[ActionUnits]) -> dict[str, float]:
     """Apply AU-informed corrections to reduce false positives after ensemble fusion."""
@@ -252,10 +263,6 @@ def derive_variant(emotion: str, confidence: float, secondary: Optional[str]) ->
             "irritated", "frustrated", "upset", "furious", "offended", "impatient",
             "resentful", "agitated", "tense", "reactive",
         ],
-        "anxious": [
-            "worried", "tense", "restless", "overwhelmed", "on-edge", "uncertain",
-            "pressured", "preoccupied", "hypervigilant", "shaky",
-        ],
         "neutral": [
             "calm", "focused", "reflective", "steady", "composed", "present",
             "centered", "balanced", "settled", "attentive",
@@ -278,7 +285,6 @@ def derive_variant(emotion: str, confidence: float, secondary: Optional[str]) ->
         "happy": "Aproveite esse momento e compartilhe algo bom com quem voce gosta.",
         "sad": "Tome agua, respire por 1 minuto e busque apoio de alguem de confianca.",
         "angry": "Pare por 30 segundos e solte o ar lentamente antes de reagir.",
-        "anxious": "Observe 5 coisas ao redor e desacelere sua respiracao.",
         "neutral": "Bom momento para manter uma rotina simples e equilibrada.",
         "surprised": "Use essa energia para uma acao positiva e planejada.",
         "disgusted": "Afaste-se do gatilho por alguns minutos e recupere conforto.",
@@ -291,7 +297,6 @@ def derive_variant(emotion: str, confidence: float, secondary: Optional[str]) ->
         "neutral": "balanced",
         "sad": "support-needed",
         "angry": "support-needed",
-        "anxious": "support-needed",
         "disgusted": "support-needed",
         "fearful": "support-needed",
     }

@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     # ── Deteccao ────────────────────────────────────────────────────────────
     emotion_confidence_threshold: float = 0.45
     no_face_alert_timeout_minutes: int = 10
+    # Endpoint legado envia imagem ao servidor. Fica desativado por padrao e
+    # so pode ser reaberto temporariamente para rollback/shadow consentido.
+    legacy_frame_endpoint_enabled: bool = False
 
     # ── Documentacao ────────────────────────────────────────────────────────
     # O Swagger fica desligado em producao para nao expor a superficie da API.

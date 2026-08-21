@@ -26,7 +26,10 @@ async def get_dashboard(
     require_scope(session_id, user_id)
     since = time.time() - (hours * 3600)
 
-    query = emotion_events.select().where(emotion_events.c.timestamp >= since)
+    query = emotion_events.select().where(
+        (emotion_events.c.timestamp >= since)
+        & emotion_events.c.face_detected.is_(True)
+    )
     if user_id:
         query = query.where(emotion_events.c.user_id == user_id)
     if session_id:
@@ -67,7 +70,7 @@ async def get_dashboard(
         emotion_pct.get(e, 0) for e in ["happy", "surprised"]
     )
     negative_pct = sum(
-        emotion_pct.get(e, 0) for e in ["sad", "angry", "anxious", "disgusted"]
+        emotion_pct.get(e, 0) for e in ["sad", "angry", "disgusted", "fearful"]
     )
     wellbeing = round(50 + (positive_pct - negative_pct) * 0.5, 1)
     wellbeing = max(0, min(100, wellbeing))

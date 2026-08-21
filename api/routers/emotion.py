@@ -55,6 +55,15 @@ class EmotionResponse(BaseModel):
     heart_rate_bpm: Optional[float] = None
     heart_rate_confidence: float = 0.0
     heart_rate_status: str = "collecting"
+    signal_status: str = "ready"
+    quality_reasons: list[str] = Field(default_factory=list)
+    tension_signal: Optional[float] = None
+    pipeline_version: str = "legacy-server-p0"
+    calibration_progress: Optional[float] = None
+
+
+class CalibrationRequest(BaseModel):
+    user_id: str = Field(..., min_length=1, max_length=64)
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
@@ -66,6 +75,11 @@ async def analyze_frame(request: FrameRequest):
     Call this endpoint continuously (every 500ms–1s) from the app
     while the camera is active. The API handles deduplication and storage.
     """
+    if not settings.legacy_frame_endpoint_enabled:
+        raise HTTPException(
+            status_code=410,
+            detail="Legacy frame analysis is disabled; use the on-device V2 pipeline.",
+        )
     if not request.frame_b64:
         raise HTTPException(status_code=400, detail="frame_b64 is required")
 
@@ -99,23 +113,25 @@ async def analyze_frame(request: FrameRequest):
     no_face_alert = check_no_face_alert(request.session_id)
     seconds_since = get_time_since_last_face(request.session_id)
 
-    # Persist to database
-    try:
-        await database.execute(
-            emotion_events.insert().values(
-                session_id=request.session_id,
-                user_id=request.user_id,
-                emotion=result.emotion,
-                confidence=result.confidence,
-                secondary_emotion=result.secondary_emotion,
-                all_scores=result.all_scores,
-                face_detected=result.face_detected,
-                source=request.source,
-                timestamp=result.timestamp,
+    # Ausencia de rosto/qualidade nao e um evento emocional. Persistir esses
+    # casos como neutral contaminava dashboard, tendencia e alertas.
+    if result.signal_status == "ready" and result.emotion != "unknown":
+        try:
+            await database.execute(
+                emotion_events.insert().values(
+                    session_id=request.session_id,
+                    user_id=request.user_id,
+                    emotion=result.emotion,
+                    confidence=result.confidence,
+                    secondary_emotion=result.secondary_emotion,
+                    all_scores=result.all_scores,
+                    face_detected=result.face_detected,
+                    source=request.source,
+                    timestamp=result.timestamp,
+                )
             )
-        )
-    except Exception as e:
-        logger.error(f"DB write error: {e}")
+        except Exception as exc:
+            logger.error("DB write error: %s", exc)
 
     should_trigger = result.emotion in NEGATIVE_EMOTIONS and result.confidence > 0.7
 
@@ -156,7 +172,29 @@ async def analyze_frame(request: FrameRequest):
         heart_rate_bpm=result.heart_rate_bpm,
         heart_rate_confidence=result.heart_rate_confidence,
         heart_rate_status=result.heart_rate_status,
+        signal_status=result.signal_status,
+        quality_reasons=result.quality_reasons,
+        tension_signal=result.tension_signal,
+        pipeline_version=result.pipeline_version,
+        calibration_progress=result.calibration_progress,
     )
+
+
+@router.post(
+    "/session/{session_id}/calibration/start",
+    summary="Start an explicit resting-face calibration",
+)
+async def start_calibration(session_id: str, request: CalibrationRequest):
+    """Inicia calibracao voluntaria; frames seguintes alimentam o baseline."""
+    return emotion_service.begin_calibration(session_id, request.user_id)
+
+
+@router.post(
+    "/session/{session_id}/calibration/cancel",
+    summary="Cancel a resting-face calibration",
+)
+async def cancel_calibration(session_id: str):
+    return emotion_service.cancel_calibration(session_id)
 
 
 @router.get("/session/{session_id}/status", summary="Get session status")
@@ -166,6 +204,7 @@ async def get_session_status(session_id: str):
         "session_id": session_id,
         "seconds_since_last_face": get_time_since_last_face(session_id),
         "no_face_alert_pending": check_no_face_alert(session_id),
+        "calibration": emotion_service.calibration_status(session_id),
     }
 
 
@@ -193,7 +232,9 @@ async def get_session_trend(session_id: str):
             session_id=session_id,
             trend="stable",
             trend_score=0.0,
-            dominant_emotion="neutral",
+            # Sem evidencia observada nao existe emocao dominante. `neutral`
+            # e uma classe visual valida, nao um valor padrao para falta de dado.
+            dominant_emotion="unknown",
             dominant_streak_seconds=0.0,
             intensity_level="calm",
             recent_transitions=[],
@@ -214,7 +255,7 @@ async def get_session_trend(session_id: str):
 
     # Trend: compare positive score in first half vs second half
     positive_set = {"happy", "surprised"}
-    negative_set = {"sad", "angry", "anxious", "disgusted", "fearful"}
+    negative_set = {"sad", "angry", "disgusted", "fearful"}
     mid = reading_count // 2 if reading_count >= 4 else 0
 
     def wellbeing_score(readings: list) -> float:

@@ -4,13 +4,13 @@ EMOTION_MAP = {
     "happy": "happy",
     "sad": "sad",
     "angry": "angry",
-    "fear": "anxious",
+    "fear": "fearful",
     "disgust": "disgusted",
     "surprise": "surprised",
     "neutral": "neutral",
 }
 
-NEGATIVE_EMOTIONS = {"sad", "angry", "anxious", "disgusted", "fearful"}
+NEGATIVE_EMOTIONS = {"sad", "angry", "disgusted", "fearful"}
 POSITIVE_EMOTIONS = {"happy", "surprised"}
 
 # MediaPipe Face Mesh landmark indices for Action Unit estimation
@@ -72,10 +72,12 @@ EMOTION_MESSAGES = {
         "Momentos difíceis passam. O {pet_name} te convida para uma pausa 🍃",
         "Que tal uma respiração profunda com o {pet_name}? Inspira... expira... 💨",
     ],
-    "anxious": [
-        "O {pet_name} percebeu que você pode estar preocupado(a). Você está seguro(a) 🛡️",
-        "Vamos respirar juntos? O {pet_name} fica do seu lado 💛",
-        "Um passo de cada vez. O {pet_name} acredita em você! 🌱",
+    "fearful": [
+        "Sua expressão parece mais alerta. Quer fazer uma pausa com o {pet_name}? 🛡️",
+        "Pode haver sinais de receio. Se fizer sentido, vamos respirar juntos 💛",
+    ],
+    "unknown": [
+        "Ainda não há sinal visual suficiente. O {pet_name} continua aqui com você.",
     ],
     "neutral": [
         "O {pet_name} está de olho em você, com carinho ",
@@ -95,7 +97,7 @@ EMOTION_MESSAGES = {
 MUSIC_SUGGESTIONS = {
     "sad": ["Weightless - Marconi Union", "Clair de Lune - Debussy", "Someone Like You - Adele"],
     "angry": ["Breathe (2 AM) - Anna Nalick", "Fix You - Coldplay", "The Sound of Silence"],
-    "anxious": ["Gymnopédie No.1 - Satie", "River Flows in You - Yiruma", "Experience - Ludovico"],
+    "fearful": ["Gymnopédie No.1 - Satie", "River Flows in You - Yiruma", "Experience - Ludovico"],
     "happy": ["Happy - Pharrell Williams", "Good as Hell - Lizzo", "Can't Stop the Feeling"],
     "neutral": ["Lo-fi Hip Hop Beats", "Nature Sounds", "Ambient Focus Playlist"],
 }
@@ -104,12 +106,8 @@ COMPOUND_EMOTIONS = {
     "bittersweet":  {"requires": ("happy", "sad"),       "min_scores": (0.18, 0.15), "label": "Agridoce"},
     "frustrated":   {"requires": ("angry", "sad"),       "min_scores": (0.18, 0.15), "label": "Frustrado(a)"},
     "awe":          {"requires": ("surprised", "happy"), "min_scores": (0.20, 0.15), "label": "Encantado(a)"},
-    "anxious_sad":  {"requires": ("anxious", "sad"),     "min_scores": (0.18, 0.15), "label": "Triste e ansioso(a)"},
-    "nervous_excited": {"requires": ("anxious", "happy"), "min_scores": (0.16, 0.16), "label": "Nervoso(a) empolgado(a)"},
     "contempt":     {"requires": ("angry", "disgusted"), "min_scores": (0.18, 0.15), "label": "Desdenhoso(a)"},
-    "apprehensive": {"requires": ("fearful", "anxious"), "min_scores": (0.16, 0.16), "label": "Apreensivo(a)"},
     "melancholic":  {"requires": ("sad", "neutral"),     "min_scores": (0.20, 0.25), "label": "Melancólico(a)"},
-    "embarrassed":  {"requires": ("surprised", "anxious"), "min_scores": (0.15, 0.15), "label": "Envergonhado(a)"},
 }
 
 # ── rPPG (estimativa de batimento pelo sinal de verde) ──────────────────
@@ -119,6 +117,6 @@ RPPG_BPM_LOW = 45.0
 RPPG_BPM_HIGH = 180.0
 
 # ── Calibracao e votacao temporal ───────────────────────────────────────
-CALIBRATION_FRAMES = 5     # primeiros N frames para aprender o rosto em repouso
+CALIBRATION_FRAMES = 10    # amostras aceitas durante calibracao explicitamente iniciada
 BASELINE_FRACTION = 0.60   # subtrai so 60% do baseline de repouso
 VOTE_WINDOW = 3            # media dos ultimos N frames

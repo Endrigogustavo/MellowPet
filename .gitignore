@@ -148,6 +148,8 @@ env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+/api/.models/
+/api/.matplotlib/
 
 # Banco local — contém histórico emocional dos usuários. Nunca versionar.
 *.db
@@ -170,11 +172,12 @@ web-build/
 google-services.json
 GoogleService-Info.plist
 
-# Pastas nativas geradas por `expo prebuild`. O app.config.js é a fonte da
+# Pastas nativas geradas por `expo prebuild`. O app.json é a fonte da
 # verdade e o EAS as regenera no build — versioná-las causa divergência
 # silenciosa entre a config e o binário.
 /app/android/
 /app/ios/
+/app/modules/**/build/
 
 # ── Segredos ─────────────────────────────────────────────────────────────────
 .env
