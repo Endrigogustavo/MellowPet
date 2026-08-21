@@ -36,7 +36,9 @@ async def get_history(
 ):
     """Fetch emotion events for one session or user."""
     require_scope(session_id, user_id)
-    query = emotion_events.select()
+    # Dados legados chegaram a persistir ausencia de rosto como neutral.
+    # Historico emocional considera apenas leituras com rosto confirmado.
+    query = emotion_events.select().where(emotion_events.c.face_detected.is_(True))
 
     conditions = []
     if session_id:
@@ -66,7 +68,10 @@ async def get_summary(
     since = time.time() - (hours * 3600)
 
     query = emotion_events.select().where(
-        emotion_events.c.timestamp >= since
+        sqlalchemy.and_(
+            emotion_events.c.timestamp >= since,
+            emotion_events.c.face_detected.is_(True),
+        )
     )
     if user_id:
         query = query.where(emotion_events.c.user_id == user_id)
@@ -87,7 +92,7 @@ async def get_summary(
 
     avg_confidences = {k: round(sum(v) / len(v), 3) for k, v in confidences.items()}
 
-    dominant = max(counts, key=counts.get) if counts else "neutral"
+    dominant = max(counts, key=counts.get) if counts else "unknown"
     total = len(events)
 
     return {

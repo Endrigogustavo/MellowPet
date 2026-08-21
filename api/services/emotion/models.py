@@ -86,6 +86,13 @@ class EmotionResult:
     heart_rate_bpm: Optional[float] = None         # Estimated BPM (None = not enough data yet)
     heart_rate_confidence: float = 0.0             # 0.0–1.0 signal reliability
     heart_rate_status: str = "collecting"  # collecting / ready / unstable
+    # Contrato semantico V2, tambem exposto no endpoint legado durante a
+    # migracao. "unknown" e abstencao; nunca deve virar neutral por fallback.
+    signal_status: str = "ready"
+    quality_reasons: list[str] = field(default_factory=list)
+    tension_signal: Optional[float] = None
+    pipeline_version: str = "legacy-server-p0"
+    calibration_progress: Optional[float] = None
 
     def __post_init__(self):
         try:

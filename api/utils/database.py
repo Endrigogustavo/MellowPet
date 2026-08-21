@@ -69,6 +69,51 @@ user_calibration = sqlalchemy.Table("user_calibration",
     sqlalchemy.Column("updated_at_ts", sqlalchemy.Float, nullable=False, default=0.0),
 )
 
+# Intervalos agregados produzidos no aparelho. Diferente de `emotion_events`,
+# esta tabela representa transicoes/heartbeats do pipeline V2 e guarda as
+# versoes necessarias para reproduzir a decisao. Nenhum dado de imagem entra
+# neste schema.
+vision_intervals = sqlalchemy.Table("vision_intervals",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True, autoincrement=True),
+    sqlalchemy.Column("event_id", sqlalchemy.String(64), nullable=False, unique=True, index=True),
+    sqlalchemy.Column("session_id", sqlalchemy.String(64), nullable=False, index=True),
+    sqlalchemy.Column("device_session_id", sqlalchemy.String(64), nullable=False, index=True),
+    sqlalchemy.Column("user_id", sqlalchemy.String(64), nullable=True, index=True),
+    sqlalchemy.Column("kind", sqlalchemy.String(16), nullable=False),
+    sqlalchemy.Column("started_at", sqlalchemy.Float, nullable=False, index=True),
+    sqlalchemy.Column("ended_at", sqlalchemy.Float, nullable=False),
+    sqlalchemy.Column("duration_ms", sqlalchemy.Integer, nullable=False),
+    sqlalchemy.Column("observed_expression", sqlalchemy.String(32), nullable=False),
+    sqlalchemy.Column("expression_distribution", sqlalchemy.JSON, nullable=False),
+    sqlalchemy.Column("signal_confidence", sqlalchemy.Float, nullable=False),
+    sqlalchemy.Column("quality_mean", sqlalchemy.Float, nullable=False),
+    sqlalchemy.Column("accepted_coverage", sqlalchemy.Float, nullable=False),
+    sqlalchemy.Column("quality_reasons", sqlalchemy.JSON, nullable=False),
+    sqlalchemy.Column("tension_signal", sqlalchemy.Float, nullable=True),
+    sqlalchemy.Column("model_version", sqlalchemy.String(128), nullable=False),
+    sqlalchemy.Column("pipeline_version", sqlalchemy.String(128), nullable=False),
+    sqlalchemy.Column("quality_config_version", sqlalchemy.String(128), nullable=False),
+    sqlalchemy.Column("calibration_version", sqlalchemy.String(128), nullable=True),
+    sqlalchemy.Column("source", sqlalchemy.String(16), nullable=False, default="mobile"),
+    sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
+)
+
+vision_feedback = sqlalchemy.Table("vision_feedback",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True, autoincrement=True),
+    sqlalchemy.Column("feedback_id", sqlalchemy.String(64), nullable=False, unique=True, index=True),
+    sqlalchemy.Column("event_id", sqlalchemy.String(64), nullable=False, index=True),
+    sqlalchemy.Column("agreement", sqlalchemy.String(16), nullable=False),
+    # Autorrelato descreve a pessoa; correcao visual descreve a leitura. Eles
+    # permanecem em colunas distintas para nao transformar ansiedade em classe.
+    sqlalchemy.Column("self_reported_state", sqlalchemy.String(64), nullable=True),
+    sqlalchemy.Column("corrected_observed_expression", sqlalchemy.String(32), nullable=True),
+    sqlalchemy.Column("note", sqlalchemy.String(500), nullable=True),
+    sqlalchemy.Column("created_at_ts", sqlalchemy.Float, nullable=False),
+    sqlalchemy.Column("received_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
+)
+
 engine = sqlalchemy.create_engine(
     DATABASE_URL.replace("+aiosqlite", ""),
     connect_args={"check_same_thread": False},

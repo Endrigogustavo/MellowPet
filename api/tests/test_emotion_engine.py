@@ -12,8 +12,9 @@ import cv2
 import numpy as np
 import pytest
 
-from services.emotion import frames, fusion, mapping
+from services.emotion import frames, fusion, mapping, quality
 from services.emotion.models import ActionUnits, EmotionResult
+from services.emotion.temporal import TemporalTracker
 from services.emotion.util import clip01, normalize_scores
 
 
@@ -56,6 +57,29 @@ class TestMapeamentoDeEmocao:
     def test_derive_variant_devolve_tripla(self):
         variant, zone, tip = mapping.derive_variant("happy", 0.8, "surprised")
         assert all(isinstance(x, str) and x for x in (variant, zone, tip))
+
+    def test_ansiedade_nao_e_classe_visual(self):
+        scores = mapping.au_to_emotion_scores(
+            ActionUnits(
+                au4_brow_lowerer=0.8,
+                au20_lip_stretch=0.7,
+                mouth_press_left=0.6,
+                mouth_press_right=0.6,
+            )
+        )
+        assert "anxious" not in scores
+
+    def test_tensao_e_sinal_separado(self):
+        calm = mapping.compute_tension_signal(ActionUnits())
+        tense = mapping.compute_tension_signal(
+            ActionUnits(
+                au4_brow_lowerer=0.9,
+                au20_lip_stretch=0.8,
+                mouth_press_left=0.8,
+                mouth_press_right=0.8,
+            )
+        )
+        assert 0.0 <= calm < tense <= 1.0
 
 
 class TestFusao:
@@ -125,3 +149,77 @@ class TestEmotionResult:
         r = EmotionResult(emotion="x", confidence="abc", all_scores=None)
         assert r.confidence == 0.0
         assert r.all_scores == {}
+
+    def test_unknown_e_abstencao_explicita(self):
+        r = EmotionResult(
+            emotion="unknown",
+            confidence=0.0,
+            all_scores={},
+            face_detected=False,
+            signal_status="no_face",
+        )
+        assert r.emotion == "unknown"
+        assert r.signal_status == "no_face"
+
+
+class TestQualityGate:
+    def test_frame_escuro_e_recusado(self):
+        frame = np.zeros((120, 160, 3), dtype=np.uint8)
+        result = quality.compute_face_quality(
+            frame,
+            ActionUnits(),
+            (30, 20, 100, 90),
+        )
+        assert result["accepted"] is False
+        assert "too_dark" in result["reasons"]
+
+    def test_rosto_pequeno_e_recusado(self):
+        frame = np.full((200, 200, 3), 127, dtype=np.uint8)
+        result = quality.compute_face_quality(
+            frame,
+            ActionUnits(),
+            (5, 5, 20, 20),
+        )
+        assert result["accepted"] is False
+        assert "face_too_small" in result["reasons"]
+
+
+class TestTemporalTracker:
+    def test_segundo_frame_estavel_define_metadados_sem_erro(self):
+        tracker = TemporalTracker()
+        session_id = "sessao-estavel"
+
+        first = EmotionResult(
+            emotion="happy",
+            confidence=0.8,
+            all_scores={"happy": 0.8, "neutral": 0.2},
+        )
+        tracker.apply_smoothing(first, session_id)
+
+        second = EmotionResult(
+            emotion="happy",
+            confidence=0.85,
+            all_scores={"happy": 0.85, "neutral": 0.15},
+        )
+        result = tracker.apply_smoothing(second, session_id)
+
+        assert result.emotion == "happy"
+        assert result.emotion_variant
+        assert result.emotion_zone
+        assert result.support_tip
+
+    def test_um_frame_divergente_nao_troca_estado(self):
+        tracker = TemporalTracker()
+        session_id = "sessao-outlier"
+        state = tracker.get_or_create(session_id)
+        state.last_emotion = "happy"
+        state.scores_ema = {"happy": 0.8, "angry": 0.1, "neutral": 0.1}
+
+        outlier = EmotionResult(
+            emotion="angry",
+            confidence=0.8,
+            all_scores={"angry": 0.8, "happy": 0.1, "neutral": 0.1},
+        )
+        result = tracker.apply_smoothing(outlier, session_id)
+
+        assert result.emotion == "happy"

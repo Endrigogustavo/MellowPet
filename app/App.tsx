@@ -1,44 +1,41 @@
 import React from 'react';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useEffect } from 'react';
-import { Platform } from 'react-native';
-import Constants from 'expo-constants';
-import { AppNavigator } from './src/navigation/AppNavigator';
+import { useFonts } from 'expo-font';
+// Import por peso: o barril `@expo-google-fonts/nunito` empacotaria os 16
+// arquivos da família, e o app usa cinco.
+import { Nunito_400Regular } from '@expo-google-fonts/nunito/400Regular';
+import { Nunito_600SemiBold } from '@expo-google-fonts/nunito/600SemiBold';
+import { Nunito_700Bold } from '@expo-google-fonts/nunito/700Bold';
+import { Nunito_800ExtraBold } from '@expo-google-fonts/nunito/800ExtraBold';
+import { Nunito_900Black } from '@expo-google-fonts/nunito/900Black';
+
+import { MusicProvider } from './src/audio/MusicPlayer';
+import { RootNavigator } from './src/navigation/RootNavigator';
+import { AppProvider } from './src/state/AppContext';
+import { LIGHT } from './src/theme/palette';
 
 export default function App() {
-  useEffect(() => {
-    const isExpoGo = Constants.appOwnership === 'expo';
-    if (isExpoGo) {
-      return;
-    }
+  const [fontsLoaded] = useFonts({
+    Nunito_400Regular,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
+    Nunito_900Black,
+  });
 
-    const Notifications = require('expo-notifications');
-
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-      }),
-    });
-
-    if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('mellowpet-alerts', {
-        name: 'MellowPet Alerts',
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 200, 120, 300],
-        lightColor: '#6C63FF',
-      }).catch(() => undefined);
-    }
-  }, []);
+  // A Nunito carrega antes da primeira tela para não haver troca de fonte visível.
+  if (!fontsLoaded) {
+    return <View style={{ flex: 1, backgroundColor: LIGHT.splashBg }} />;
+  }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AppNavigator />
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <AppProvider>
+        <MusicProvider>
+          <RootNavigator />
+        </MusicProvider>
+      </AppProvider>
+    </SafeAreaProvider>
   );
 }

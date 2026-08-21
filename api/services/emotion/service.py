@@ -10,7 +10,6 @@ entre si. Ler este arquivo de cima a baixo deve explicar o pipeline inteiro:
       -> mapping       (Action Units -> pontuacao de emocao)
       -> FER ONNX      (CNN treinada, sobre o recorte do rosto)
       -> fusao         (combina os dois sinais, ponderando por qualidade)
-      -> vitals        (batimento por rPPG ajusta ansiedade/raiva)
       -> temporal      (votacao, suavizacao, sequencia)
       -> EmotionResult
 
@@ -24,6 +23,7 @@ Duas escolhas de precisao valem destaque:
 """
 from __future__ import annotations
 
+import asyncio
 import random
 import time
 from typing import Optional
@@ -33,9 +33,9 @@ import numpy as np
 from utils.logger import setup_logger
 
 from . import calibration as calib
-from .constants import EMOTION_MESSAGES, MUSIC_SUGGESTIONS
+from .constants import CALIBRATION_FRAMES, EMOTION_MESSAGES, MUSIC_SUGGESTIONS
 from .fer_onnx import FerOnnxClassifier
-from .frames import decode_frame, enhance_frame
+from .frames import decode_frame
 from .fusion import compute_ensemble_confidence, ensemble_fusion
 from .landmarker import FaceLandmarkerEngine
 from .mapping import (
@@ -43,13 +43,13 @@ from .mapping import (
     detect_compound_emotion,
     derive_variant,
     au_to_emotion_scores,
+    compute_tension_signal,
     post_fusion_corrections,
 )
 from .models import ActionUnits, EmotionResult
 from .quality import compute_face_quality
 from .temporal import TemporalTracker
 from .util import clip01, normalize_scores
-from .vitals import compute_heart_rate, extract_rppg_signal, hr_emotion_adjustment
 
 logger = setup_logger(__name__)
 
@@ -57,22 +57,20 @@ logger = setup_logger(__name__)
 # nao neutras. Rostos genuinamente expressivos sao simetricos.
 _ASYMMETRY_THRESHOLD = 0.30
 
-# Amostras de rPPG mantidas por sessao (a ~1 fps, 60 = 1 minuto).
-_RPPG_MAX_SAMPLES = 60
-
-# Micro-expressao que concorda com a emocao principal reforca a confianca.
-_MICRO_AGREEMENT_BONUS = 0.05
-
-
 class EmotionDetectionService:
     """Fachada do motor de emocao. Instancia unica por processo."""
     def __init__(self):
         self.landmarker = FaceLandmarkerEngine()
         self.fer = FerOnnxClassifier()
         self.tracker = TemporalTracker()
+        # Libera o event loop do FastAPI sem introduzir concorrencia insegura
+        # nos runtimes nativos do baseline. A V2 local remove o servidor do
+        # caminho critico; durante a migracao, uma inferencia roda por vez.
+        self._inference_lock = asyncio.Lock()
         # Baselines de usuario carregados do banco, em cache por sessao.
         self._session_user: dict[str, str] = {}
         self._loaded_baselines: set[str] = set()
+        self._calibration_sessions: set[str] = set()
 
         if not self.landmarker.available and not self.fer.available:
             logger.error("Nenhum detector disponivel — instale mediapipe e onnxruntime. ""A analise vai responder sempre face_detected=false.")
@@ -103,6 +101,7 @@ class EmotionDetectionService:
         self,
         frame: np.ndarray,
         session_id: Optional[str] = None,
+        calibration_mode: bool = False,
     ) -> EmotionResult:
         """Roda o pipeline completo num frame BGR."""
         started = time.perf_counter()
@@ -118,10 +117,28 @@ class EmotionDetectionService:
         au_raw = observation.action_units
         models_used: list[str] = ["face_landmarker"]
 
+        # Qualidade protege todos os estagios posteriores. Um rosto localizado
+        # com luz/pose/nitidez ruins e evidencia insuficiente, nao neutralidade.
+        quality = compute_face_quality(frame, au_raw, observation.face_box)
+        if not quality["accepted"]:
+            return self._insufficient_quality_result(
+                started, quality, models_used=models_used
+            )
+
         # ── Calibracao: desconta o rosto em repouso ──────────────────────────
         au = au_raw
-        if session_id:
+        if session_id and calibration_mode:
             self.tracker.update_calibration(au_raw, session_id)
+            state = self.tracker.get(session_id)
+            if state is not None and not state.calibration_done:
+                return self._calibration_result(
+                    started,
+                    quality,
+                    models_used=models_used,
+                    accepted_samples=len(state.calibration_au_buffer),
+                )
+
+        if session_id:
             au = self.tracker.subtract_baseline(au_raw, session_id)
 
         # ── Sinal 1: geometria (Action Units -> emocao) ──────────────────────
@@ -151,20 +168,9 @@ class EmotionDetectionService:
         )
         fused = post_fusion_corrections(fused, au)
 
-        # ── Batimento cardiaco (rPPG) ───────────────────────────────────────
-        hr_bpm, hr_confidence, hr_status = self._update_vitals(
-            frame, observation.landmarks, session_id
-        )
-        if hr_bpm is not None:
-            fused = hr_emotion_adjustment(fused, hr_bpm, hr_confidence)
-
         # ── Votacao temporal ────────────────────────────────────────────────
         if session_id:
             fused = self.tracker.multi_frame_vote(fused, session_id)
-
-        micro_expressions = self.tracker.detect_micro_expressions(
-            au, session_id, time.time()
-        )
 
         return self._build_result(
             fused=fused,
@@ -172,10 +178,11 @@ class EmotionDetectionService:
             observation=observation,
             fer_scores=fer_scores,
             landmark_scores=landmark_scores,
-            micro_expressions=micro_expressions,
+            micro_expressions=[],
             models_used=models_used,
             frame=frame,
-            hr=(hr_bpm, hr_confidence, hr_status),
+            quality=quality,
+            hr=(None, 0.0, "disabled"),
             started=started,
         )
 
@@ -191,27 +198,6 @@ class EmotionDetectionService:
         }
         return normalize_scores(adjusted)
 
-    def _update_vitals(
-        self,
-        frame: np.ndarray,
-        landmarks,
-        session_id: Optional[str],
-    ) -> tuple[Optional[float], float, str]:
-        """Acumula o sinal de rPPG e estima o batimento."""
-        if not session_id or landmarks is None:
-            return None, 0.0, "collecting"
-
-        state = self.tracker.get_or_create(session_id)
-        green = extract_rppg_signal(frame, landmarks)
-        if green is not None:
-            state.rppg_timestamps.append(time.time())
-            state.rppg_green_means.append(green)
-            if len(state.rppg_timestamps) > _RPPG_MAX_SAMPLES:
-                state.rppg_timestamps = state.rppg_timestamps[-_RPPG_MAX_SAMPLES:]
-                state.rppg_green_means = state.rppg_green_means[-_RPPG_MAX_SAMPLES:]
-
-        return compute_heart_rate(state)
-
     def _build_result(
         self,
         *,
@@ -223,6 +209,7 @@ class EmotionDetectionService:
         micro_expressions: list,
         models_used: list[str],
         frame: np.ndarray,
+        quality: dict,
         hr: tuple[Optional[float], float, str],
         started: float,
     ) -> EmotionResult:
@@ -234,11 +221,6 @@ class EmotionDetectionService:
         confidence = compute_ensemble_confidence(
             primary, primary_score, gap, fer_scores, landmark_scores, None
         )
-
-        # Micro-expressao no mesmo sentido da emocao principal e evidencia
-        # independente; vale um reforco pequeno.
-        if any(m.emotion == primary for m in micro_expressions):
-            confidence = clip01(confidence + _MICRO_AGREEMENT_BONUS)
 
         variant, zone, tip = derive_variant(primary, confidence, secondary)
         hr_bpm, hr_confidence, hr_status = hr
@@ -263,10 +245,13 @@ class EmotionDetectionService:
             face_mesh_landmarks_count=observation.landmark_count,
             compound_emotion=detect_compound_emotion(fused),
             emotion_intensity=classify_intensity(confidence, au),
-            face_quality_metrics=compute_face_quality(frame, au),
+            face_quality_metrics=quality,
             heart_rate_bpm=hr_bpm,
             heart_rate_confidence=round(hr_confidence, 3),
             heart_rate_status=hr_status,
+            signal_status="ready",
+            quality_reasons=[],
+            tension_signal=round(compute_tension_signal(au), 3),
         )
 
     @staticmethod
@@ -297,12 +282,56 @@ class EmotionDetectionService:
         de baixa qualidade — poluia o historico com leituras inventadas.
         """
         return EmotionResult(
-            emotion="neutral",
+            emotion="unknown",
             confidence=0.0,
             all_scores={},
             face_detected=False,
             processing_time_ms=round((time.perf_counter() - started) * 1000, 1),
             detection_models_used=[],
+            signal_status="no_face",
+            quality_reasons=[],
+        )
+
+    @staticmethod
+    def _insufficient_quality_result(
+        started: float,
+        quality: dict,
+        *,
+        models_used: list[str],
+    ) -> EmotionResult:
+        """Abstem quando ha rosto, mas o sinal nao permite classificar."""
+        return EmotionResult(
+            emotion="unknown",
+            confidence=0.0,
+            all_scores={},
+            face_detected=True,
+            processing_time_ms=round((time.perf_counter() - started) * 1000, 1),
+            detection_models_used=models_used,
+            face_quality_metrics=quality,
+            signal_status="insufficient_quality",
+            quality_reasons=list(quality.get("reasons", [])),
+        )
+
+    @staticmethod
+    def _calibration_result(
+        started: float,
+        quality: dict,
+        *,
+        models_used: list[str],
+        accepted_samples: int,
+    ) -> EmotionResult:
+        return EmotionResult(
+            emotion="unknown",
+            confidence=0.0,
+            all_scores={},
+            face_detected=True,
+            processing_time_ms=round((time.perf_counter() - started) * 1000, 1),
+            detection_models_used=models_used,
+            face_quality_metrics=quality,
+            signal_status="warming_up",
+            calibration_progress=round(
+                min(1.0, accepted_samples / CALIBRATION_FRAMES), 3
+            ),
         )
 
     # ── Entrada assincrona ──────────────────────────────────────────────────
@@ -319,25 +348,42 @@ class EmotionDetectionService:
         if frame is None:
             logger.warning("Frame invalido recebido (len=%d)", len(frame_b64))
             return EmotionResult(
-                emotion="neutral",
+                emotion="unknown",
                 confidence=0.0,
                 all_scores={},
                 face_detected=False,
                 processing_time_ms=0.0,
+                signal_status="insufficient_quality",
+                quality_reasons=["invalid_frame"],
             )
 
         # Semeia a calibracao com o baseline salvo do usuario, uma vez por
         # sessao — assim os primeiros frames ja saem calibrados.
-        if session_id and user_id:
+        calibration_mode = bool(
+            session_id and session_id in self._calibration_sessions
+        )
+        if session_id and user_id and not calibration_mode:
             await self._seed_user_baseline(session_id, user_id)
 
-        result = self.detect_from_frame(frame, session_id)
+        async with self._inference_lock:
+            result = await asyncio.to_thread(
+                self.detect_from_frame,
+                frame,
+                session_id,
+                calibration_mode,
+            )
+
+        if calibration_mode and session_id:
+            state = self.tracker.get(session_id)
+            if state is not None and state.calibration_done:
+                await self.persist_user_baseline(session_id)
+                self._calibration_sessions.discard(session_id)
         result = self.tracker.apply_smoothing(result, session_id)
 
         if session_id:
             self._record_history(result, session_id)
 
-        messages = EMOTION_MESSAGES.get(result.emotion, EMOTION_MESSAGES["neutral"])
+        messages = EMOTION_MESSAGES.get(result.emotion, EMOTION_MESSAGES["unknown"])
         result.message = random.choice(messages).replace("{pet_name}", pet_name)
 
         logger.info("emocao analisada | emotion=%s confidence=%.3f face=%s ms=%.1f modelos=%s micro=%d",
@@ -371,6 +417,38 @@ class EmotionDetectionService:
             baseline.sessions_observed,
         )
 
+    def begin_calibration(self, session_id: str, user_id: str) -> dict:
+        """Inicia calibracao voluntaria e descarta qualquer buffer parcial."""
+        state = self.tracker.get_or_create(session_id)
+        state.calibration_au_buffer = []
+        state.neutral_baseline = None
+        state.calibration_done = False
+        self._session_user[session_id] = user_id
+        self._loaded_baselines.add(session_id)
+        self._calibration_sessions.add(session_id)
+        return self.calibration_status(session_id)
+
+    def cancel_calibration(self, session_id: str) -> dict:
+        state = self.tracker.get(session_id)
+        if state is not None:
+            state.calibration_au_buffer = []
+            state.neutral_baseline = None
+            state.calibration_done = False
+        self._calibration_sessions.discard(session_id)
+        return self.calibration_status(session_id)
+
+    def calibration_status(self, session_id: str) -> dict:
+        state = self.tracker.get(session_id)
+        accepted = len(state.calibration_au_buffer) if state else 0
+        return {
+            "session_id": session_id,
+            "active": session_id in self._calibration_sessions,
+            "accepted_samples": accepted,
+            "required_samples": CALIBRATION_FRAMES,
+            "progress": round(min(1.0, accepted / CALIBRATION_FRAMES), 3),
+            "completed": bool(state and state.calibration_done),
+        }
+
     async def persist_user_baseline(self, session_id: str) -> None:
         """Salva o baseline aprendido nesta sessao. Chamado ao encerrar."""
         user_id = self._session_user.get(session_id)
@@ -381,6 +459,8 @@ class EmotionDetectionService:
 
     def _record_history(self, result: EmotionResult, session_id: str) -> None:
         """Guarda o historico curto da sessao e atualiza a sequencia."""
+        if not result.face_detected or result.emotion == "unknown":
+            return
         state = self.tracker.get(session_id)
         if state is None:
             return

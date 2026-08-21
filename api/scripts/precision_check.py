@@ -42,8 +42,8 @@ def run_case(title: str, expectation: str, frames: list[tuple[str, float, dict]]
 
 if __name__ == "__main__":
     run_case("CASO A",
-        "ansiedade fraca e ambigua: neutral deve persistir",
-        [("anxious", 0.26, {"anxious": 0.28, "neutral": 0.27, "happy": 0.23, "sad": 0.22})] * 6,
+        "sinal de medo fraco e ambiguo: neutral deve persistir",
+        [("fearful", 0.26, {"fearful": 0.28, "neutral": 0.27, "happy": 0.23, "sad": 0.22})] * 6,
     )
 
     run_case("CASO B",
