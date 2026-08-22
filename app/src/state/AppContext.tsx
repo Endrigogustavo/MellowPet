@@ -15,6 +15,17 @@ import { DARK, LIGHT, hexA, mix, type Palette } from '../theme/palette';
 import { PET_BODY } from '../data/pets';
 import { createDemoSnapshot, nextDemoExpression } from '../vision/demoSource';
 import { VISION_MODE, type SignalStatus, type VisionMode } from '../vision/contracts';
+import type { CalibrationState } from '../vision/expressionEngine';
+import {
+  AuthError,
+  loadStoredSession,
+  login as apiLogin,
+  logout as apiLogout,
+  signup as apiSignup,
+} from '../auth/authClient';
+import { sendChatMessage } from '../chat/chatClient';
+import { fetchToolContent } from '../tools/toolsClient';
+import { listLinks } from '../care/careClient';
 
 export type Screen =
   | 'splash'
@@ -60,6 +71,13 @@ export type State = {
   signalStatus: SignalStatus;
   signalConfidence: number;
   qualityScore: number;
+  /** Estado do motor de visão real — roda o tempo todo no app, não só numa
+   * tela dedicada. Ver src/vision/VisionEngine.tsx. */
+  calibration: CalibrationState;
+  visionLatencyMs: number | null;
+  visionQualityHint: string | null;
+  visionNativeError: string | null;
+  visionThermalLimited: boolean;
 
   breathing: boolean;
   breathTick: number;
@@ -93,6 +111,11 @@ export type State = {
   pairCode: string;
   plan: string;
 
+  /** Sessão real, vinda da API. null = ninguém autenticado. */
+  userId: string | null;
+  authLoading: boolean;
+  authError: string | null;
+
   signupRole: Role;
   careName: string;
   careRel: string;
@@ -100,7 +123,6 @@ export type State = {
   invited: boolean;
 
   linked: boolean;
-  pairPending: boolean;
   quiet: boolean;
   feedback: 'yes' | 'no' | 'unsure' | null;
 
@@ -133,6 +155,11 @@ const INITIAL: State = {
   signalStatus: VISION_MODE === 'demo' ? 'ready' : 'camera_unavailable',
   signalConfidence: VISION_MODE === 'demo' ? EMOTIONS.neutral.conf : 0,
   qualityScore: VISION_MODE === 'demo' ? EMOTIONS.neutral.quality / 100 : 0,
+  calibration: { active: false, accepted: 0, required: 10, complete: false },
+  visionLatencyMs: null,
+  visionQualityHint: null,
+  visionNativeError: null,
+  visionThermalLimited: false,
 
   breathing: false,
   breathTick: 0,
@@ -165,6 +192,10 @@ const INITIAL: State = {
   pairCode: '',
   plan: 'plus',
 
+  userId: null,
+  authLoading: false,
+  authError: null,
+
   signupRole: 'user',
   careName: '',
   careRel: 'Mãe/Pai',
@@ -172,7 +203,6 @@ const INITIAL: State = {
   invited: false,
 
   linked: false,
-  pairPending: true,
   quiet: false,
   feedback: null,
 
@@ -208,6 +238,8 @@ export type Actions = {
   openTool: (act: ToolAction, title: string, sub: string) => void;
   toggleTheme: () => void;
   setRole: (role: Role) => void;
+  submitAuth: () => Promise<void>;
+  logout: () => Promise<void>;
 };
 
 type Ctx = { state: State; actions: Actions };
@@ -231,6 +263,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const later = useCallback((fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms);
     pending.current.push(id);
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    loadStoredSession().then((user) => {
+      if (!alive || !user) return;
+      dispatch((s) => ({
+        userId: user.userId,
+        email: user.email,
+        role: user.role,
+        screen: user.role === 'care' ? 'care' : 'home',
+        navSeq: s.navSeq + 1,
+      }));
+      listLinks(user.userId, 'user')
+        .then((res) => {
+          if (alive) dispatch({ linked: res.links.length > 0 });
+        })
+        .catch(() => undefined);
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -287,22 +341,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const s = ref.current;
         const text = s.chatInput.trim();
         if (!text || s.typing) return;
+        const history = s.messages;
+        const emotion = s.observedExpression;
+        const confidence = s.signalConfidence;
         dispatch({
           messages: [...s.messages, { role: 'user', content: text }],
           chatInput: '',
           typing: true,
         });
-        later(
-          () =>
+        sendChatMessage(text, emotion, confidence, history)
+          .then((content) => {
+            dispatch((cur) => ({ typing: false, messages: [...cur.messages, { role: 'bot', content }] }));
+          })
+          .catch(() => {
+            // Sem API configurada ou rede indisponível: cai para uma resposta
+            // de apoio local em vez de deixar a pessoa sem resposta nenhuma.
             dispatch((cur) => ({
               typing: false,
-              messages: [
-                ...cur.messages,
-                { role: 'bot', content: REPLIES[cur.observedExpression] },
-              ],
-            })),
-          1350
-        );
+              messages: [...cur.messages, { role: 'bot', content: REPLIES[emotion] }],
+            }));
+          });
       },
 
       sendBot: (content, screen) =>
@@ -329,6 +387,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } else if (act === 'home') {
           go('home');
         } else {
+          const emotion = ref.current.observedExpression;
           dispatch((s) => ({
             screen: 'chat',
             navSeq: s.navSeq + 1,
@@ -337,6 +396,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               { role: 'bot', content: `${title}: ${sub}. Quer começar agora?` },
             ],
           }));
+          // Conteúdo real do backend (quando o card tem endpoint correspondente)
+          // chega como uma segunda mensagem, sem travar a resposta inicial.
+          fetchToolContent(title, emotion)
+            .then((content) => {
+              if (!content) return;
+              dispatch((s) => ({ messages: [...s.messages, { role: 'bot', content }] }));
+            })
+            .catch(() => undefined);
         }
       },
 
@@ -348,6 +415,55 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           screen: role === 'care' ? 'care' : 'home',
           navSeq: s.navSeq + 1,
         })),
+
+      submitAuth: async () => {
+        const s = ref.current;
+        const email = s.email.trim();
+        const password = s.pass;
+        if (!email || !password) {
+          dispatch({ authError: 'Preencha e-mail e senha.' });
+          return;
+        }
+        dispatch({ authLoading: true, authError: null });
+        try {
+          const user = s.signup
+            ? await apiSignup(email, password, s.signupRole)
+            : await apiLogin(email, password);
+          dispatch((cur) => ({
+            authLoading: false,
+            authError: null,
+            userId: user.userId,
+            role: user.role,
+            pass: '',
+            screen:
+              s.signup && s.signupRole === 'care'
+                ? 'caresignup'
+                : 'onboarding',
+            careStep: s.signup && s.signupRole === 'care' ? 0 : cur.careStep,
+            onb: s.signup && s.signupRole === 'care' ? cur.onb : 0,
+            navSeq: cur.navSeq + 1,
+          }));
+          listLinks(user.userId, 'user')
+            .then((res) => dispatch({ linked: res.links.length > 0 }))
+            .catch(() => undefined);
+        } catch (error) {
+          dispatch({
+            authLoading: false,
+            authError: error instanceof AuthError ? error.message : 'Não foi possível continuar.',
+          });
+        }
+      },
+
+      logout: async () => {
+        await apiLogout();
+        dispatch((s) => ({
+          userId: null,
+          email: '',
+          pass: '',
+          screen: 'login',
+          navSeq: s.navSeq + 1,
+        }));
+      },
     };
   }, [later]);
 

@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 
 import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { Bar, Card, ScreenTitle, Segmented, Txt } from '../components/ui';
-import { ICONS, PERIOD_DATA, PERIOD_LABELS, TIMELINE, TRIGGERS } from '../data/content';
+import { ICONS, PERIOD_DATA, PERIOD_LABELS, TIMELINE, TRIGGERS, type Period } from '../data/content';
+import { fetchDashboardPeriod } from '../dashboard/dashboardClient';
 import { EMOTIONS, FACE_ICON } from '../data/emotions';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK, WARN, hexA } from '../theme/palette';
@@ -21,7 +22,28 @@ export function DashboardScreen() {
   const { state, actions } = useApp();
   const { T, isDark, full } = useTheme();
 
-  const P = PERIOD_DATA[state.period];
+  // Sem leituras reais ainda (comum no Expo Go, onde a câmera roda em modo
+  // demo), a tela cai para o conteúdo de exemplo em vez de aparecer vazia.
+  const [real, setReal] = useState<Period | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (!state.userId) {
+      setReal(null);
+      return;
+    }
+    fetchDashboardPeriod(state.userId, state.period)
+      .then((period) => {
+        if (alive) setReal(period);
+      })
+      .catch(() => {
+        if (alive) setReal(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [state.userId, state.period]);
+
+  const P = real ?? PERIOD_DATA[state.period];
   const wbColor = scoreColor(P.wb);
 
   // Fatias do donut: cada uma começa onde a soma das anteriores parou.

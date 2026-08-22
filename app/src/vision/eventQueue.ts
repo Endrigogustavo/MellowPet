@@ -16,6 +16,7 @@ const MAX_BACKOFF_MS = 5 * 60 * 1000;
 
 export const VISION_EVENT_UPLOAD_ENABLED = VISION_FLAGS.eventUploadEnabled;
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY ?? '';
 
 type QueueIndexItem = { id: string; createdAtMs: number };
 type StoredQueueItem =
@@ -144,7 +145,10 @@ function metrics(items: StoredQueueItem[]): VisionQueueMetrics {
 async function postJson(path: string, body: unknown) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(API_KEY ? { 'X-API-Key': API_KEY } : null),
+    },
     body: JSON.stringify(body),
   });
   return response;

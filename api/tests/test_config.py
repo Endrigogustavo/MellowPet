@@ -66,6 +66,7 @@ class TestTravaDeProducao:
             app_env="production",
             cors_origins="https://app.mellowpet.app",
             api_key="k" * 32,
+            jwt_secret="j" * 32,
             enable_docs=False,
             debug=False,
         )

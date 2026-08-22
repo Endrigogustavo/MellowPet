@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { createInvite } from '../care/careClient';
 import { Field } from '../components/Field';
 import { Icon } from '../components/Icon';
 import { Chip, PrimaryButton, ToggleRow, Touchable, Txt } from '../components/ui';
@@ -21,6 +22,16 @@ export function CareSignupScreen() {
   const insets = useSafeAreaInsets();
 
   const step = state.careStep;
+
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  useEffect(() => {
+    if (step !== 2 || inviteCode || inviteError || !state.userId) return;
+    createInvite(state.userId, state.careName, state.careRel)
+      .then((link) => setInviteCode(link.invite_code))
+      .catch((error) => setInviteError(error instanceof Error ? error.message : 'Não foi possível gerar o código'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, state.userId]);
 
   return (
     <KeyboardAvoidingView
@@ -165,23 +176,24 @@ export function CareSignupScreen() {
                   CÓDIGO DE CONVITE
                 </Txt>
                 <Txt s={30} w={800} c={T.t1} ls={6} style={{ marginTop: 10 }}>
-                  MEL-4821
+                  {inviteCode ?? (inviteError ? '· · · ·' : 'Gerando…')}
                 </Txt>
                 <Txt s={11.5} c={T.t2} style={{ marginTop: 8 }}>
-                  válido por 48 horas
+                  {inviteError ?? 'compartilhe este código com a pessoa'}
                 </Txt>
               </View>
               <Touchable
+                disabled={!inviteCode}
                 onPress={() => actions.set({ invited: true })}
                 style={{
                   paddingVertical: 15,
                   borderRadius: 16,
                   alignItems: 'center',
-                  backgroundColor: state.invited ? T.bg : T.pri,
+                  backgroundColor: state.invited ? T.bg : inviteCode ? T.pri : T.bd,
                 }}
               >
                 <Txt s={14} w={800} c={state.invited ? T.t2 : '#fff'}>
-                  {state.invited ? 'Convite enviado' : 'Enviar convite'}
+                  {state.invited ? 'Convite marcado como enviado' : 'Marquei que enviei'}
                 </Txt>
               </Touchable>
               <View

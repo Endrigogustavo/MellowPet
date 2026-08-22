@@ -12,7 +12,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 from config import settings
-from routers import emotion, history, alerts, dashboard, ai_chat, tools, vision_v2
+from routers import auth, care, emotion, history, alerts, dashboard, ai_chat, journal, settings as settings_router, tools, vision_v2
 from utils.database import init_db, close_db
 from utils.logger import setup_logger
 from utils.security import (
@@ -115,6 +115,10 @@ async def log_requests(request: Request, call_next):
 
 
 # ── Routers ─────────────────────────────────────────────────────────────────
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
+app.include_router(journal.router, prefix="/api/v1/journal", tags=["Journal"])
+app.include_router(settings_router.router, prefix="/api/v1/settings", tags=["User Settings"])
+app.include_router(care.router, prefix="/api/v1/care", tags=["Caregiver"])
 app.include_router(emotion.router, prefix="/api/v1/emotion", tags=["Emotion Detection"])
 app.include_router(history.router, prefix="/api/v1/history", tags=["Emotional History"])
 app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["Alerts"])

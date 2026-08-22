@@ -1,25 +1,35 @@
 package com.mellowpet.vision
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.ImageFormat
 import android.graphics.Matrix
+import android.graphics.Rect
+import android.graphics.RectF
+import android.graphics.SurfaceTexture
+import android.graphics.YuvImage
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraDevice
+import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.params.OutputConfiguration
+import android.hardware.camera2.params.SessionConfiguration
+import android.media.Image
+import android.media.ImageReader
 import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.PowerManager
 import android.os.SystemClock
-import android.util.Size
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
-import androidx.camera.core.resolutionselector.ResolutionSelector
-import androidx.camera.core.resolutionselector.ResolutionStrategy
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
+import android.view.Surface
+import android.view.TextureView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.LifecycleOwner
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
@@ -29,6 +39,7 @@ import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.viewevent.EventDispatcher
 import expo.modules.kotlin.views.ExpoView
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -40,25 +51,40 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
 
+/**
+ * Camera2 direto, sem CameraX. Em alguns aparelhos MIUI/Xiaomi, a camada de
+ * injeção de câmera trava/demora a configuração de sessão do CameraX de
+ * forma intermitente (às vezes abre sem renderizar, às vezes estoura o
+ * timeout de 5s) — sintoma não reproduzido com o app de câmera nativo do
+ * mesmo aparelho, então o problema é específico da integração CameraX,
+ * não do hardware. Camera2 é a API de mais baixo nível sobre a qual o
+ * CameraX é construído; usá-la direto elimina a camada intermediária do
+ * CameraX como possível origem do problema.
+ */
 class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
   private val onVisionResult by EventDispatcher<Map<String, Any?>>()
   private val onVisionError by EventDispatcher<Map<String, Any>>()
 
-  private val previewView = PreviewView(context).apply {
+  private val textureView = TextureView(context).apply {
     layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-    scaleType = PreviewView.ScaleType.FILL_CENTER
-    setBackgroundColor(Color.BLACK)
   }
-  private val mainExecutor = ContextCompat.getMainExecutor(context)
+  private val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
   private val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+
+  private var backgroundThread: HandlerThread? = null
+  private var backgroundHandler: Handler? = null
   private var analysisExecutor: ExecutorService? = null
-  private var cameraProvider: ProcessCameraProvider? = null
-  private var preview: Preview? = null
-  private var analysis: ImageAnalysis? = null
+
+  private var cameraDevice: CameraDevice? = null
+  private var captureSession: CameraCaptureSession? = null
+  private var imageReader: ImageReader? = null
+  private var sensorOrientation: Int = 90
   private var faceLandmarker: FaceLandmarker? = null
+
   private var active = false
   private var attached = false
+  private var surfaceReady = false
+  private var opening = false
   private var bound = false
   private var maxFps = 10
   private var mirror = true
@@ -73,7 +99,25 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   private val pendingFrames = ConcurrentHashMap<Long, FrameMeta>()
 
   init {
-    addView(previewView)
+    addView(textureView)
+    textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+      override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+        surfaceReady = true
+        configureTransform()
+        startIfPossible()
+      }
+
+      override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
+        configureTransform()
+      }
+
+      override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+        surfaceReady = false
+        return true
+      }
+
+      override fun onSurfaceTextureUpdated(surface: SurfaceTexture) = Unit
+    }
   }
 
   fun updateActive(value: Boolean) {
@@ -88,10 +132,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
 
   fun updateMirror(value: Boolean) {
     mirror = value
-    // PreviewView ja aplica a transformacao da camera frontal. Inverter a
-    // View novamente desespelhava a pre-visualizacao em alguns aparelhos.
-    // `mirror` permanece explicito para normalizar o bitmap da inferencia.
-    previewView.scaleX = 1f
+    textureView.scaleX = if (mirror) -1f else 1f
   }
 
   override fun onAttachedToWindow() {
@@ -107,19 +148,18 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   }
 
   private fun startIfPossible() {
-    if (!active || !attached || bound) return
+    if (!active || !attached || !surfaceReady || opening || cameraDevice != null) return
     if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
       emitError("permission_denied", "Permissão de câmera não concedida.", true)
       return
     }
-
-    val activity = appContext.currentActivity
-    val lifecycleOwner = activity as? LifecycleOwner
-    if (lifecycleOwner == null) {
-      emitError("camera_unavailable", "Activity sem ciclo de vida compatível com a câmera.", true)
+    val id = findFrontCameraId()
+    if (id == null) {
+      emitError("camera_unavailable", "Nenhuma câmera frontal encontrada.", true)
       return
     }
 
+    ensureBackgroundThread()
     val executor = analysisExecutor?.takeUnless { it.isShutdown } ?: Executors.newSingleThreadExecutor().also {
       analysisExecutor = it
     }
@@ -137,47 +177,173 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
         emitError("model_initialization_failed", error.message ?: "Falha ao iniciar o modelo facial.", false)
         return@execute
       }
-
-      val providerFuture = ProcessCameraProvider.getInstance(context)
-      providerFuture.addListener({
-        if (!active || !attached) return@addListener
-        try {
-          val provider = providerFuture.get()
-          val cameraPreview = Preview.Builder().build().also {
-            it.surfaceProvider = previewView.surfaceProvider
-          }
-          val imageAnalysis = ImageAnalysis.Builder()
-            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .setResolutionSelector(
-              ResolutionSelector.Builder()
-                .setResolutionStrategy(
-                  ResolutionStrategy(
-                    Size(640, 480),
-                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
-                  )
-                )
-                .build()
-            )
-            .build()
-            .also { useCase -> useCase.setAnalyzer(executor, ::analyzeFrame) }
-
-          provider.unbind(cameraPreview, imageAnalysis)
-          provider.bindToLifecycle(
-            lifecycleOwner,
-            CameraSelector.DEFAULT_FRONT_CAMERA,
-            cameraPreview,
-            imageAnalysis,
-          )
-          cameraProvider = provider
-          preview = cameraPreview
-          analysis = imageAnalysis
-          bound = true
-        } catch (error: Exception) {
-          emitError("camera_bind_failed", error.message ?: "Não foi possível abrir a câmera frontal.", true)
-        }
-      }, mainExecutor)
+      openCameraDevice(id)
     }
+  }
+
+  private fun findFrontCameraId(): String? {
+    for (id in cameraManager.cameraIdList) {
+      val chars = cameraManager.getCameraCharacteristics(id)
+      if (chars.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT) {
+        sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90
+        return id
+      }
+    }
+    return null
+  }
+
+  private fun ensureBackgroundThread() {
+    if (backgroundThread != null) return
+    val thread = HandlerThread("MellowVisionCamera2").also { it.start() }
+    backgroundThread = thread
+    backgroundHandler = Handler(thread.looper)
+  }
+
+  @SuppressLint("MissingPermission")
+  private fun openCameraDevice(id: String) {
+    if (!active || !attached) return
+    opening = true
+    try {
+      cameraManager.openCamera(
+        id,
+        object : CameraDevice.StateCallback() {
+          override fun onOpened(device: CameraDevice) {
+            opening = false
+            if (!active || !attached) {
+              device.close()
+              return
+            }
+            cameraDevice = device
+            createSession(device)
+          }
+
+          override fun onDisconnected(device: CameraDevice) {
+            opening = false
+            device.close()
+            if (cameraDevice === device) cameraDevice = null
+          }
+
+          override fun onError(device: CameraDevice, error: Int) {
+            opening = false
+            device.close()
+            if (cameraDevice === device) cameraDevice = null
+            emitError("camera_bind_failed", "Falha ao abrir a câmera frontal (código $error).", true)
+          }
+        },
+        backgroundHandler,
+      )
+    } catch (error: Exception) {
+      opening = false
+      emitError("camera_bind_failed", error.message ?: "Não foi possível abrir a câmera frontal.", true)
+    }
+  }
+
+  private fun createSession(device: CameraDevice) {
+    val texture = textureView.surfaceTexture
+    if (texture == null) {
+      emitError("camera_unavailable", "Superfície de câmera indisponível.", true)
+      return
+    }
+    texture.setDefaultBufferSize(STREAM_WIDTH, STREAM_HEIGHT)
+    val previewSurface = Surface(texture)
+
+    val reader = ImageReader.newInstance(STREAM_WIDTH, STREAM_HEIGHT, ImageFormat.YUV_420_888, 2)
+    reader.setOnImageAvailableListener(
+      { r ->
+        val image = r.acquireLatestImage()
+        if (image == null) return@setOnImageAvailableListener
+
+        // Decide synchronamente, na mesma thread que adquiriu a imagem, se
+        // ela será processada. Adiar isso pro executor deixava imagens
+        // acumuladas sem fechar mais rápido do que o maxImages do
+        // ImageReader suporta, estourando IllegalStateException.
+        receivedFrames.incrementAndGet()
+        if (!active || !attached) {
+          image.close()
+          return@setOnImageAvailableListener
+        }
+        val now = SystemClock.elapsedRealtime()
+        val interval = 1_000L / effectiveMaxFps()
+        if (now - lastSubmittedAtMs.get() < interval || !inferenceInFlight.compareAndSet(false, true)) {
+          droppedFrames.incrementAndGet()
+          image.close()
+          return@setOnImageAvailableListener
+        }
+        lastSubmittedAtMs.set(now)
+
+        val executor = analysisExecutor?.takeUnless { it.isShutdown }
+        if (executor != null) {
+          executor.execute { analyzeImage(image) }
+        } else {
+          inferenceInFlight.set(false)
+          image.close()
+        }
+      },
+      backgroundHandler,
+    )
+    imageReader = reader
+
+    try {
+      val requestBuilder = device.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+        addTarget(previewSurface)
+        addTarget(reader.surface)
+        set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+      }
+
+      val outputs = listOf(previewSurface, reader.surface)
+      val sessionCallback = object : CameraCaptureSession.StateCallback() {
+        override fun onConfigured(session: CameraCaptureSession) {
+          if (!active || !attached) {
+            session.close()
+            return
+          }
+          captureSession = session
+          try {
+            session.setRepeatingRequest(requestBuilder.build(), null, backgroundHandler)
+            bound = true
+          } catch (error: Exception) {
+            emitError("camera_bind_failed", error.message ?: "Falha ao iniciar captura contínua.", true)
+          }
+        }
+
+        override fun onConfigureFailed(session: CameraCaptureSession) {
+          emitError("camera_bind_failed", "Falha ao configurar sessão de câmera.", true)
+        }
+      }
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        val configs = outputs.map { OutputConfiguration(it) }
+        device.createCaptureSession(
+          SessionConfiguration(
+            SessionConfiguration.SESSION_REGULAR,
+            configs,
+            ContextCompat.getMainExecutor(context),
+            sessionCallback,
+          )
+        )
+      } else {
+        @Suppress("DEPRECATION")
+        device.createCaptureSession(outputs, sessionCallback, backgroundHandler)
+      }
+    } catch (error: Exception) {
+      emitError("camera_bind_failed", error.message ?: "Falha ao criar sessão de câmera.", true)
+    }
+  }
+
+  /** Ajusta a matriz de transformação do TextureView pra preencher a view
+   * (comportamento equivalente ao FILL_CENTER do PreviewView antigo). */
+  private fun configureTransform() {
+    val viewWidth = textureView.width
+    val viewHeight = textureView.height
+    if (viewWidth == 0 || viewHeight == 0) return
+    val matrix = Matrix()
+    val viewRect = RectF(0f, 0f, viewWidth.toFloat(), viewHeight.toFloat())
+    val bufferRect = RectF(0f, 0f, STREAM_HEIGHT.toFloat(), STREAM_WIDTH.toFloat())
+    bufferRect.offset(viewRect.centerX() - bufferRect.centerX(), viewRect.centerY() - bufferRect.centerY())
+    matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL)
+    val scale = max(viewHeight.toFloat() / STREAM_HEIGHT, viewWidth.toFloat() / STREAM_WIDTH)
+    matrix.postScale(scale, scale, viewRect.centerX(), viewRect.centerY())
+    textureView.setTransform(matrix)
   }
 
   private fun ensureLandmarker() {
@@ -199,34 +365,23 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     faceLandmarker = FaceLandmarker.createFromOptions(context, options)
   }
 
-  private fun analyzeFrame(imageProxy: ImageProxy) {
-    receivedFrames.incrementAndGet()
-    if (!active || !attached) {
-      imageProxy.close()
-      return
-    }
-
-    val now = SystemClock.elapsedRealtime()
-    val interval = 1_000L / effectiveMaxFps()
-    if (now - lastSubmittedAtMs.get() < interval || !inferenceInFlight.compareAndSet(false, true)) {
-      droppedFrames.incrementAndGet()
-      imageProxy.close()
-      return
-    }
-    lastSubmittedAtMs.set(now)
-
-    val width = imageProxy.width
-    val height = imageProxy.height
-    val rotation = imageProxy.imageInfo.rotationDegrees
-    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+  /** Gate de ativo/taxa já decidido no listener do ImageReader — aqui só
+   * processa. `image` sempre chega com `inferenceInFlight` reservado para
+   * este frame. */
+  private fun analyzeImage(image: Image) {
+    val width = image.width
+    val height = image.height
     try {
-      imageProxy.use { proxy ->
-        proxy.planes[0].buffer.rewind()
-        bitmap.copyPixelsFromBuffer(proxy.planes[0].buffer)
-      }
+      val nv21 = image.use { img -> yuv420ToNv21(img) }
+      val jpegOut = ByteArrayOutputStream()
+      YuvImage(nv21, ImageFormat.NV21, width, height, null)
+        .compressToJpeg(Rect(0, 0, width, height), 90, jpegOut)
+      val jpegBytes = jpegOut.toByteArray()
+      val bitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
+        ?: throw IllegalStateException("Falha ao decodificar frame YUV")
       val frameStats = computeFrameStats(bitmap)
       val matrix = Matrix().apply {
-        postRotate(rotation.toFloat())
+        postRotate(sensorOrientation.toFloat())
         if (mirror) postScale(-1f, 1f, width.toFloat(), height.toFloat())
       }
       val normalizedBitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true)
@@ -244,6 +399,51 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
       inferenceInFlight.set(false)
       emitError("frame_processing_failed", error.message ?: "Falha ao processar frame.", true)
     }
+  }
+
+  /**
+   * Converte o YUV_420_888 do Camera2 (3 planos, com row/pixel stride que
+   * variam por aparelho) para NV21 respeitando os strides — uma cópia ingênua
+   * dos planos gera imagem diagonal/corrompida na maioria dos aparelhos reais.
+   */
+  private fun yuv420ToNv21(image: Image): ByteArray {
+    val width = image.width
+    val height = image.height
+    val nv21 = ByteArray(width * height * 3 / 2)
+    var pos = 0
+
+    val yPlane = image.planes[0]
+    val yBuffer = yPlane.buffer
+    val yRowStride = yPlane.rowStride
+    for (row in 0 until height) {
+      yBuffer.position(row * yRowStride)
+      yBuffer.get(nv21, pos, width)
+      pos += width
+    }
+
+    val uPlane = image.planes[1]
+    val vPlane = image.planes[2]
+    val uBuffer = uPlane.buffer
+    val vBuffer = vPlane.buffer
+    val uRowStride = uPlane.rowStride
+    val vRowStride = vPlane.rowStride
+    val uPixelStride = uPlane.pixelStride
+    val vPixelStride = vPlane.pixelStride
+    val chromaWidth = width / 2
+    val chromaHeight = height / 2
+    val uRow = ByteArray(uRowStride)
+    val vRow = ByteArray(vRowStride)
+    for (row in 0 until chromaHeight) {
+      vBuffer.position(row * vRowStride)
+      vBuffer.get(vRow, 0, min(vRowStride, vBuffer.remaining()))
+      uBuffer.position(row * uRowStride)
+      uBuffer.get(uRow, 0, min(uRowStride, uBuffer.remaining()))
+      for (col in 0 until chromaWidth) {
+        nv21[pos++] = vRow[col * vPixelStride]
+        nv21[pos++] = uRow[col * uPixelStride]
+      }
+    }
+    return nv21
   }
 
   private fun monotonicTimestamp(): Long {
@@ -344,16 +544,23 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   }
 
   private fun stopPipeline() {
-    val cameraPreview = preview
-    val imageAnalysis = analysis
-    if (cameraPreview != null || imageAnalysis != null) {
-      cameraProvider?.unbind(*listOfNotNull(cameraPreview, imageAnalysis).toTypedArray())
-    }
-    imageAnalysis?.clearAnalyzer()
-    preview = null
-    analysis = null
-    cameraProvider = null
     bound = false
+    opening = false
+    try {
+      captureSession?.close()
+    } catch (_: Exception) {
+    }
+    captureSession = null
+    try {
+      imageReader?.close()
+    } catch (_: Exception) {
+    }
+    imageReader = null
+    try {
+      cameraDevice?.close()
+    } catch (_: Exception) {
+    }
+    cameraDevice = null
     pendingFrames.clear()
     inferenceInFlight.set(false)
 
@@ -364,6 +571,10 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
       faceLandmarker = null
     }
     executor?.shutdown()
+
+    backgroundThread?.quitSafely()
+    backgroundThread = null
+    backgroundHandler = null
   }
 
   private fun computeFrameStats(bitmap: Bitmap): FrameStats {
@@ -478,7 +689,9 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
 
   companion object {
     const val MODEL_VERSION = "mediapipe-face-landmarker-float16-v1"
-    const val PIPELINE_VERSION = "mellow-vision-v2.0.0"
+    const val PIPELINE_VERSION = "mellow-vision-v2.0.0-camera2"
     private const val MODEL_ASSET = "face_landmarker.task"
+    private const val STREAM_WIDTH = 640
+    private const val STREAM_HEIGHT = 480
   }
 }

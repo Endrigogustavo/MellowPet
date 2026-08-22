@@ -13,6 +13,16 @@ metadata = sqlalchemy.MetaData()
 
 # ── Tables ────────────────────────────────────────────────────────────────────
 
+users = sqlalchemy.Table("users",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.String(36), primary_key=True),
+    sqlalchemy.Column("email", sqlalchemy.String(255), nullable=False, unique=True, index=True),
+    sqlalchemy.Column("password_hash", sqlalchemy.String(255), nullable=False),
+    sqlalchemy.Column("display_name", sqlalchemy.String(120), nullable=True),
+    sqlalchemy.Column("role", sqlalchemy.String(16), nullable=False, default="user"),
+    sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
+)
+
 emotion_events = sqlalchemy.Table("emotion_events",
     metadata,
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True, autoincrement=True),
@@ -97,6 +107,34 @@ vision_intervals = sqlalchemy.Table("vision_intervals",
     sqlalchemy.Column("calibration_version", sqlalchemy.String(128), nullable=True),
     sqlalchemy.Column("source", sqlalchemy.String(16), nullable=False, default="mobile"),
     sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
+)
+
+journal_entries = sqlalchemy.Table("journal_entries",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True, autoincrement=True),
+    sqlalchemy.Column("entry_id", sqlalchemy.String(64), nullable=False, unique=True, index=True),
+    sqlalchemy.Column("user_id", sqlalchemy.String(36), nullable=False, index=True),
+    sqlalchemy.Column("text", sqlalchemy.Text, nullable=False),
+    sqlalchemy.Column("tag", sqlalchemy.String(64), nullable=True),
+    sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
+)
+
+# Convite de cuidador. Nasce "pending" com so o caregiver_user_id preenchido;
+# vira "accepted" quando a pessoa cuidada resgata o invite_code, o que
+# preenche cared_user_id. Sem isso o painel do cuidador nao tem de onde
+# buscar os dados de quem ele acompanha.
+caregiver_links = sqlalchemy.Table("caregiver_links",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True, autoincrement=True),
+    sqlalchemy.Column("invite_code", sqlalchemy.String(16), nullable=False, unique=True, index=True),
+    sqlalchemy.Column("caregiver_user_id", sqlalchemy.String(36), nullable=False, index=True),
+    sqlalchemy.Column("cared_user_id", sqlalchemy.String(36), nullable=True, index=True),
+    sqlalchemy.Column("cared_name", sqlalchemy.String(120), nullable=True),
+    sqlalchemy.Column("relationship", sqlalchemy.String(64), nullable=True),
+    sqlalchemy.Column("scopes", sqlalchemy.JSON, nullable=True),
+    sqlalchemy.Column("status", sqlalchemy.String(16), nullable=False, default="pending"),
+    sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
+    sqlalchemy.Column("accepted_at", sqlalchemy.DateTime, nullable=True),
 )
 
 vision_feedback = sqlalchemy.Table("vision_feedback",

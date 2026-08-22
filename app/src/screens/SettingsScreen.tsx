@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
+import { acceptInvite, deleteLink, listLinks, type CaregiverLink } from '../care/careClient';
 import { Field } from '../components/Field';
 import { PetFace } from '../components/PetFace';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Card, ScreenTitle, Toggle, ToggleRow, Touchable, Txt, useColumnWidth } from '../components/ui';
+import { Card, PrimaryButton, ScreenTitle, Toggle, ToggleRow, Touchable, Txt, useColumnWidth } from '../components/ui';
 import { NO_FACE_MINUTES, SETTING_TOGGLES } from '../data/content';
 import { PET_TYPES } from '../data/pets';
+import { fetchSettings, saveSettings } from '../settings/settingsClient';
 import { useApp, useTheme } from '../state/AppContext';
-import { DANGER, OK, WARN, mix } from '../theme/palette';
+import { DANGER, OK, mix } from '../theme/palette';
 
 export function SettingsScreen() {
   const { state, actions } = useApp();
@@ -17,12 +19,78 @@ export function SettingsScreen() {
 
   const toggles = full ? SETTING_TOGGLES : SETTING_TOGGLES.slice(0, 3);
 
-  const linkLabel = state.linked
-    ? 'Conectado'
-    : state.pairPending
-      ? 'Aguardando você aceitar'
-      : 'Não conectado';
-  const linkColor = state.linked ? OK : state.pairPending ? WARN : T.t3;
+  const [links, setLinks] = useState<CaregiverLink[]>([]);
+  const [codeInput, setCodeInput] = useState('');
+  const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [accepting, setAccepting] = useState(false);
+
+  const refreshLinks = () => {
+    if (!state.userId) return;
+    listLinks(state.userId, 'user')
+      .then((res) => {
+        setLinks(res.links);
+        actions.set({ linked: res.links.length > 0 });
+      })
+      .catch(() => undefined);
+  };
+
+  // Carrega preferências e vínculos reais de cuidador ao entrar na tela.
+  useEffect(() => {
+    if (!state.userId) return;
+    fetchSettings(state.userId)
+      .then((remote) => {
+        actions.set({
+          petName: remote.pet_name,
+          petType: remote.pet_type as typeof state.petType,
+          noFaceMin: remote.no_face_alert_minutes,
+          toggles: { ...state.toggles, music: remote.music_enabled, alerts: remote.alerts_enabled },
+        });
+      })
+      .catch(() => undefined);
+    refreshLinks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.userId]);
+
+  // Salva no backend com debounce sempre que uma preferência muda — evita um
+  // PUT por tecla digitada no nome do bichinho.
+  const skipFirstSave = useRef(true);
+  useEffect(() => {
+    if (skipFirstSave.current) {
+      skipFirstSave.current = false;
+      return;
+    }
+    if (!state.userId) return;
+    const timer = setTimeout(() => {
+      saveSettings(state.userId!, {
+        pet_name: state.petName,
+        pet_type: state.petType,
+        no_face_alert_minutes: state.noFaceMin,
+        music_enabled: !!state.toggles.music,
+        alerts_enabled: !!state.toggles.alerts,
+      }).catch(() => undefined);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [state.userId, state.petName, state.petType, state.noFaceMin, state.toggles.music, state.toggles.alerts]);
+
+  const submitInviteCode = () => {
+    const code = codeInput.trim();
+    if (!code || !state.userId) return;
+    setAccepting(true);
+    setAcceptError(null);
+    acceptInvite(code, state.userId)
+      .then(() => {
+        setCodeInput('');
+        refreshLinks();
+      })
+      .catch((error) => setAcceptError(error instanceof Error ? error.message : 'Código inválido'))
+      .finally(() => setAccepting(false));
+  };
+
+  const primaryLink = links[0];
+  const linkLabel = primaryLink ? 'Conectado' : 'Nenhum cuidador conectado';
+  const linkColor = primaryLink ? OK : T.t3;
+  const linkName =
+    primaryLink?.caregiver_display_name || primaryLink?.caregiver_email || 'Cuidador';
 
   return (
     <ScreenScroll>
@@ -94,20 +162,25 @@ export function SettingsScreen() {
               }}
             >
               <Txt s={15} w={800} c={T.pri}>
-                M
+                {linkName.charAt(0).toUpperCase()}
               </Txt>
             </View>
             <View style={{ flex: 1 }}>
               <Txt s={14} w={700} c={T.t1}>
-                Marina Ribeiro
+                {primaryLink ? linkName : 'Ninguém conectado'}
               </Txt>
               <Txt s={11.5} w={700} c={linkColor} style={{ marginTop: 2 }}>
                 {linkLabel}
               </Txt>
             </View>
-            {state.linked ? (
+            {primaryLink ? (
               <Touchable
-                onPress={() => actions.set({ linked: false, pairPending: false })}
+                onPress={() =>
+                  state.userId &&
+                  deleteLink(primaryLink.id, state.userId)
+                    .then(refreshLinks)
+                    .catch(() => undefined)
+                }
                 style={{
                   paddingVertical: 9,
                   paddingHorizontal: 14,
@@ -121,26 +194,34 @@ export function SettingsScreen() {
                 </Txt>
               </Touchable>
             ) : null}
-            {state.pairPending && !state.linked ? (
-              <Touchable
-                onPress={() => actions.set({ linked: true, pairPending: false })}
-                style={{
-                  paddingVertical: 9,
-                  paddingHorizontal: 14,
-                  borderRadius: 999,
-                  backgroundColor: T.pri,
-                }}
-              >
-                <Txt s={11.5} w={800} c="#fff">
-                  Aceitar
-                </Txt>
-              </Touchable>
-            ) : null}
           </View>
 
           <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>
             A conexão é sempre sua escolha. Ao desconectar, o painel dela fica vazio na hora.
           </Txt>
+
+          {!primaryLink ? (
+            <View style={{ marginTop: 13, gap: 8 }}>
+              <Field
+                label="Código de convite de um cuidador"
+                value={codeInput}
+                onChangeText={setCodeInput}
+                placeholder="MEL-4821"
+                autoCapitalize="characters"
+                style={{ letterSpacing: 2, fontWeight: '700' }}
+              />
+              {acceptError ? (
+                <Txt s={12} c={DANGER}>
+                  {acceptError}
+                </Txt>
+              ) : null}
+              <PrimaryButton
+                label={accepting ? 'Aguarde…' : 'Conectar com o código'}
+                disabled={accepting || !codeInput.trim()}
+                onPress={submitInviteCode}
+              />
+            </View>
+          ) : null}
 
           <Touchable
             onPress={() => actions.setRole('care')}

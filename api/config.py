@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     # usuario exigiriam login de verdade (JWT + tabela de usuarios).
     api_key: str | None = None
 
+    # Assina os tokens JWT emitidos em /api/v1/auth. Sem valor, login/signup
+    # se recusam a emitir token (ver routers/auth.py) — nao geramos um
+    # segredo aleatorio aqui porque ele mudaria a cada restart e invalidaria
+    # todos os tokens ja emitidos.
+    jwt_secret: str | None = None
+    jwt_expires_minutes: int = 60 * 24 * 30
+
     # Caminhos que continuam abertos (health check de load balancer, etc.).
     public_paths: tuple[str, ...] = ("/health", "/", "/docs", "/openapi.json", "/redoc")
 
@@ -129,6 +136,8 @@ class Settings(BaseSettings):
             problems.append("CORS_ORIGINS='*' libera qualquer origem. Defina os dominios do ""app, ex.: CORS_ORIGINS=https://app.mellowpet.app")
         if not self.api_key:
             problems.append("API_KEY nao definida — a API aceita chamadas de qualquer cliente. "f"Sugestao de valor: {secrets.token_urlsafe(32)}")
+        if not self.jwt_secret:
+            problems.append("JWT_SECRET nao definida — login/signup nao emitem token. "f"Sugestao de valor: {secrets.token_urlsafe(32)}")
         if self.debug:
             problems.append("DEBUG=true expõe detalhes de erro nas respostas.")
         if self.enable_docs and self.is_production:
