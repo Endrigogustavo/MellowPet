@@ -148,6 +148,7 @@ export function VisionEngine() {
           signalStatus: result.signalStatus,
           signalConfidence: result.signalConfidence,
           qualityScore: result.qualityScore,
+          secondaryEmotions: result.secondaryEmotions,
           ...(result.signalStatus === 'ready' ? { streak: 0 } : null),
         });
         lastSignalCommitRef.current = {
@@ -176,6 +177,7 @@ export function VisionEngine() {
           visionThermalLimited: ['moderate', 'severe', 'critical', 'emergency', 'shutdown', 'serious'].includes(
             snapshot.thermalState
           ),
+          visionScores: result.scores,
         });
       }
 
@@ -231,7 +233,15 @@ export function VisionEngine() {
       style={onVisionScreen ? StyleSheet.absoluteFill : styles.hidden}
       pointerEvents="none"
     >
-      <MellowVisionView active maxFps={10} mirror onVisionResult={onVisionResult} onVisionError={onVisionError} style={StyleSheet.absoluteFill} />
+      <MellowVisionView
+        active
+        maxFps={10}
+        mirror
+        showPreview={onVisionScreen}
+        onVisionResult={onVisionResult}
+        onVisionError={onVisionError}
+        style={StyleSheet.absoluteFill}
+      />
     </View>
   );
 }

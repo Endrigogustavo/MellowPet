@@ -223,9 +223,12 @@ test('tension is a separate signal and never an expression class', () => {
 });
 
 test('engine abstains during warm-up and then emits neutral', () => {
+  // WARMUP_UPDATES = 2: leituras genuinas de raiva/tristeza sao mais fracas
+  // que os padroes de teste, entao o motor passou a se comprometer mais
+  // rapido com uma leitura (ver expressionEngine.ts) em troca de mais
+  // sensibilidade.
   const engine = new ExpressionEngine();
   assert.equal(engine.process(baseFrame()).signalStatus, 'warming_up');
-  assert.equal(engine.process(baseFrame()).observedExpression, 'unknown');
   const ready = engine.process(baseFrame());
   assert.equal(ready.signalStatus, 'ready');
   assert.equal(ready.observedExpression, 'neutral');
@@ -249,7 +252,84 @@ test('one divergent frame cannot switch the stable expression', () => {
   assert.ok(switchedAt !== null && switchedAt <= 6, `switch took ${switchedAt} updates`);
 });
 
-test('strong but contradictory fear and surprise evidence abstains instead of guessing', () => {
+test('moderate, non-exaggerated sad and angry expressions are recognized through the full engine', () => {
+  // Blendshapes de uma expressao real e sustentada, nao a pose exagerada dos
+  // testes canonicos acima — e o caso que motivou afrouxar os limiares de
+  // entrada em expressionEngine.ts.
+  const moderateSad = {
+    mouthFrownLeft: 0.42,
+    mouthFrownRight: 0.4,
+    browInnerUp: 0.38,
+    mouthLowerDownLeft: 0.22,
+    mouthLowerDownRight: 0.2,
+  };
+  const sadEngine = new ExpressionEngine();
+  let sadResult;
+  for (let index = 0; index < 6; index += 1) sadResult = sadEngine.process(baseFrame(moderateSad));
+  assert.equal(sadResult.observedExpression, 'sad', `sad ficou em ${sadResult.observedExpression}: ${JSON.stringify(sadResult.scores)}`);
+  assert.equal(sadResult.signalStatus, 'ready');
+
+  const moderateAngry = {
+    browDownLeft: 0.44,
+    browDownRight: 0.4,
+    mouthPressLeft: 0.35,
+    mouthPressRight: 0.32,
+    noseSneerLeft: 0.24,
+    noseSneerRight: 0.22,
+  };
+  const angryEngine = new ExpressionEngine();
+  let angryResult;
+  for (let index = 0; index < 6; index += 1) angryResult = angryEngine.process(baseFrame(moderateAngry));
+  assert.equal(angryResult.observedExpression, 'angry', `angry ficou em ${angryResult.observedExpression}: ${JSON.stringify(angryResult.scores)}`);
+  assert.equal(angryResult.signalStatus, 'ready');
+});
+
+test('when neutral wins the raw ranking but misses its own bar, the runner-up wins instead', () => {
+  // Sinal real mas espalhado entre 2-3 classes correlatas (preocupacao):
+  // nenhuma isolada domina, entao o residual de "neutro" tende a vencer o
+  // ranking bruto sem essa regra — caso real reportado pelo usuario, onde a
+  // soma de sad+fearful+surprised (evidencia real) superava neutral mas
+  // neutral ainda "ganhava" por ser a maior classe isolada.
+  const worried = {
+    browInnerUp: 0.4,
+    eyeWideLeft: 0.44,
+    eyeWideRight: 0.42,
+    mouthPressLeft: 0.3,
+    mouthPressRight: 0.28,
+  };
+  const engine = new ExpressionEngine();
+  let result;
+  for (let index = 0; index < 6; index += 1) result = engine.process(baseFrame(worried));
+  assert.notEqual(result.observedExpression, 'neutral', `nao deveria ficar neutro: ${JSON.stringify(result.scores)}`);
+  assert.notEqual(result.observedExpression, 'unknown', `nao deveria abster: ${JSON.stringify(result.scores)}`);
+});
+
+test('crying (closed eyes, open mouth, furrowed brow) reads as sad, not angry', () => {
+  // Padrao de choro real: bem diferente do "triste quieto" de boca fechada
+  // acima — testa furrowed (parece raiva), mas olhos fechados + boca aberta
+  // deveriam pesar mais a favor de tristeza que o franzido sozinho a favor
+  // de raiva. Caso que motivou o desconto de browInner/eyesClosed em angry.
+  const crying = {
+    eyeBlinkLeft: 0.85,
+    eyeBlinkRight: 0.8,
+    jawOpen: 0.55,
+    browInnerUp: 0.6,
+    browDownLeft: 0.5,
+    browDownRight: 0.45,
+    mouthStretchLeft: 0.3,
+    mouthStretchRight: 0.28,
+  };
+  const engine = new ExpressionEngine();
+  let result;
+  for (let index = 0; index < 6; index += 1) result = engine.process(baseFrame(crying));
+  assert.equal(result.observedExpression, 'sad', `esperava sad, veio ${result.observedExpression}: ${JSON.stringify(result.scores)}`);
+  assert.equal(result.signalStatus, 'ready');
+});
+
+test('strong contradictory fear/surprise evidence resolves to the closest plausible class', () => {
+  // Calibrado pra sensibilidade maxima (ver expressionEngine.ts): entre
+  // abster-se e arriscar o palpite mais plausivel, o motor agora arrisca.
+  // Continua nao inventando uma classe sem nenhuma relacao com o sinal.
   const engine = new ExpressionEngine();
   const ambiguous = {
     browInnerUp: 0.85,
@@ -266,9 +346,12 @@ test('strong but contradictory fear and surprise evidence abstains instead of gu
 
   let result;
   for (let index = 0; index < 6; index += 1) result = engine.process(baseFrame(ambiguous));
-  assert.equal(result.observedExpression, 'unknown');
-  assert.equal(result.signalStatus, 'uncertain');
-  assert.equal(result.signalConfidence, 0);
+  assert.ok(
+    ['fearful', 'surprised'].includes(result.observedExpression),
+    `esperava fearful ou surprised, veio ${result.observedExpression}`
+  );
+  assert.equal(result.signalStatus, 'ready');
+  assert.ok(result.signalConfidence > 0);
 });
 
 test('quality rejection always produces unknown', () => {

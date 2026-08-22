@@ -32,6 +32,10 @@ class MellowVisionModule : Module() {
       Prop("mirror") { view: MellowVisionView, mirror: Boolean ->
         view.updateMirror(mirror)
       }
+
+      Prop("showPreview") { view: MellowVisionView, showPreview: Boolean ->
+        view.updateShowPreview(showPreview)
+      }
     }
   }
 }

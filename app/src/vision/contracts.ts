@@ -23,6 +23,10 @@ export type VisionSnapshot = {
   modelVersion: string;
   pipelineVersion: string;
   calibrationProgress: number | null;
+  /** Até 2 emoções secundárias mais fortes da leitura (além da primária) —
+   * juntas formam a mistura de até 3 emoções exibida na UI. Expressões
+   * reais raramente são puras. Ordenadas por confiança, descendente. */
+  secondaryEmotions: { expression: EmotionKey; confidence: number }[];
 };
 
 const configuredMode = process.env.EXPO_PUBLIC_VISION_MODE;

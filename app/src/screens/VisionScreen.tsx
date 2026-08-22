@@ -118,6 +118,27 @@ export function VisionScreen() {
               </Txt>
             </View>
           ) : null}
+          {NATIVE_PIPELINE_AVAILABLE && state.signalStatus === 'ready' && state.secondaryEmotions.length > 0 ? (
+            <Txt s={11.5} w={700} c="rgba(255,255,255,0.66)" style={{ marginTop: 2 }}>
+              + {state.secondaryEmotions
+                .map((entry) => `${EMOTIONS[entry.expression].label} (${Math.round(entry.confidence * 100)}%)`)
+                .join(' + ')}{' '}
+              em mistura
+            </Txt>
+          ) : null}
+          {/* Painel de depuração temporário — pontuação bruta de cada classe,
+              pra calibrar o motor contra expressões reais. */}
+          {NATIVE_PIPELINE_AVAILABLE && state.visionScores ? (
+            <View style={styles.debugScores}>
+              {Object.entries(state.visionScores)
+                .sort((a, b) => b[1] - a[1])
+                .map(([key, score]) => (
+                  <Txt key={key} s={11} w={700} c="rgba(255,255,255,0.7)">
+                    {key}: {Math.round(score * 100)}%
+                  </Txt>
+                ))}
+            </View>
+          ) : null}
           {NATIVE_PIPELINE_AVAILABLE &&
           state.signalStatus === 'ready' &&
           VISION_FLAGS.feedbackEnabled &&
@@ -231,6 +252,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
     marginTop: 10,
+  },
+  debugScores: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
   },
   feedbackBlock: { marginTop: 11, gap: 8 },
   feedbackButtons: { flexDirection: 'row', gap: 8 },

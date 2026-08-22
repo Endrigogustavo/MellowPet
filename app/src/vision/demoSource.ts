@@ -20,5 +20,6 @@ export function createDemoSnapshot(expression: EmotionKey): VisionSnapshot {
     modelVersion: 'demo-fixture@1',
     pipelineVersion: 'demo-source@1',
     calibrationProgress: null,
+    secondaryEmotions: [],
   };
 }

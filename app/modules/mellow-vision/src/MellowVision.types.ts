@@ -56,6 +56,11 @@ export type MellowVisionViewProps = {
   active?: boolean;
   maxFps?: number;
   mirror?: boolean;
+  /** Só inclui a superfície de preview no capture request quando true. Fora
+   * da tela de câmera a view fica invisível e fora da área desenhada — sem
+   * isso, a superfície de preview não seria drenada e travaria a sessão
+   * inteira (afetando também os frames de análise). Default true. */
+  showPreview?: boolean;
   onVisionResult?: (event: { nativeEvent: VisionFramePayload }) => void;
   onVisionError?: (event: { nativeEvent: VisionErrorPayload }) => void;
   style?: StyleProp<ViewStyle>;

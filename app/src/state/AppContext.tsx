@@ -78,6 +78,12 @@ export type State = {
   visionQualityHint: string | null;
   visionNativeError: string | null;
   visionThermalLimited: boolean;
+  /** Pontuação bruta de cada classe (0-1, soma 1) — só pra depuração visual
+   * enquanto calibramos o motor contra expressões reais. */
+  visionScores: Record<string, number> | null;
+  /** Até 2 emoções secundárias da leitura atual (além da primária) — juntas
+   * formam a mistura de até 3 emoções exposta como métrica de verdade. */
+  secondaryEmotions: { expression: EmotionKey; confidence: number }[];
 
   breathing: boolean;
   breathTick: number;
@@ -160,6 +166,8 @@ const INITIAL: State = {
   visionQualityHint: null,
   visionNativeError: null,
   visionThermalLimited: false,
+  visionScores: null,
+  secondaryEmotions: [],
 
   breathing: false,
   breathTick: 0,

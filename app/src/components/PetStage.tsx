@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, View } from 'react-native';
 
-import type { IdleAnim } from '../data/emotions';
+import { EMOTIONS, type IdleAnim } from '../data/emotions';
 import { useApp, useTheme } from '../state/AppContext';
 import { PetFace } from './PetFace';
 import { Txt, useLoop } from './ui';
@@ -206,6 +206,14 @@ export function PetStage() {
           </Txt>
           <Txt s={12} c={T.t3}>
             ciclo {breathRound} de 5
+          </Txt>
+        </View>
+      ) : state.signalStatus === 'ready' && state.secondaryEmotions.length > 0 ? (
+        <View style={{ position: 'absolute', bottom: 10, alignItems: 'center' }}>
+          <Txt s={12} w={700} c={T.t3}>
+            + {state.secondaryEmotions
+              .map((entry) => `${EMOTIONS[entry.expression].label.toLowerCase()} (${Math.round(entry.confidence * 100)}%)`)
+              .join(' + ')}
           </Txt>
         </View>
       ) : null}

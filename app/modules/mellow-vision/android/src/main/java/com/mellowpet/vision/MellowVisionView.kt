@@ -84,6 +84,16 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   private var bound = false
   private var maxFps = 10
   private var mirror = true
+  // Fora da tela de câmera, a view fica fora da área visível (opacity 0,
+  // posição negativa) — o Android para de desenhá-la, o que interrompe o
+  // consumo do SurfaceTexture do preview. Como o preview e o ImageReader
+  // eram alvos do mesmo capture request, a fila de buffers do preview
+  // enchia e travava a sessão inteira (câmera parava de entregar frames
+  // pro ImageReader também), exigindo muita luz/proximidade pra "furar"
+  // ocasionalmente. Quando não precisa mostrar o preview, a sessão nem
+  // inclui essa superfície como alvo — só o ImageReader.
+  private var showPreview = true
+  private val previewGeneration = AtomicLong(0)
   private val inferenceInFlight = AtomicBoolean(false)
   private val droppedFrames = AtomicLong(0)
   private val receivedFrames = AtomicLong(0)
@@ -131,6 +141,23 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     textureView.scaleX = if (mirror) -1f else 1f
   }
 
+  fun updateShowPreview(value: Boolean) {
+    if (showPreview == value) return
+    showPreview = value
+    // Alvos de captura são fixos na sessão do Camera2 — não dá pra
+    // adicionar/remover superfície sem recriar a sessão. Um pequeno atraso
+    // antes de reabrir dá tempo do HAL da câmera liberar o device depois do
+    // close(); reabrir sincronamente demais já se mostrou instável em
+    // aparelhos MIUI (motivo original da migração pra Camera2 puro).
+    if (cameraDevice != null || opening) {
+      val generation = previewGeneration.incrementAndGet()
+      stopPipeline()
+      postDelayed({
+        if (previewGeneration.get() == generation) startIfPossible()
+      }, PREVIEW_RESTART_DELAY_MS)
+    }
+  }
+
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
     attached = true
@@ -144,7 +171,8 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   }
 
   private fun startIfPossible() {
-    if (!active || !attached || !surfaceReady || opening || cameraDevice != null) return
+    if (!active || !attached || opening || cameraDevice != null) return
+    if (showPreview && !surfaceReady) return
     if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
       emitError("permission_denied", "Permissão de câmera não concedida.", true)
       return
@@ -235,13 +263,16 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   }
 
   private fun createSession(device: CameraDevice) {
-    val texture = textureView.surfaceTexture
-    if (texture == null) {
-      emitError("camera_unavailable", "Superfície de câmera indisponível.", true)
-      return
+    var previewSurface: Surface? = null
+    if (showPreview) {
+      val texture = textureView.surfaceTexture
+      if (texture == null) {
+        emitError("camera_unavailable", "Superfície de câmera indisponível.", true)
+        return
+      }
+      texture.setDefaultBufferSize(STREAM_WIDTH, STREAM_HEIGHT)
+      previewSurface = Surface(texture)
     }
-    texture.setDefaultBufferSize(STREAM_WIDTH, STREAM_HEIGHT)
-    val previewSurface = Surface(texture)
 
     val reader = ImageReader.newInstance(STREAM_WIDTH, STREAM_HEIGHT, ImageFormat.YUV_420_888, 2)
     reader.setOnImageAvailableListener(
@@ -281,12 +312,12 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
 
     try {
       val requestBuilder = device.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
-        addTarget(previewSurface)
+        previewSurface?.let { addTarget(it) }
         addTarget(reader.surface)
         set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
       }
 
-      val outputs = listOf(previewSurface, reader.surface)
+      val outputs = listOfNotNull(previewSurface, reader.surface)
       val sessionCallback = object : CameraCaptureSession.StateCallback() {
         override fun onConfigured(session: CameraCaptureSession) {
           if (!active || !attached) {
@@ -682,5 +713,6 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     private const val MODEL_ASSET = "face_landmarker.task"
     private const val STREAM_WIDTH = 640
     private const val STREAM_HEIGHT = 480
+    private const val PREVIEW_RESTART_DELAY_MS = 200L
   }
 }
