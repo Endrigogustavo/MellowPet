@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   computeTensionSignal,
+  EXPRESSION_CLASSIFIER_VERSION,
   ExpressionEngine,
   scoreBlendshapes,
 } from '../src/vision/expressionEngine.ts';
@@ -96,6 +97,120 @@ test('canonical blendshape patterns rank every visual class first', () => {
   }
 });
 
+test('adversarial cross-class patterns preserve the coherent expression', () => {
+  const cases = [
+    {
+      name: 'angry with mouth-smile contamination',
+      expected: 'angry',
+      blendshapes: {
+        browDownLeft: 0.96,
+        browDownRight: 0.92,
+        mouthPressLeft: 0.88,
+        mouthPressRight: 0.82,
+        noseSneerLeft: 0.62,
+        noseSneerRight: 0.58,
+        eyeSquintLeft: 0.68,
+        eyeSquintRight: 0.65,
+        mouthSmileLeft: 0.48,
+        mouthSmileRight: 0.43,
+      },
+    },
+    {
+      name: 'happy with moderate brow noise',
+      expected: 'happy',
+      blendshapes: {
+        ...smile,
+        browDownLeft: 0.32,
+        browDownRight: 0.28,
+        mouthPressLeft: 0.22,
+        mouthPressRight: 0.2,
+      },
+    },
+    {
+      name: 'surprised with mouth-stretch contamination',
+      expected: 'surprised',
+      blendshapes: {
+        browInnerUp: 0.86,
+        browOuterUpLeft: 0.82,
+        browOuterUpRight: 0.79,
+        jawOpen: 0.94,
+        eyeWideLeft: 0.9,
+        eyeWideRight: 0.87,
+        mouthStretchLeft: 0.36,
+        mouthStretchRight: 0.34,
+      },
+    },
+    {
+      name: 'fearful with partially open jaw',
+      expected: 'fearful',
+      blendshapes: {
+        browInnerUp: 0.88,
+        browOuterUpLeft: 0.62,
+        browOuterUpRight: 0.59,
+        eyeWideLeft: 0.94,
+        eyeWideRight: 0.91,
+        mouthStretchLeft: 0.91,
+        mouthStretchRight: 0.88,
+        mouthPressLeft: 0.48,
+        mouthPressRight: 0.45,
+        jawOpen: 0.32,
+      },
+    },
+    {
+      name: 'disgusted with brow-down contamination',
+      expected: 'disgusted',
+      blendshapes: {
+        noseSneerLeft: 0.96,
+        noseSneerRight: 0.91,
+        mouthUpperUpLeft: 0.89,
+        mouthUpperUpRight: 0.84,
+        mouthPucker: 0.52,
+        browDownLeft: 0.46,
+        browDownRight: 0.42,
+        mouthPressLeft: 0.28,
+        mouthPressRight: 0.26,
+      },
+    },
+    {
+      name: 'sad with weak smile noise',
+      expected: 'sad',
+      blendshapes: {
+        mouthFrownLeft: 0.86,
+        mouthFrownRight: 0.82,
+        browInnerUp: 0.76,
+        mouthLowerDownLeft: 0.58,
+        mouthLowerDownRight: 0.55,
+        eyeBlinkLeft: 0.4,
+        eyeBlinkRight: 0.38,
+        mouthSmileLeft: 0.18,
+        mouthSmileRight: 0.16,
+      },
+    },
+  ];
+
+  for (const { name, expected, blendshapes } of cases) {
+    const scores = scoreBlendshapes(blendshapes);
+    const ranking = Object.entries(scores).sort((left, right) => right[1] - left[1]);
+    assert.equal(ranking[0][0], expected, `${name}: ${JSON.stringify(scores)}`);
+    assert.ok(ranking[0][1] - ranking[1][1] >= 0.08, `${name} has weak margin: ${JSON.stringify(scores)}`);
+  }
+});
+
+test('low blendshape noise and an isolated unilateral smile remain neutral', () => {
+  const noise = scoreBlendshapes({
+    browDownLeft: 0.06,
+    browInnerUp: 0.05,
+    mouthSmileLeft: 0.07,
+    mouthFrownRight: 0.06,
+    eyeWideLeft: 0.05,
+  });
+  assert.equal(Object.entries(noise).sort((left, right) => right[1] - left[1])[0][0], 'neutral');
+  assert.ok(noise.neutral > 0.8);
+
+  const unilateral = scoreBlendshapes({ mouthSmileLeft: 0.95, mouthSmileRight: 0.04 });
+  assert.equal(Object.entries(unilateral).sort((left, right) => right[1] - left[1])[0][0], 'neutral');
+});
+
 test('tension is a separate signal and never an expression class', () => {
   const tension = computeTensionSignal({
     browDownLeft: 0.9,
@@ -114,6 +229,7 @@ test('engine abstains during warm-up and then emits neutral', () => {
   const ready = engine.process(baseFrame());
   assert.equal(ready.signalStatus, 'ready');
   assert.equal(ready.observedExpression, 'neutral');
+  assert.match(ready.pipelineVersion, new RegExp(`${EXPRESSION_CLASSIFIER_VERSION}$`));
 });
 
 test('one divergent frame cannot switch the stable expression', () => {
@@ -131,6 +247,28 @@ test('one divergent frame cannot switch the stable expression', () => {
   assert.equal(result.observedExpression, 'happy');
   // A 10 fps, seis updates equivalem ao budget de 600 ms da especificacao.
   assert.ok(switchedAt !== null && switchedAt <= 6, `switch took ${switchedAt} updates`);
+});
+
+test('strong but contradictory fear and surprise evidence abstains instead of guessing', () => {
+  const engine = new ExpressionEngine();
+  const ambiguous = {
+    browInnerUp: 0.85,
+    browOuterUpLeft: 0.75,
+    browOuterUpRight: 0.75,
+    eyeWideLeft: 0.9,
+    eyeWideRight: 0.9,
+    jawOpen: 0.72,
+    mouthStretchLeft: 0.78,
+    mouthStretchRight: 0.78,
+    mouthPressLeft: 0.4,
+    mouthPressRight: 0.4,
+  };
+
+  let result;
+  for (let index = 0; index < 6; index += 1) result = engine.process(baseFrame(ambiguous));
+  assert.equal(result.observedExpression, 'unknown');
+  assert.equal(result.signalStatus, 'uncertain');
+  assert.equal(result.signalConfidence, 0);
 });
 
 test('quality rejection always produces unknown', () => {

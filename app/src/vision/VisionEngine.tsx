@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useCameraPermissions } from 'expo-camera';
 
@@ -65,9 +65,16 @@ export function submitVisionFeedback(agreement: 'yes' | 'no' | 'unsure'): boolea
 export function VisionEngine() {
   const { state, actions } = useApp();
   const [permission, requestPermission] = useCameraPermissions();
-  const engineRef = useRef<ExpressionEngine | null>(null);
-  const telemetryRef = useRef<VisionTelemetry | null>(null);
-  const eventRecorderRef = useRef<VisionEventRecorder | null>(null);
+  const [engine] = useState(() => new ExpressionEngine());
+  const [telemetry] = useState(() => new VisionTelemetry());
+  const [eventRecorder] = useState(
+    () =>
+      new VisionEventRecorder(
+        createVisionId('session'),
+        createVisionId('device'),
+        state.userId ?? undefined
+      )
+  );
   const baselineLoadedRef = useRef(false);
   const lastSignalCommitRef = useRef({
     expression: 'unknown',
@@ -78,21 +85,14 @@ export function VisionEngine() {
   });
   const lastTelemetryCommitAtRef = useRef(0);
 
-  if (!engineRef.current) {
-    engineRef.current = new ExpressionEngine();
-    engineSingleton = engineRef.current;
-  }
-  if (!telemetryRef.current) {
-    telemetryRef.current = new VisionTelemetry();
-  }
-  if (!eventRecorderRef.current) {
-    eventRecorderRef.current = new VisionEventRecorder(
-      createVisionId('session'),
-      createVisionId('device'),
-      state.userId ?? undefined
-    );
-    eventRecorderSingleton = eventRecorderRef.current;
-  }
+  useEffect(() => {
+    engineSingleton = engine;
+    eventRecorderSingleton = eventRecorder;
+    return () => {
+      if (engineSingleton === engine) engineSingleton = null;
+      if (eventRecorderSingleton === eventRecorder) eventRecorderSingleton = null;
+    };
+  }, [engine, eventRecorder]);
 
   useEffect(() => {
     if (!NATIVE_PIPELINE_AVAILABLE) return;
@@ -102,17 +102,17 @@ export function VisionEngine() {
   }, [permission, requestPermission]);
 
   useEffect(() => {
-    if (baselineLoadedRef.current || !engineRef.current) return;
+    if (baselineLoadedRef.current) return;
     baselineLoadedRef.current = true;
     loadCalibrationBaseline()
       .then((baseline) => {
-        if (!baseline || !engineRef.current) return;
-        engineRef.current.importBaseline(baseline);
+        if (!baseline) return;
+        engine.importBaseline(baseline);
         baselineSaved = true;
-        actions.set({ calibration: engineRef.current.getCalibrationState() });
+        actions.set({ calibration: engine.getCalibrationState() });
       })
       .catch(() => undefined);
-  }, [actions]);
+  }, [actions, engine]);
 
   useEffect(() => {
     if (!VISION_EVENT_UPLOAD_ENABLED) return;
@@ -123,11 +123,6 @@ export function VisionEngine() {
 
   const onVisionResult = useCallback(
     ({ nativeEvent }: { nativeEvent: VisionFramePayload }) => {
-      const engine = engineRef.current;
-      const telemetry = telemetryRef.current;
-      const eventRecorder = eventRecorderRef.current;
-      if (!engine || !telemetry || !eventRecorder) return;
-
       const result = engine.process(nativeEvent);
       telemetry.record(nativeEvent, result);
       const intervalEvents = eventRecorder.record(result);
@@ -200,7 +195,7 @@ export function VisionEngine() {
         }
       }
     },
-    [actions]
+    [actions, engine, eventRecorder, telemetry]
   );
 
   const onVisionError = useCallback(
