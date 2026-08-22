@@ -1,9 +1,6 @@
-import * as SecureStore from 'expo-secure-store';
+import type { AuthError as SupabaseAuthError } from '@supabase/supabase-js';
 
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
-const API_KEY = process.env.EXPO_PUBLIC_API_KEY ?? '';
-const TOKEN_KEY = 'mellowpet.auth.token';
-const USER_KEY = 'mellowpet.auth.user';
+import { supabase, SUPABASE_CONFIGURED } from '../supabase/client';
 
 export type AuthRole = 'user' | 'care';
 
@@ -16,49 +13,30 @@ export type AuthUser = {
 
 export class AuthError extends Error {}
 
-type AuthApiResponse = {
-  token: string;
-  user_id: string;
-  email: string;
-  display_name: string | null;
-  role: AuthRole;
-};
-
-async function postJson(path: string, body: unknown): Promise<AuthApiResponse> {
-  if (!API_BASE_URL) {
-    throw new AuthError('API não configurada neste build (EXPO_PUBLIC_API_BASE_URL ausente).');
+function mapAuthError(error: SupabaseAuthError): string {
+  const message = error.message.toLowerCase();
+  if (message.includes('already registered') || message.includes('already exists')) {
+    return 'Este email já está cadastrado.';
   }
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(API_KEY ? { 'X-API-Key': API_KEY } : null),
-      },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    throw new AuthError('Não foi possível falar com o servidor. Verifique sua conexão.');
+  if (message.includes('invalid login credentials')) {
+    return 'Email ou senha incorretos.';
   }
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    const detail = (data && (data.detail || data.error)) || 'Falha na autenticação.';
-    throw new AuthError(typeof detail === 'string' ? detail : 'Falha na autenticação.');
+  if (message.includes('email not confirmed')) {
+    return 'Confirme seu email antes de entrar.';
   }
-  return data as AuthApiResponse;
+  if (message.includes('password') && message.includes('least')) {
+    return 'A senha precisa ter pelo menos 6 caracteres.';
+  }
+  if (message.includes('network') || message.includes('fetch')) {
+    return 'Não foi possível falar com o servidor. Verifique sua conexão.';
+  }
+  return 'Não foi possível continuar.';
 }
 
-async function persist(data: AuthApiResponse): Promise<AuthUser> {
-  const user: AuthUser = {
-    userId: data.user_id,
-    email: data.email,
-    displayName: data.display_name,
-    role: data.role,
-  };
-  await SecureStore.setItemAsync(TOKEN_KEY, data.token);
-  await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
-  return user;
+async function fetchProfile(userId: string): Promise<{ displayName: string | null; role: AuthRole }> {
+  const { data } = await supabase.from('profiles').select('display_name, role').eq('id', userId).single();
+  const role = data?.role === 'care' ? 'care' : 'user';
+  return { displayName: data?.display_name ?? null, role };
 }
 
 export async function signup(
@@ -67,39 +45,70 @@ export async function signup(
   role: AuthRole,
   displayName?: string
 ): Promise<AuthUser> {
-  const data = await postJson('/api/v1/auth/signup', {
+  if (!SUPABASE_CONFIGURED) throw new AuthError('Supabase não configurado neste build.');
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    role,
-    display_name: displayName || null,
+    options: { data: { role, display_name: displayName || null } },
   });
-  return persist(data);
+  if (error) throw new AuthError(mapAuthError(error));
+  if (!data.user) throw new AuthError('Não foi possível criar a conta.');
+  if (!data.session) {
+    // Confirmação de email está ligada no projeto Supabase — a conta foi
+    // criada, mas sem sessão ainda não há JWT válido, então RLS bloqueia
+    // qualquer leitura/escrita (é por isso que "criar convite" falhava
+    // silenciosamente depois de um cadastro "bem-sucedido"). Reportar isso
+    // como erro em vez de fingir que logou.
+    throw new AuthError(
+      'Conta criada! Confirme seu email (verifique a caixa de entrada, incluindo spam) antes de entrar.'
+    );
+  }
+  return {
+    userId: data.user.id,
+    email: data.user.email ?? email,
+    displayName: displayName || null,
+    role,
+  };
 }
 
 export async function login(email: string, password: string): Promise<AuthUser> {
-  const data = await postJson('/api/v1/auth/login', { email, password });
-  return persist(data);
+  if (!SUPABASE_CONFIGURED) throw new AuthError('Supabase não configurado neste build.');
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw new AuthError(mapAuthError(error));
+  if (!data.user) throw new AuthError('Não foi possível entrar.');
+  const profile = await fetchProfile(data.user.id);
+  return {
+    userId: data.user.id,
+    email: data.user.email ?? email,
+    displayName: profile.displayName,
+    role: profile.role,
+  };
 }
 
 export async function loadStoredSession(): Promise<AuthUser | null> {
-  try {
-    const raw = await SecureStore.getItemAsync(USER_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as AuthUser;
-  } catch {
-    return null;
-  }
-}
-
-export async function getToken(): Promise<string | null> {
-  try {
-    return await SecureStore.getItemAsync(TOKEN_KEY);
-  } catch {
-    return null;
-  }
+  if (!SUPABASE_CONFIGURED) return null;
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
+  if (!user) return null;
+  const profile = await fetchProfile(user.id);
+  return {
+    userId: user.id,
+    email: user.email ?? '',
+    displayName: profile.displayName,
+    role: profile.role,
+  };
 }
 
 export async function logout(): Promise<void> {
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
-  await SecureStore.deleteItemAsync(USER_KEY);
+  await supabase.auth.signOut();
+}
+
+/** Reage a SIGNED_OUT vindo de fora de uma chamada explícita a `logout()` —
+ * ex.: refresh token expirado/revogado em background. `logout()` não
+ * despacha estado sozinho por isso; esse listener é o único lugar que faz. */
+export function subscribeToSignOut(onSignedOut: () => void): () => void {
+  const { data } = supabase.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') onSignedOut();
+  });
+  return () => data.subscription.unsubscribe();
 }

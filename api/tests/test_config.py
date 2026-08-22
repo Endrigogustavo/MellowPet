@@ -20,19 +20,6 @@ class TestCors:
         assert make(cors_origins="https://a.app").allow_wildcard_cors is False
 
 
-class TestAllowlistDeEmail:
-    def test_normaliza_para_minusculas(self):
-        s = make(alert_email_allowlist="A@Ex.com, b@ex.com")
-        assert s.allowed_alert_recipients == {"a@ex.com", "b@ex.com"}
-
-    def test_inclui_o_contato_de_emergencia(self):
-        s = make(alert_email_allowlist="a@ex.com", emergency_contact_email="C@ex.com")
-        assert "c@ex.com" in s.allowed_alert_recipients
-
-    def test_vazia_por_padrao(self):
-        assert make().allowed_alert_recipients == set()
-
-
 class TestTravaDeProducao:
     """
     Em producao a config insegura precisa impedir o boot, nao so avisar."""
@@ -66,7 +53,6 @@ class TestTravaDeProducao:
             app_env="production",
             cors_origins="https://app.mellowpet.app",
             api_key="k" * 32,
-            jwt_secret="j" * 32,
             enable_docs=False,
             debug=False,
         )

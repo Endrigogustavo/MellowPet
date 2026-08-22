@@ -222,13 +222,11 @@ test('tension is a separate signal and never an expression class', () => {
   assert.equal('anxious' in scoreBlendshapes({}), false);
 });
 
-test('engine abstains during warm-up and then emits neutral', () => {
-  // WARMUP_UPDATES = 2: leituras genuinas de raiva/tristeza sao mais fracas
-  // que os padroes de teste, entao o motor passou a se comprometer mais
-  // rapido com uma leitura (ver expressionEngine.ts) em troca de mais
-  // sensibilidade.
+test('engine commits on the very first eligible frame instead of waiting through warm-up', () => {
+  // WARMUP_UPDATES = 1: o bichinho deve refletir a emocao assim que houver
+  // reconhecimento minimo, sem esperar frames extras de warmup (ver
+  // expressionEngine.ts) — mesmo comportamento em qualquer tela do app.
   const engine = new ExpressionEngine();
-  assert.equal(engine.process(baseFrame()).signalStatus, 'warming_up');
   const ready = engine.process(baseFrame());
   assert.equal(ready.signalStatus, 'ready');
   assert.equal(ready.observedExpression, 'neutral');

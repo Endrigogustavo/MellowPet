@@ -50,7 +50,14 @@
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#4A3550"
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }

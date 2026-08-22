@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/widget_background"
+  android:orientation="vertical"
+  android:gravity="center"
+  android:padding="12dp">
+
+  <ImageView
+    android:id="@+id/widget_mood_dot"
+    android:layout_width="28dp"
+    android:layout_height="28dp"
+    android:src="@drawable/widget_dot" />
+
+  <TextView
+    android:id="@+id/widget_mood_label"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="6dp"
+    android:text="Mellow"
+    android:textColor="#2A1B31"
+    android:textSize="13sp"
+    android:textStyle="bold"
+    android:maxLines="1" />
+</LinearLayout>

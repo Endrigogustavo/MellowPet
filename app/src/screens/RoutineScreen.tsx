@@ -1,15 +1,84 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { Field } from '../components/Field';
+import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Bar, Card, ScreenTitle, Touchable, Txt } from '../components/ui';
-import { HABITS, ROUTINE } from '../data/content';
+import { Card, ScreenTitle, Toggle, Touchable, Txt } from '../components/ui';
+import { ICONS } from '../data/content';
+import {
+  createRoutineItem,
+  deleteRoutineItem,
+  listRoutineItems,
+  updateRoutineItem,
+  type RoutineItem,
+} from '../routine/routineClient';
+import { cancelRoutineReminder, resyncRoutineReminders, scheduleRoutineReminder } from '../notifications/notifications';
 import { useApp, useTheme } from '../state/AppContext';
+import { DANGER } from '../theme/palette';
+
+function formatTime(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
 
 export function RoutineScreen() {
   const { state, actions } = useApp();
-  const { T, emoColor } = useTheme();
+  const { T } = useTheme();
+
+  const [items, setItems] = useState<RoutineItem[]>([]);
+  const [timeValue, setTimeValue] = useState(() => {
+    const d = new Date();
+    d.setHours(7, 30, 0, 0);
+    return d;
+  });
+  const [showPicker, setShowPicker] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!state.userId) return;
+    listRoutineItems(state.userId).then((list) => {
+      setItems(list);
+      resyncRoutineReminders(list).catch(() => undefined);
+    });
+  }, [state.userId]);
+
+  const onTimeChange = (event: DateTimePickerEvent, selected?: Date) => {
+    setShowPicker(false);
+    if (event.type === 'set' && selected) setTimeValue(selected);
+  };
+
+  const addItem = () => {
+    const time = formatTime(timeValue);
+    const name = nameInput.trim();
+    if (!name || !state.userId) {
+      setFormError('Dê um nome para o item da rotina.');
+      return;
+    }
+    setFormError(null);
+    createRoutineItem(state.userId, time, name, true)
+      .then((item) => {
+        setItems((prev) => [...prev, item].sort((a, b) => a.time.localeCompare(b.time)));
+        setNameInput('');
+        scheduleRoutineReminder(item.id, item.time, item.name).catch(() => undefined);
+      })
+      .catch((error) => setFormError(error instanceof Error ? error.message : 'Não foi possível salvar.'));
+  };
+
+  const toggleNotify = (item: RoutineItem) => {
+    const notify = !item.notify;
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, notify } : i)));
+    updateRoutineItem(item.id, { notify }).catch(() => undefined);
+    if (notify) scheduleRoutineReminder(item.id, item.time, item.name).catch(() => undefined);
+    else cancelRoutineReminder(item.id).catch(() => undefined);
+  };
+
+  const removeItem = (item: RoutineItem) => {
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    deleteRoutineItem(item.id).catch(() => undefined);
+    cancelRoutineReminder(item.id).catch(() => undefined);
+  };
 
   return (
     <ScreenScroll>
@@ -17,51 +86,83 @@ export function RoutineScreen() {
 
       <Section top={0}>
         <Card radius={24} padding={18} style={{ gap: 14 }}>
-          {ROUTINE.map(([time, name, stateLabel, color]) => (
-            <View key={time} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Txt s={12} w={800} c={T.t3} style={{ width: 44 }}>
-                {time}
-              </Txt>
-              <View style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: color }} />
-              <Txt s={13.5} c={T.t1} style={{ flex: 1 }}>
-                {name}
-              </Txt>
-              <Txt s={11} w={800} c={color} ls={0.5} caps>
-                {stateLabel}
-              </Txt>
-            </View>
-          ))}
+          {items.length === 0 ? (
+            <Txt s={12.5} c={T.t3}>
+              Nenhum item na rotina ainda. Adicione um abaixo.
+            </Txt>
+          ) : (
+            items.map((item) => (
+              <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Txt s={12} w={800} c={T.t3} style={{ width: 44 }}>
+                  {item.time}
+                </Txt>
+                <Txt s={13.5} c={T.t1} style={{ flex: 1 }}>
+                  {item.name}
+                </Txt>
+                <Toggle on={item.notify} onPress={() => toggleNotify(item)} />
+                <Touchable onPress={() => removeItem(item)} style={{ padding: 4 }}>
+                  <Icon d={ICONS.close} size={16} color={DANGER} />
+                </Touchable>
+              </View>
+            ))
+          )}
         </Card>
       </Section>
 
       <Section>
         <Card radius={24} padding={18}>
-          <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 14 }}>
-            Hábitos da semana
+          <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 12 }}>
+            Adicionar item
           </Txt>
-          <View style={{ gap: 12 }}>
-            {HABITS.map(([name, done, total]) => (
-              <View key={name}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'baseline',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Txt s={12.5} c={T.t1}>
-                    {name}
-                  </Txt>
-                  <Txt s={11.5} w={800} c={T.t3}>
-                    {done}/{total}
-                  </Txt>
-                </View>
-                <View style={{ marginTop: 6 }}>
-                  <Bar pct={Math.round((done / total) * 100)} color={emoColor} />
-                </View>
-              </View>
-            ))}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Touchable
+              onPress={() => setShowPicker(true)}
+              style={{
+                width: 96,
+                paddingVertical: 13,
+                borderRadius: 14,
+                alignItems: 'center',
+                backgroundColor: T.bg,
+                borderWidth: 1,
+                borderColor: T.bd,
+              }}
+            >
+              <Txt s={14} w={700} c={T.t1}>
+                {formatTime(timeValue)}
+              </Txt>
+            </Touchable>
+            <Field
+              value={nameInput}
+              onChangeText={setNameInput}
+              placeholder="Nome do item"
+              containerStyle={{ flex: 1 }}
+            />
           </View>
+          {showPicker ? (
+            <DateTimePicker value={timeValue} mode="time" is24Hour display="default" onChange={onTimeChange} />
+          ) : null}
+          {formError ? (
+            <Txt s={12} c={DANGER} style={{ marginTop: 8 }}>
+              {formError}
+            </Txt>
+          ) : null}
+          <Touchable
+            onPress={addItem}
+            style={{
+              marginTop: 12,
+              paddingVertical: 13,
+              borderRadius: 14,
+              alignItems: 'center',
+              backgroundColor: T.pri,
+            }}
+          >
+            <Txt s={13.5} w={800} c="#fff">
+              + Adicionar
+            </Txt>
+          </Touchable>
+          <Txt s={11.5} c={T.t3} style={{ marginTop: 10 }}>
+            Cada item ativa um lembrete diário no horário escolhido.
+          </Txt>
         </Card>
       </Section>
 

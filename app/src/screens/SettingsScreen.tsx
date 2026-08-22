@@ -5,24 +5,43 @@ import { acceptInvite, deleteLink, listLinks, type CaregiverLink } from '../care
 import { Field } from '../components/Field';
 import { PetFace } from '../components/PetFace';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Card, PrimaryButton, ScreenTitle, Toggle, ToggleRow, Touchable, Txt, useColumnWidth } from '../components/ui';
+import { Card, PrimaryButton, ScreenTitle, Toggle, ToggleRow, Touchable, Txt } from '../components/ui';
 import { NO_FACE_MINUTES, SETTING_TOGGLES } from '../data/content';
 import { PET_TYPES } from '../data/pets';
-import { fetchSettings, saveSettings } from '../settings/settingsClient';
+import { fetchSettings, saveSettings, type EmergencyContact } from '../settings/settingsClient';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK, mix } from '../theme/palette';
 
 export function SettingsScreen() {
   const { state, actions } = useApp();
   const { T, isDark, full } = useTheme();
-  const petWidth = useColumnWidth(3, 8, 16 + 18); // margem da tela + padding do cartão
-
   const toggles = full ? SETTING_TOGGLES : SETTING_TOGGLES.slice(0, 3);
 
   const [links, setLinks] = useState<CaregiverLink[]>([]);
   const [codeInput, setCodeInput] = useState('');
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
+
+  const [contacts, setContacts] = useState<EmergencyContact[]>([]);
+  const [contactName, setContactName] = useState('');
+  const [contactValue, setContactValue] = useState('');
+
+  const addContact = () => {
+    const name = contactName.trim();
+    const contact = contactValue.trim();
+    if (!name || !contact || !state.userId) return;
+    const next = [...contacts, { name, contact }];
+    setContacts(next);
+    setContactName('');
+    setContactValue('');
+    saveSettings(state.userId, { emergency_contacts: next }).catch(() => undefined);
+  };
+
+  const removeContact = (index: number) => {
+    const next = contacts.filter((_, i) => i !== index);
+    setContacts(next);
+    if (state.userId) saveSettings(state.userId, { emergency_contacts: next }).catch(() => undefined);
+  };
 
   const refreshLinks = () => {
     if (!state.userId) return;
@@ -45,6 +64,7 @@ export function SettingsScreen() {
           noFaceMin: remote.no_face_alert_minutes,
           toggles: { ...state.toggles, music: remote.music_enabled, alerts: remote.alerts_enabled },
         });
+        setContacts(remote.emergency_contacts);
       })
       .catch(() => undefined);
     refreshLinks();
@@ -120,7 +140,7 @@ export function SettingsScreen() {
                   key={id}
                   onPress={() => actions.set({ petType: id })}
                   style={{
-                    width: petWidth,
+                    width: '30%',
                     borderRadius: 16,
                     paddingVertical: 12,
                     paddingHorizontal: 4,
@@ -223,20 +243,22 @@ export function SettingsScreen() {
             </View>
           ) : null}
 
-          <Touchable
-            onPress={() => actions.setRole('care')}
-            style={{
-              marginTop: 14,
-              paddingVertical: 13,
-              borderRadius: 14,
-              alignItems: 'center',
-              backgroundColor: T.priL,
-            }}
-          >
-            <Txt s={13.5} w={800} c={T.pri}>
-              Entrar no modo cuidador
-            </Txt>
-          </Touchable>
+          {state.accountRole === 'care' ? (
+            <Touchable
+              onPress={() => actions.setRole('care')}
+              style={{
+                marginTop: 14,
+                paddingVertical: 13,
+                borderRadius: 14,
+                alignItems: 'center',
+                backgroundColor: T.priL,
+              }}
+            >
+              <Txt s={13.5} w={800} c={T.pri}>
+                Ver painel de cuidador
+              </Txt>
+            </Touchable>
+          ) : null}
         </Card>
       </Section>
 
@@ -310,39 +332,70 @@ export function SettingsScreen() {
               <Txt s={14.5} w={700} c={T.t1}>
                 Contatos de emergência
               </Txt>
-              <View
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 14 }}
-              >
-                <View
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 999,
-                    backgroundColor: T.priL,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Txt s={15} w={800} c={T.pri}>
-                    A
-                  </Txt>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Txt s={14} w={700} c={T.t1}>
-                    Ana Ribeiro
-                  </Txt>
-                  <Txt s={11.5} c={T.t3}>
-                    ana.ribeiro@email.com
-                  </Txt>
-                </View>
+              {contacts.length === 0 ? (
+                <Txt s={12} c={T.t3} style={{ marginTop: 10 }}>
+                  Nenhum contato adicionado ainda.
+                </Txt>
+              ) : (
+                contacts.map((c, i) => (
+                  <View
+                    key={`${c.name}-${i}`}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 14 }}
+                  >
+                    <View
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 999,
+                        backgroundColor: T.priL,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Txt s={15} w={800} c={T.pri}>
+                        {c.name.charAt(0).toUpperCase() || '?'}
+                      </Txt>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Txt s={14} w={700} c={T.t1}>
+                        {c.name}
+                      </Txt>
+                      <Txt s={11.5} c={T.t3}>
+                        {c.contact}
+                      </Txt>
+                    </View>
+                    <Touchable onPress={() => removeContact(i)} style={{ padding: 6 }}>
+                      <Txt s={11.5} w={800} c={DANGER}>
+                        Remover
+                      </Txt>
+                    </Touchable>
+                  </View>
+                ))
+              )}
+              <View style={{ marginTop: 14, gap: 8 }}>
+                <Field
+                  label="Nome"
+                  value={contactName}
+                  onChangeText={setContactName}
+                  placeholder="ex. Ana Ribeiro"
+                />
+                <Field
+                  label="Email ou telefone"
+                  value={contactValue}
+                  onChangeText={setContactValue}
+                  placeholder="ex. ana@email.com"
+                />
               </View>
               <Touchable
+                onPress={addContact}
+                disabled={!contactName.trim() || !contactValue.trim()}
                 style={{
                   marginTop: 14,
                   paddingVertical: 13,
                   borderRadius: 14,
                   alignItems: 'center',
                   backgroundColor: T.priL,
+                  opacity: contactName.trim() && contactValue.trim() ? 1 : 0.5,
                 }}
               >
                 <Txt s={14} w={800} c={T.pri}>

@@ -1,16 +1,15 @@
-import { apiDelete, apiGet, apiPost } from '../api/client';
+import { supabase } from '../supabase/client';
 import type { JournalEntry } from '../state/AppContext';
 
-type JournalApiEntry = {
-  entry_id: string;
-  user_id: string;
+type JournalRow = {
+  id: string;
   text: string;
   tag: string | null;
   created_at: string;
 };
 
 function formatWhen(createdAt: string): string {
-  const date = new Date(createdAt.endsWith('Z') ? createdAt : `${createdAt}Z`);
+  const date = new Date(createdAt);
   if (Number.isNaN(date.getTime())) return '';
   const minutesAgo = (Date.now() - date.getTime()) / 60_000;
   if (minutesAgo < 60) return 'agora';
@@ -19,14 +18,18 @@ function formatWhen(createdAt: string): string {
 
 export type StoredJournalEntry = JournalEntry & { entryId: string };
 
+function fromRow(row: JournalRow): StoredJournalEntry {
+  return { entryId: row.id, text: row.text, tag: row.tag ?? '', when: formatWhen(row.created_at) };
+}
+
 export async function listJournalEntries(userId: string): Promise<StoredJournalEntry[]> {
-  const data = await apiGet<{ entries: JournalApiEntry[] }>('/api/v1/journal/', { user_id: userId });
-  return data.entries.map((e) => ({
-    entryId: e.entry_id,
-    text: e.text,
-    tag: e.tag ?? '',
-    when: formatWhen(e.created_at),
-  }));
+  const { data, error } = await supabase
+    .from('journal_entries')
+    .select('id, text, tag, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  return data.map(fromRow);
 }
 
 export async function createJournalEntry(
@@ -34,10 +37,15 @@ export async function createJournalEntry(
   text: string,
   tag: string
 ): Promise<StoredJournalEntry> {
-  const entry = await apiPost<JournalApiEntry>('/api/v1/journal/', { user_id: userId, text, tag });
-  return { entryId: entry.entry_id, text: entry.text, tag: entry.tag ?? '', when: 'agora' };
+  const { data, error } = await supabase
+    .from('journal_entries')
+    .insert({ user_id: userId, text, tag })
+    .select('id, text, tag, created_at')
+    .single();
+  if (error || !data) throw new Error('Não foi possível salvar o registro.');
+  return fromRow(data);
 }
 
-export async function deleteJournalEntry(userId: string, entryId: string): Promise<void> {
-  await apiDelete(`/api/v1/journal/${entryId}`, { user_id: userId });
+export async function deleteJournalEntry(_userId: string, entryId: string): Promise<void> {
+  await supabase.from('journal_entries').delete().eq('id', entryId);
 }

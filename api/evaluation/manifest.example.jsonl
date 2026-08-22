@@ -1,3 +1,0 @@
-{"sample_id":"smoke-neutral-01","subject_id":"synthetic-01","label":"neutral","media_path":null,"slices":{"lighting":"good","device_tier":"synthetic"},"usage":"harness_smoke_only"}
-{"sample_id":"smoke-happy-01","subject_id":"synthetic-02","label":"happy","media_path":null,"slices":{"lighting":"good","device_tier":"synthetic"},"usage":"harness_smoke_only"}
-{"sample_id":"smoke-sad-01","subject_id":"synthetic-03","label":"sad","media_path":null,"slices":{"lighting":"low","device_tier":"synthetic"},"usage":"harness_smoke_only"}

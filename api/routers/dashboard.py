@@ -1,103 +1,42 @@
 """
-Dashboard Router — Analytics and AI-powered emotional insights
+Dashboard Router — AI-generated insight only.
+
+Métricas (linha do tempo, distribuição, índice de bem-estar) são calculadas
+no cliente a partir de leituras lidas direto do Supabase (RLS decide o que
+cada usuário pode ver). Este endpoint existe só porque gerar o insight
+precisa de uma chave de provedor de IA, que não pode ir para o app.
 """
-import time
-from typing import Optional
+from typing import Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
+from pydantic import BaseModel, ConfigDict, Field
 
-from routers.history import require_scope
 from services.ai_service import ai_chat_service
-from utils.database import database, emotion_events
 from utils.logger import setup_logger
 
 router = APIRouter()
 logger = setup_logger(__name__)
 
+KnownEmotion = Literal["happy", "sad", "angry", "neutral", "surprised", "disgusted", "fearful"]
 
-@router.get("/overview", summary="Full dashboard overview")
-async def get_dashboard(
-    user_id: Optional[str] = Query(None, max_length=64),
-    session_id: Optional[str] = Query(None, max_length=64),
-    hours: int = Query(24, ge=1, le=168),
-):
-    """
-    Complete dashboard data: timeline, heatmap, dominant moods, and AI insight."""
-    require_scope(session_id, user_id)
-    since = time.time() - (hours * 3600)
 
-    query = emotion_events.select().where(
-        (emotion_events.c.timestamp >= since)
-        & emotion_events.c.face_detected.is_(True)
-    )
-    if user_id:
-        query = query.where(emotion_events.c.user_id == user_id)
-    if session_id:
-        query = query.where(emotion_events.c.session_id == session_id)
-    query = query.order_by(emotion_events.c.timestamp.asc())
+class InsightSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    rows = await database.fetch_all(query)
-    events = [dict(r) for r in rows]
+    dominant: KnownEmotion
+    distribution: dict[str, float] = Field(max_length=8)
+    wellbeing_score: float = Field(ge=0, le=100)
+    total_readings: int = Field(ge=0, le=1_000_000)
 
-    if not events:
-        return {
-            "period_hours": hours,
-            "total_events": 0,
-            "timeline": [],
-            "emotion_distribution": {},
-            "hourly_heatmap": {},
-            "peak_emotions": [],
-            "ai_insight": "Sem dados ainda. Comece a usar o MellowPet para ver seus insights! ",
-            "wellbeing_score": None,
-        }
 
-    # Build hourly buckets for timeline
-    hourly: dict[int, dict[str, int]] = {}
-    emotion_counts: dict[str, int] = {}
+class InsightRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    for e in events:
-        h = int((e["timestamp"] - since) // 3600)
-        hourly.setdefault(h, {})
-        em = e["emotion"]
-        hourly[h][em] = hourly[h].get(em, 0) + 1
-        emotion_counts[em] = emotion_counts.get(em, 0) + 1
+    summary: InsightSummary
+    period: str = Field(min_length=1, max_length=32)
 
-    total = len(events)
-    emotion_pct = {k: round(v / total * 100, 1) for k, v in emotion_counts.items()}
 
-    # Wellbeing score (0-100)
-    positive_pct = sum(
-        emotion_pct.get(e, 0) for e in ["happy", "surprised"]
-    )
-    negative_pct = sum(
-        emotion_pct.get(e, 0) for e in ["sad", "angry", "disgusted", "fearful"]
-    )
-    wellbeing = round(50 + (positive_pct - negative_pct) * 0.5, 1)
-    wellbeing = max(0, min(100, wellbeing))
-
-    # Timeline for chart
-    timeline = [
-        {"hour": h, "emotions": hourly[h], "total": sum(hourly[h].values())}
-        for h in sorted(hourly.keys())
-    ]
-
-    # AI Insight
-    summary = {
-        "dominant": max(emotion_counts, key=emotion_counts.get),
-        "distribution": emotion_pct,
-        "wellbeing_score": wellbeing,
-        "total_readings": total,
-    }
-    ai_insight, ai_provider = await ai_chat_service.generate_insight(summary, f"nas últimas {hours}h")
-
-    return {
-        "period_hours": hours,
-        "total_events": total,
-        "timeline": timeline,
-        "emotion_distribution": emotion_pct,
-        "emotion_counts": emotion_counts,
-        "wellbeing_score": wellbeing,
-        "peak_emotions": sorted(emotion_counts.items(), key=lambda x: x[1], reverse=True)[:3],
-        "ai_insight": ai_insight,
-        "ai_provider": ai_provider,
-    }
+@router.post("/insight", summary="Generate an AI insight for an already-computed emotion summary")
+async def generate_insight(request: InsightRequest):
+    insight, provider = await ai_chat_service.generate_insight(request.summary.model_dump(), request.period)
+    return {"insight": insight, "provider": provider}

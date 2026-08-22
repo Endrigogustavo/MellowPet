@@ -1,3 +1,0 @@
-{"sample_id":"smoke-neutral-01","predicted_label":"neutral","signal_status":"ready","signal_confidence":0.84,"distribution":{"neutral":0.84,"happy":0.04,"sad":0.04,"angry":0.02,"surprised":0.02,"disgusted":0.02,"fearful":0.02},"latency_ms":72.0}
-{"sample_id":"smoke-happy-01","predicted_label":"happy","signal_status":"ready","signal_confidence":0.88,"distribution":{"neutral":0.03,"happy":0.88,"sad":0.02,"angry":0.02,"surprised":0.03,"disgusted":0.01,"fearful":0.01},"latency_ms":79.0}
-{"sample_id":"smoke-sad-01","predicted_label":"unknown","signal_status":"insufficient_quality","signal_confidence":0.0,"quality_reasons":["too_dark"],"distribution":{},"latency_ms":21.0}

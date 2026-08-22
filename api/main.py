@@ -12,8 +12,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 from config import settings
-from routers import auth, care, emotion, history, alerts, dashboard, ai_chat, journal, settings as settings_router, tools, vision_v2
-from utils.database import init_db, close_db
+from routers import ai_chat, dashboard, tools
 from utils.logger import setup_logger
 from utils.security import (
     ApiKeyMiddleware,
@@ -34,41 +33,33 @@ async def lifespan(app: FastAPI):
     for warning in settings.validate_for_runtime():
         logger.warning("%s", warning)
 
-    await init_db()
-    logger.info("Banco inicializado")
     logger.info("CORS=%s · API key=%s · rate limit=%s/min",
         settings.cors_origin_list,
         "ativa" if settings.api_key else "DESLIGADA",
         settings.rate_limit_per_minute,
     )
     yield
-    await close_db()
     logger.info("MellowPet API encerrando...")
 
 
 app = FastAPI(
     title="MellowPet API",
     description="""
-##  MellowPet — Intelligent Emotional Interaction System
+##  MellowPet — API mínima de IA
 
-API responsável por:
-- Processamento contínuo de frames para detecção de expressões faciais
-- Análise emocional em tempo real com modelos de Deep Learning
-- Geração de insights comportamentais com IA
-- Gerenciamento de alertas e notificações
-- Dashboard com histórico emocional
+Banco, autenticação e realtime são falados direto pelo app via Supabase
+(RLS decide o que cada usuário pode ler/escrever). Esta API só existe para
+o que exige uma chave secreta de provedor de IA:
 - Chat empático com o Mellow, baseado na emoção detectada
+- Insight de bem-estar gerado a partir de métricas já calculadas no cliente
 
-### Expressões faciais observadas
-`happy` · `sad` · `angry` · `surprised` · `neutral` · `disgusted` · `fearful` · `unknown`
-
-`unknown` significa ausência de evidência visual suficiente. A API descreve
-expressões observadas e não diagnostica o estado emocional da pessoa.
+E conteúdo estático de ferramentas (respiração, aterramento, etc.), sem
+banco nem autenticação envolvidos.
 
 ### Autenticação
 Envie a chave compartilhada no header `X-API-Key` em todas as rotas `/api/v1/*`.
     """,
-    version="2.0.0",
+    version="3.0.0",
     contact={"name": "MellowPet Team"},
     lifespan=lifespan,
     # Swagger sai do ar em producao para nao publicar a superficie da API.
@@ -115,17 +106,9 @@ async def log_requests(request: Request, call_next):
 
 
 # ── Routers ─────────────────────────────────────────────────────────────────
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
-app.include_router(journal.router, prefix="/api/v1/journal", tags=["Journal"])
-app.include_router(settings_router.router, prefix="/api/v1/settings", tags=["User Settings"])
-app.include_router(care.router, prefix="/api/v1/care", tags=["Caregiver"])
-app.include_router(emotion.router, prefix="/api/v1/emotion", tags=["Emotion Detection"])
-app.include_router(history.router, prefix="/api/v1/history", tags=["Emotional History"])
-app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["Alerts"])
-app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["Dashboard"])
+app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["Dashboard Insight"])
 app.include_router(ai_chat.router, prefix="/api/v1/chat", tags=["AI Chat"])
 app.include_router(tools.router, prefix="/api/v1/tools", tags=["Tools"])
-app.include_router(vision_v2.router, prefix="/api/v2", tags=["On-device Vision V2"])
 
 
 # ── Health Check ─────────────────────────────────────────────────────────────
@@ -134,7 +117,7 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "MellowPet API",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "env": settings.app_env,
         "timestamp": time.time(),
     }

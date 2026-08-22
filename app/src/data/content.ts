@@ -13,115 +13,11 @@ export type Period = {
   bars: [string, number][];
   /** [rótulo, ocorrências, cor, emoção] */
   peaks: [string, number, string, EmotionKey][];
+  /** Linha do dia com hora real e emoção dominante. */
+  timeline: [string, EmotionKey][];
 };
 
-export const PERIOD_DATA: Period[] = [
-  {
-    label: '24 horas',
-    events: 412,
-    wb: 68,
-    insight:
-      'Nas últimas horas houve mais expressões neutras e alguns sinais faciais de alerta no fim da tarde. Só você pode confirmar como se sentia nesses momentos.',
-    dist: [
-      ['Neutro', 42, '#B2BEC3'],
-      ['Feliz', 26, '#FFD166'],
-      ['Sinais de receio', 20, '#A29BFE'],
-      ['Triste', 12, '#74B9FF'],
-    ],
-    bars: [
-      ['8h', 18],
-      ['10h', 34],
-      ['12h', 27],
-      ['14h', 41],
-      ['16h', 52],
-      ['18h', 63],
-      ['20h', 38],
-      ['22h', 21],
-    ],
-    peaks: [
-      ['Neutro', 172, '#B2BEC3', 'neutral'],
-      ['Feliz', 107, '#FFD166', 'happy'],
-      ['Sinais de receio', 82, '#A29BFE', 'fearful'],
-    ],
-  },
-  {
-    label: '3 dias',
-    events: 1184,
-    wb: 74,
-    insight:
-      'Três dias com padrão parecido: manhãs estáveis, tardes mais tensas. O sábado puxou a média para cima — vale entender o que foi diferente.',
-    dist: [
-      ['Feliz', 38, '#FFD166'],
-      ['Neutro', 34, '#B2BEC3'],
-      ['Sinais de receio', 16, '#A29BFE'],
-      ['Triste', 12, '#74B9FF'],
-    ],
-    bars: [
-      ['seg', 44],
-      ['ter', 51],
-      ['qua', 39],
-      ['qui', 58],
-      ['sex', 66],
-      ['sáb', 72],
-      ['dom', 49],
-      ['hoje', 55],
-    ],
-    peaks: [
-      ['Feliz', 450, '#FFD166', 'happy'],
-      ['Neutro', 402, '#B2BEC3', 'neutral'],
-      ['Sinais de receio', 189, '#A29BFE', 'fearful'],
-    ],
-  },
-  {
-    label: '7 dias',
-    events: 2947,
-    wb: 61,
-    insight:
-      'Na semana, sinais faciais de desconforto se concentraram em dois dias. Isso não determina como você se sentia, mas pode ajudar a lembrar o contexto.',
-    dist: [
-      ['Neutro', 36, '#B2BEC3'],
-      ['Sinais de receio', 24, '#A29BFE'],
-      ['Feliz', 22, '#FFD166'],
-      ['Triste', 18, '#74B9FF'],
-    ],
-    bars: [
-      ['S1', 38],
-      ['S2', 47],
-      ['S3', 62],
-      ['S4', 71],
-      ['S5', 44],
-      ['S6', 33],
-      ['S7', 56],
-      ['S8', 48],
-    ],
-    peaks: [
-      ['Neutro', 1061, '#B2BEC3', 'neutral'],
-      ['Sinais de receio', 707, '#A29BFE', 'fearful'],
-      ['Feliz', 648, '#FFD166', 'happy'],
-    ],
-  },
-];
-
 export const PERIOD_LABELS = ['24h', '3 dias', '7 dias'];
-
-export const TIMELINE: [string, EmotionKey][] = [
-  ['7h', 'neutral'],
-  ['9h', 'fearful'],
-  ['11h', 'neutral'],
-  ['13h', 'happy'],
-  ['15h', 'neutral'],
-  ['17h', 'sad'],
-  ['19h', 'fearful'],
-  ['21h', 'neutral'],
-];
-
-/** [nome, ocorrências, % da barra] */
-export const TRIGGERS: [string, number, number][] = [
-  ['Antes de provas', 14, 88],
-  ['Grupo da turma', 9, 58],
-  ['Domingo à noite', 7, 44],
-  ['Depois do treino', 3, 20],
-];
 
 /* ── Ferramentas ────────────────────────────────────────────────────────── */
 
@@ -296,42 +192,6 @@ export const GROUND = [
 ];
 
 /** [nome, feito, total] */
-export const GOALS: [string, number, number][] = [
-  ['Respirar 2x por dia', 1, 2],
-  ['Registrar o humor à noite', 5, 7],
-  ['Uma pausa a cada 90 min', 3, 4],
-];
-
-/** [nome, descrição, conquistado, ícone] */
-export const BADGES: [string, string, boolean, string][] = [
-  [
-    'Primeira semana',
-    '7 dias seguidos de leitura',
-    true,
-    'M12 3l2.6 5.6 6.1.8-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6L3.3 9.4l6.1-.8z',
-  ],
-  [
-    'Respiração x10',
-    '10 sessões concluídas',
-    true,
-    'M12 4c3.2 0 5.6 2.4 5.6 5.3 0 4-5.6 10.7-5.6 10.7S6.4 13.3 6.4 9.3C6.4 6.4 8.8 4 12 4z',
-  ],
-  ['Nomeou o sentimento', '30 registros no diário', true, 'M6 4h10l4 4v12H6zM16 4v4h4M9 13h7'],
-  [
-    'Pediu ajuda',
-    'Falou com alguém num dia difícil',
-    false,
-    'M16 18v-1.5a3 3 0 00-3-3H7a3 3 0 00-3 3V18M10 5.5a3 3 0 100 6 3 3 0 000-6',
-  ],
-  [
-    'Noite calma',
-    '5 noites sem ansiedade tarde',
-    false,
-    'M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z',
-  ],
-  ['Mês inteiro', '30 dias de uso contínuo', false, 'M4 7h16v13H4zM8 3v4M16 3v4M4 11h16'],
-];
-
 /* ── Música ─────────────────────────────────────────────────────────────── */
 
 export type Track = {
@@ -496,47 +356,6 @@ export type CarePerson = {
   plan: string[];
 };
 
-export const CARE_PEOPLE: CarePerson[] = [
-  {
-    id: 'lia',
-    name: 'Lia',
-    rel: 'Filha · 14 anos',
-    wb: 58,
-    status: 'atenção',
-    last: 'há 4 min',
-    color: '#A29BFE',
-    alerts: [
-      ['Tristeza por 18 min seguidos', 'ontem, 21h40', '#74B9FF'],
-      ['Sem detecção por 3 horas', 'ontem, 15h', '#B2BEC3'],
-      ['Ansiedade recorrente à noite', '3 dias seguidos', '#A29BFE'],
-    ],
-    ai: 'Lia teve três noites seguidas com ansiedade entre 21h e 23h. O padrão é consistente e ainda não gerou alerta crítico. Sugestão: uma conversa curta antes de dormir e ativar a playlist Sono profundo às 21h30.',
-    plan: [
-      'Conversar hoje, sem cobrar respostas',
-      'Ativar Sono profundo às 21h30',
-      'Rever em 3 dias se o padrão cedeu',
-    ],
-  },
-  {
-    id: 'theo',
-    name: 'Theo',
-    rel: 'Filho · 9 anos',
-    wb: 81,
-    status: 'estável',
-    last: 'há 12 min',
-    color: '#FFD166',
-    alerts: [
-      ['Pico de alegria após a escola', 'hoje, 18h', '#FFD166'],
-      ['Uma leitura de raiva breve', 'ontem, 19h', '#FF7675'],
-    ],
-    ai: 'Theo está estável. As leituras de raiva são curtas e se resolvem sozinhas — típico da idade. Nada a fazer além de manter a rotina.',
-    plan: ['Manter a rotina atual', 'Elogiar o que ele já resolve sozinho'],
-  },
-];
-
-export const CARE_TREND = [58, 64, 52, 71, 66, 49, 74];
-export const CARE_TREND_DAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
-
 export const CARE_RELS = [
   'Mãe/Pai',
   'Responsável',
@@ -556,12 +375,12 @@ export const CARE_SCOPES: [string, string, string][] = [
 
 /** [título, subtítulo, ícone, tela de destino] */
 export const CARE_QUICK: [string, string, string, string][] = [
-  ['Ver alertas', '3 novos', 'M12 4a6 6 0 016 6v4l2 3H4l2-3v-4a6 6 0 016-6zM10 20h4', 'care'],
+  ['Ver alertas', 'Avisos recentes', 'M12 4a6 6 0 016 6v4l2 3H4l2-3v-4a6 6 0 016-6zM10 20h4', 'care'],
   ['Relatório', 'Semana pronta', 'M6 4h10l4 4v12H6zM16 4v4h4M9 13h7M9 16.5h5', 'dashboard'],
   ['Conversar', 'Roteiro por idade', 'M20 12a8 8 0 01-11.5 7.2L4 20l.9-4.3A8 8 0 1120 12z', 'chat'],
   [
     'Plano de crise',
-    'Combinado com Lia',
+    'Combine com quem você cuida',
     'M12 8v5M12 16.5h.01M12 3a9 9 0 100 18 9 9 0 000-18z',
     'caretools',
   ],
@@ -591,43 +410,11 @@ export const CARE_TOOLS: [string, string, string][] = [
   ],
 ];
 
-export const CARE_BRIEFING =
-  'Hoje: Lia acordou estável, mas as últimas três noites tiveram ansiedade entre 21h e 23h. Theo está bem. Nenhum alerta crítico nas últimas 24 horas.';
-
 /* ── Rotina e agenda ────────────────────────────────────────────────────── */
 
 /** [hora, nome, estado, cor] */
-export const ROUTINE: [string, string, string, string][] = [
-  ['07:00', 'Acordar', 'feito', '#10B981'],
-  ['07:30', 'Respiração de 1 min', 'feito', '#10B981'],
-  ['12:30', 'Pausa de almoço sem tela', 'agora', '#F59E0B'],
-  ['17:00', 'Treino ou caminhada', 'a fazer', '#9CA3AF'],
-  ['21:30', 'Diário e Sono profundo', 'a fazer', '#9CA3AF'],
-];
-
-/** [nome, feito, total] */
-export const HABITS: [string, number, number][] = [
-  ['Dormir antes da 0h', 5, 7],
-  ['Beber água 6x', 4, 7],
-  ['Sair de casa', 6, 7],
-  ['Sem tela na cama', 3, 7],
-];
-
-/** [quando, título, subtítulo, cor] */
-export const AGENDA: [string, string, string, string][] = [
-  ['Hoje, 19h', 'Check-in com Lia', 'Pergunta combinada do dia', '#A29BFE'],
-  ['Amanhã, 8h', 'Remédio da manhã', 'Lembrete no aparelho dela', '#74B9FF'],
-  ['Quinta, 15h', 'Terapia — Dra. Helena', 'Levar o relatório da semana', '#55EFC4'],
-  ['Sexta, 10h', 'Reunião na escola', 'Coordenação pedagógica', '#FFD166'],
-];
-
-/** [nome, papel, inicial, cor] */
-export const TEAM: [string, string, string, string][] = [
-  ['Dra. Helena Prado', 'Psicóloga · quinzenal', 'H', '#55EFC4'],
-  ['Prof. Rui Matos', 'Coordenador escolar', 'R', '#FFD166'],
-  ['Carlos Ribeiro', 'Pai · segundo cuidador', 'C', '#74B9FF'],
-];
-
+/** Sugestão estática de blocos do dia — mesma categoria de conteúdo fixo que
+ * PLAYLISTS/TOOL_LIST, sem estado de conclusão (nada rastreia isso ainda). */
 /* ── Planos, guia e integrações ─────────────────────────────────────────── */
 
 /** [id, nome, preço, período, benefícios, destaque] */

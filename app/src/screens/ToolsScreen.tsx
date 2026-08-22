@@ -4,15 +4,8 @@ import { View } from 'react-native';
 import { Field } from '../components/Field';
 import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Bar, Card, Chip, ScreenTitle, Touchable, Txt, useColumnWidth } from '../components/ui';
-import {
-  BADGES,
-  GOALS,
-  GROUND,
-  ICONS,
-  JOURNAL_TAGS,
-  TOOL_LIST,
-} from '../data/content';
+import { Card, Chip, ScreenTitle, Touchable, Txt, useColumnWidth } from '../components/ui';
+import { GROUND, ICONS, JOURNAL_TAGS, TOOL_LIST } from '../data/content';
 import { FACE_ICON } from '../data/emotions';
 import { createJournalEntry, listJournalEntries } from '../journal/journalClient';
 import { useApp, useTheme } from '../state/AppContext';
@@ -53,7 +46,6 @@ export function ToolsScreen() {
   const { T, full, emo, emoColor, emoLight } = useTheme();
 
   const toolWidth = useColumnWidth(2, 10);
-  const badgeWidth = useColumnWidth(3, 9);
   const tools = full ? TOOL_LIST : TOOL_LIST.slice(0, 6);
   const confPct = Math.round(emo.conf * 100);
   const canSave = state.jInput.trim().length > 0;
@@ -322,67 +314,6 @@ export function ToolsScreen() {
         )}
       </Section>
 
-      {/* metas */}
-      <Section top={14}>
-        <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 10 }}>
-          Metas da semana
-        </Txt>
-        <Card style={{ gap: 13 }}>
-          {GOALS.map(([name, done, total]) => (
-            <View key={name}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'baseline',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <Txt s={13} c={T.t1}>
-                  {name}
-                </Txt>
-                <Txt s={12} w={800} c={T.t3}>
-                  {done}/{total}
-                </Txt>
-              </View>
-              <View style={{ marginTop: 7 }}>
-                <Bar pct={Math.round((done / total) * 100)} color={T.pri} />
-              </View>
-            </View>
-          ))}
-        </Card>
-      </Section>
-
-      {/* conquistas */}
-      <Section top={14}>
-        <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 10 }}>
-          Conquistas
-        </Txt>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
-          {BADGES.map(([name, , got, icon]) => (
-            <View
-              key={name}
-              style={{
-                width: badgeWidth,
-                borderRadius: 18,
-                paddingVertical: 13,
-                paddingHorizontal: 8,
-                alignItems: 'center',
-                gap: 7,
-                backgroundColor: got ? T.priL : T.surf,
-                borderWidth: 1,
-                borderStyle: got ? 'solid' : 'dashed',
-                borderColor: got ? 'transparent' : T.bd,
-                opacity: got ? 1 : 0.55,
-              }}
-            >
-              <Icon d={icon} size={21} color={got ? T.pri : T.t3} />
-              <Txt s={10.5} w={800} lh={1.3} c={T.t1} center>
-                {name}
-              </Txt>
-            </View>
-          ))}
-        </View>
-      </Section>
 
       {/* atalhos */}
       <Section top={14}>

@@ -1,10 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
-import type {
-  VisionBatchResponse,
-  VisionEventEnvelope,
-  VisionFeedback,
-} from './eventContracts';
+import { supabase } from '../supabase/client';
+import type { VisionEventEnvelope, VisionFeedback } from './eventContracts';
 import { VISION_FLAGS } from './featureFlags';
 
 const INDEX_KEY = 'mellowpet.vision.queue.v2.index';
@@ -15,8 +12,6 @@ const BASE_BACKOFF_MS = 2_000;
 const MAX_BACKOFF_MS = 5 * 60 * 1000;
 
 export const VISION_EVENT_UPLOAD_ENABLED = VISION_FLAGS.eventUploadEnabled;
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
-const API_KEY = process.env.EXPO_PUBLIC_API_KEY ?? '';
 
 type QueueIndexItem = { id: string; createdAtMs: number };
 type StoredQueueItem =
@@ -142,63 +137,118 @@ function metrics(items: StoredQueueItem[]): VisionQueueMetrics {
   };
 }
 
-async function postJson(path: string, body: unknown) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(API_KEY ? { 'X-API-Key': API_KEY } : null),
-    },
-    body: JSON.stringify(body),
-  });
-  return response;
+function intervalRow(envelope: VisionEventEnvelope) {
+  const e = envelope.event;
+  return {
+    event_id: e.event_id,
+    session_id: envelope.session_id,
+    device_session_id: envelope.device_session_id,
+    user_id: envelope.user_id,
+    kind: e.kind,
+    started_at: e.started_at,
+    ended_at: e.ended_at,
+    duration_ms: e.duration_ms,
+    observed_expression: e.observed_expression,
+    expression_distribution: e.expression_distribution,
+    signal_confidence: e.signal_confidence,
+    quality_mean: e.quality.mean,
+    accepted_coverage: e.quality.accepted_coverage,
+    quality_reasons: e.quality.reasons,
+    tension_signal: e.tension_signal,
+    model_version: e.model_version,
+    pipeline_version: e.pipeline_version,
+    quality_config_version: e.quality_config_version,
+    calibration_version: e.calibration_version,
+    source: e.source,
+  };
+}
+
+function emotionRow(envelope: VisionEventEnvelope) {
+  const e = envelope.event;
+  return {
+    event_id: e.event_id,
+    session_id: envelope.session_id,
+    user_id: envelope.user_id,
+    emotion: e.observed_expression,
+    confidence: e.signal_confidence,
+    all_scores: e.expression_distribution,
+    face_detected: true,
+    source: 'mobile_v2',
+    created_at: e.ended_at,
+  };
+}
+
+/** Sem usuário autenticado não há como escrever sob RLS — descarta em vez
+ * de tentar pra sempre (nunca vai conseguir). */
+async function pushEvents(items: { id: string; payload: VisionEventEnvelope }[]): Promise<Set<string>> {
+  const acknowledged = new Set<string>();
+  const withUser = items.filter((item) => item.payload.user_id);
+  items.filter((item) => !item.payload.user_id).forEach((item) => acknowledged.add(item.id));
+  if (withUser.length === 0) return acknowledged;
+
+  const { error: intervalError } = await supabase
+    .from('vision_intervals')
+    .upsert(withUser.map((item) => intervalRow(item.payload)), { onConflict: 'event_id', ignoreDuplicates: true });
+  if (intervalError) throw intervalError;
+
+  const emotionRows = withUser
+    .filter((item) => item.payload.event.observed_expression !== 'unknown')
+    .map((item) => emotionRow(item.payload));
+  if (emotionRows.length > 0) {
+    const { error: emotionError } = await supabase
+      .from('emotion_events')
+      .upsert(emotionRows, { onConflict: 'event_id', ignoreDuplicates: true });
+    if (emotionError) throw emotionError;
+  }
+
+  withUser.forEach((item) => acknowledged.add(item.id));
+  return acknowledged;
+}
+
+async function pushFeedback(items: { id: string; payload: VisionFeedback }[]): Promise<Set<string>> {
+  const acknowledged = new Set<string>();
+  for (const item of items) {
+    const { error } = await supabase.from('vision_feedback').upsert(
+      {
+        feedback_id: item.payload.feedback_id,
+        event_id: item.payload.event_id,
+        agreement: item.payload.agreement,
+        self_reported_state: item.payload.self_reported_state ?? null,
+        corrected_observed_expression: item.payload.corrected_observed_expression ?? null,
+        note: item.payload.note ?? null,
+        created_at_ts: item.payload.created_at,
+      },
+      { onConflict: 'feedback_id', ignoreDuplicates: true }
+    );
+    // Evento referenciado pode ter sido descartado (sem user_id) — não
+    // trava a fila por isso, só não reconhece esse item de feedback.
+    if (!error) acknowledged.add(item.id);
+  }
+  return acknowledged;
 }
 
 async function performFlush(): Promise<VisionQueueMetrics> {
   const items = await listItems();
-  if (!VISION_EVENT_UPLOAD_ENABLED || !API_BASE_URL || items.length === 0) return metrics(items);
+  if (!VISION_EVENT_UPLOAD_ENABLED || items.length === 0) return metrics(items);
   if (Date.now() < nextAttemptAtMs) return metrics(items);
 
   const acknowledged = new Set<string>();
   try {
-    const eventItems = items.filter((item) => item.type === 'event');
-    const groups = new Map<string, typeof eventItems>();
-    eventItems.forEach((item) => {
-      const key = [
-        item.payload.session_id,
-        item.payload.device_session_id,
-        item.payload.user_id ?? '',
-      ].join('|');
-      groups.set(key, [...(groups.get(key) ?? []), item]);
-    });
-
-    for (const group of groups.values()) {
-      const first = group[0].payload;
-      const response = await postJson('/api/v2/expression-events:batch', {
-        session_id: first.session_id,
-        device_session_id: first.device_session_id,
-        ...(first.user_id ? { user_id: first.user_id } : null),
-        events: group.map((item) => item.payload.event),
-      });
-      if (!response.ok) throw new Error(`event_batch_${response.status}`);
-      const result = (await response.json()) as VisionBatchResponse;
-      const acceptedIds = new Set([
-        ...result.accepted_event_ids,
-        ...result.duplicate_event_ids,
-        ...result.rejected
-          .filter((event) => event.reason !== 'storage_error')
-          .map((event) => event.event_id),
-      ]);
-      group.forEach((item) => {
-        if (acceptedIds.has(item.payload.event.event_id)) acknowledged.add(item.id);
-      });
+    const eventItems = items.filter(
+      (item): item is StoredQueueItem & { type: 'event' } => item.type === 'event'
+    );
+    if (eventItems.length > 0) {
+      const acked = await pushEvents(eventItems);
+      acked.forEach((id) => acknowledged.add(id));
     }
 
     // Eventos sempre sao enviados antes do feedback que os referencia.
-    for (const item of items.filter((entry) => entry.type === 'feedback')) {
-      const response = await postJson('/api/v2/expression-feedback', item.payload);
-      if (response.ok) acknowledged.add(item.id);
-      else if (response.status !== 404) throw new Error(`feedback_${response.status}`);
+    const feedbackItems = items.filter(
+      (item): item is StoredQueueItem & { type: 'feedback' } => item.type === 'feedback'
+    );
+    if (feedbackItems.length > 0) {
+      const acked = await pushFeedback(feedbackItems);
+      acked.forEach((id) => acknowledged.add(id));
     }
 
     await removeItems(acknowledged);

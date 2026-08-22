@@ -1,17 +1,42 @@
-import React from 'react';
-import { View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Share, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 
 import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { ScreenTitle, Touchable, Txt, useColumnWidth } from '../components/ui';
 import { CARE_TOOLS, ICONS } from '../data/content';
+import { getOrCreatePendingInvite } from '../care/careClient';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER } from '../theme/palette';
 
 export function CareToolsScreen() {
-  const { actions } = useApp();
+  const { state, actions } = useApp();
   const { T } = useTheme();
   const cardWidth = useColumnWidth(2, 9);
+
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!state.userId) return;
+    getOrCreatePendingInvite(state.userId)
+      .then((link) => setInviteCode(link.invite_code))
+      .catch(() => undefined);
+  }, [state.userId]);
+
+  const copyCode = async () => {
+    if (!inviteCode) return;
+    await Clipboard.setStringAsync(inviteCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareCode = () => {
+    if (!inviteCode) return;
+    Share.share({ message: `Use o código ${inviteCode} para se conectar comigo no MellowPet.` }).catch(
+      () => undefined
+    );
+  };
 
   return (
     <ScreenScroll>
@@ -76,9 +101,41 @@ export function CareToolsScreen() {
             }}
           >
             <Txt s={20} w={800} c={T.t1} ls={4}>
-              MEL-4821
+              {inviteCode ?? '···· ····'}
             </Txt>
           </View>
+          {inviteCode ? (
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+              <Touchable
+                onPress={copyCode}
+                style={{
+                  flex: 1,
+                  paddingVertical: 11,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  backgroundColor: T.surf,
+                }}
+              >
+                <Txt s={12.5} w={800} c={T.pri}>
+                  {copied ? 'Copiado!' : 'Copiar código'}
+                </Txt>
+              </Touchable>
+              <Touchable
+                onPress={shareCode}
+                style={{
+                  flex: 1,
+                  paddingVertical: 11,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  backgroundColor: T.surf,
+                }}
+              >
+                <Txt s={12.5} w={800} c={T.pri}>
+                  Enviar
+                </Txt>
+              </Touchable>
+            </View>
+          ) : null}
         </View>
       </Section>
 

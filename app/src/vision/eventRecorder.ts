@@ -64,11 +64,19 @@ export class VisionEventRecorder {
   private current: IntervalAccumulator | null = null;
   private readonly sessionId: string;
   private readonly deviceSessionId: string;
-  private readonly userId?: string;
+  private userId?: string;
 
   constructor(sessionId: string, deviceSessionId: string, userId?: string) {
     this.sessionId = sessionId;
     this.deviceSessionId = deviceSessionId;
+    this.userId = userId;
+  }
+
+  /** `VisionEngine` monta uma vez na raiz do app, antes do login terminar —
+   * o construtor sempre recebe `userId` vazio. Isso deixa o recorder pegar
+   * o id real assim que a sessão fica disponível, em vez de gravar todo
+   * evento da sessão inteira sem dono (e cair no descarte do eventQueue). */
+  setUserId(userId: string | undefined) {
     this.userId = userId;
   }
 

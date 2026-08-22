@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View } from 'react-native';
+import { Accelerometer } from 'expo-sensors';
 
 import { Icon } from '../components/Icon';
 import { MellowMark } from '../components/PetFace';
@@ -8,6 +9,7 @@ import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { Bar, Card, Touchable, Txt } from '../components/ui';
 import { FACE_ICON, INTENSITY } from '../data/emotions';
 import { ICONS } from '../data/content';
+import { bumpProfileStats, levelFromXp } from '../profile/profileClient';
 import { useApp, useTheme } from '../state/AppContext';
 import { OK } from '../theme/palette';
 
@@ -95,6 +97,41 @@ export function HomeScreen() {
     state.streak >= 60
       ? `${Math.floor(state.streak / 60)}m ${state.streak % 60}s`
       : `${state.streak}s`;
+
+  // Otimista na UI, reconciliado com o valor real assim que a chamada volta
+  // — nível é sempre derivado de xp (levelFromXp), nunca um contador à parte.
+  const bumpCare = (delta: { fed?: number; played?: number; xp: number }, patch: Partial<typeof state>) => {
+    actions.set((s) => ({
+      fed: s.fed + (delta.fed ?? 0),
+      played: s.played + (delta.played ?? 0),
+      xp: s.xp + delta.xp,
+      streak: 0,
+      ...patch,
+    }));
+    if (state.userId) {
+      bumpProfileStats(delta).then((stats) => {
+        if (stats) actions.set(stats);
+      });
+    }
+  };
+
+  // Balançar o celular conta como "brincar" — mesmo efeito do botão, com um
+  // cooldown pra não disparar em loop enquanto a pessoa continua balançando.
+  const lastShakeAtRef = useRef(0);
+  useEffect(() => {
+    Accelerometer.setUpdateInterval(120);
+    const subscription = Accelerometer.addListener(({ x, y, z }) => {
+      const magnitude = Math.sqrt(x * x + y * y + z * z);
+      const now = Date.now();
+      if (magnitude > 2.2 && now - lastShakeAtRef.current > 1500) {
+        lastShakeAtRef.current = now;
+        bumpCare({ played: 1, xp: 4 }, { petMood: 'surprised' });
+        actions.pet();
+      }
+    });
+    return () => subscription.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const modePill = (on: boolean) => ({
     flex: 1,
@@ -260,39 +297,17 @@ export function HomeScreen() {
         <CareAction
           d={ICONS.feed}
           label="Alimentar"
-          onPress={() =>
-            actions.set((s) => ({
-              fed: s.fed + 1,
-              xp: Math.min(100, s.xp + 6),
-              petMood: 'happy',
-              streak: 0,
-            }))
-          }
+          onPress={() => bumpCare({ fed: 1, xp: 6 }, { petMood: 'happy' })}
         />
         <CareAction
           d={ICONS.play}
           label="Brincar"
-          onPress={() =>
-            actions.set((s) => ({
-              played: s.played + 1,
-              xp: Math.min(100, s.xp + 4),
-              petMood: 'surprised',
-              streak: 0,
-            }))
-          }
+          onPress={() => bumpCare({ played: 1, xp: 4 }, { petMood: 'surprised' })}
         />
         <CareAction
           d={ICONS.rest}
           label="Descansar"
-          onPress={() =>
-            actions.set((s) => ({
-              xp: Math.min(100, s.xp + 3),
-              petMood: 'neutral',
-              streak: 0,
-              breathing: true,
-              breathTick: 0,
-            }))
-          }
+          onPress={() => bumpCare({ xp: 3 }, { petMood: 'neutral', breathing: true, breathTick: 0 })}
         />
       </Section>
 
@@ -301,14 +316,14 @@ export function HomeScreen() {
         <Card radius={18} padding={13} style={{ paddingHorizontal: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
             <Txt s={12.5} w={800} c={T.t1}>
-              Nível {state.level}
+              Nível {levelFromXp(state.xp)}
             </Txt>
             <Txt s={11.5} c={T.t3}>
-              {state.xp}/100 de vínculo
+              {state.xp % 100}/100 para o próximo nível
             </Txt>
           </View>
           <View style={{ marginTop: 8 }}>
-            <Bar pct={state.xp} color={emoColor} />
+            <Bar pct={state.xp % 100} color={emoColor} />
           </View>
         </Card>
       </Section>

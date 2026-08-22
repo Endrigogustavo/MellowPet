@@ -20,6 +20,7 @@ import {
 import { ExpressionEngine } from './expressionEngine';
 import { VISION_FLAGS } from './featureFlags';
 import { qualityGuidance, VisionTelemetry } from './telemetry';
+import { updateWidgetMood } from '../widget/widgetClient';
 
 const APP_STATE_INTERVAL_MS = 250;
 const TELEMETRY_INTERVAL_MS = 500;
@@ -86,6 +87,10 @@ export function VisionEngine() {
   const lastTelemetryCommitAtRef = useRef(0);
 
   useEffect(() => {
+    eventRecorder.setUserId(state.userId ?? undefined);
+  }, [eventRecorder, state.userId]);
+
+  useEffect(() => {
     engineSingleton = engine;
     eventRecorderSingleton = eventRecorder;
     return () => {
@@ -95,11 +100,14 @@ export function VisionEngine() {
   }, [engine, eventRecorder]);
 
   useEffect(() => {
-    if (!NATIVE_PIPELINE_AVAILABLE) return;
+    // Uma conta puramente cuidadora nunca rastreia a própria expressão —
+    // não faz sentido pedir permissão de câmera nem rodar o pipeline até a
+    // pessoa entrar no "modo pessoal" (ver actions.setRole em AppContext).
+    if (!NATIVE_PIPELINE_AVAILABLE || state.role !== 'user') return;
     if (!permission?.granted && permission?.canAskAgain !== false) {
       requestPermission().catch(() => undefined);
     }
-  }, [permission, requestPermission]);
+  }, [permission, requestPermission, state.role]);
 
   useEffect(() => {
     if (baselineLoadedRef.current) return;
@@ -151,6 +159,7 @@ export function VisionEngine() {
           secondaryEmotions: result.secondaryEmotions,
           ...(result.signalStatus === 'ready' ? { streak: 0 } : null),
         });
+        if (result.signalStatus === 'ready') updateWidgetMood(result.observedExpression);
         lastSignalCommitRef.current = {
           expression: result.observedExpression,
           status: result.signalStatus,
@@ -220,7 +229,7 @@ export function VisionEngine() {
     [actions]
   );
 
-  if (!NATIVE_PIPELINE_AVAILABLE || !permission?.granted) return null;
+  if (!NATIVE_PIPELINE_AVAILABLE || !permission?.granted || state.role !== 'user') return null;
 
   // Em qualquer tela fora da de câmera, fica minúsculo e fora da área
   // visível — o pipeline continua rodando (é isso que faz o bichinho reagir

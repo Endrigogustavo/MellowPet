@@ -52,18 +52,24 @@ const VOTE_WINDOW = 3;
 const ENTRY_SCORE = 0.36;
 const ENTRY_MARGIN = 0.05;
 const ENTRY_UPDATES = 2;
-const WARMUP_UPDATES = 2;
+// Exige só 1 frame elegível pra sair do estado "sem leitura" — o motor já é
+// o mesmo em qualquer tela do app (VisionEngine roda uma única instância
+// persistente); esperar 2 frames de warmup fazia o rosto do bichinho
+// demorar visivelmente mais pra reagir logo depois de qualquer reabertura
+// da câmera (troca de tela, cold start) do que o necessário. O reconhecimento
+// mínimo já deve aparecer imediatamente.
+const WARMUP_UPDATES = 1;
 const MIN_DISPLAY_CONFIDENCE = 0.25;
 const ABSTAIN_UPDATES = 2;
 // "Neutro" carrega um residual (1 - evidencia de outra classe) em vez de
 // evidencia direta propria, entao vence o ranking bruto com facilidade
 // mesmo havendo sinal real espalhado entre 2-3 emocoes. Precisa de uma
-// maioria clara (55%) pra ser aceito — abaixo disso, a segunda colocada
+// maioria clara (80%) pra ser aceito — abaixo disso, a segunda colocada
 // tem preferencia (ver o fallback em process()).
-const NEUTRAL_ENTRY_SCORE = 0.7;
+const NEUTRAL_ENTRY_SCORE = 0.8;
 const NEUTRAL_ENTRY_MARGIN = 0.15;
 
-export const EXPRESSION_CLASSIFIER_VERSION = 'expression-v3.2.0-neutral-bias-fix';
+export const EXPRESSION_CLASSIFIER_VERSION = 'expression-v3.3.0-instant-warmup';
 
 const average = (values: number[]) =>
   values.length ? values.reduce((sum, item) => sum + item, 0) / values.length : 0;

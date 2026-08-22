@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Share, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
 
 import { createInvite } from '../care/careClient';
 import { Field } from '../components/Field';
@@ -25,6 +26,7 @@ export function CareSignupScreen() {
 
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (step !== 2 || inviteCode || inviteError || !state.userId) return;
     createInvite(state.userId, state.careName, state.careRel)
@@ -32,6 +34,20 @@ export function CareSignupScreen() {
       .catch((error) => setInviteError(error instanceof Error ? error.message : 'Não foi possível gerar o código'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, state.userId]);
+
+  const copyCode = async () => {
+    if (!inviteCode) return;
+    await Clipboard.setStringAsync(inviteCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareCode = () => {
+    if (!inviteCode) return;
+    Share.share({
+      message: `Use o código ${inviteCode} para se conectar comigo no MellowPet.`,
+    }).catch(() => undefined);
+  };
 
   return (
     <KeyboardAvoidingView
@@ -181,6 +197,38 @@ export function CareSignupScreen() {
                 <Txt s={11.5} c={T.t2} style={{ marginTop: 8 }}>
                   {inviteError ?? 'compartilhe este código com a pessoa'}
                 </Txt>
+                {inviteCode ? (
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, width: '100%' }}>
+                    <Touchable
+                      onPress={copyCode}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 11,
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        backgroundColor: T.surf,
+                      }}
+                    >
+                      <Txt s={12.5} w={800} c={T.pri}>
+                        {copied ? 'Copiado!' : 'Copiar código'}
+                      </Txt>
+                    </Touchable>
+                    <Touchable
+                      onPress={shareCode}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 11,
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        backgroundColor: T.surf,
+                      }}
+                    >
+                      <Txt s={12.5} w={800} c={T.pri}>
+                        Enviar
+                      </Txt>
+                    </Touchable>
+                  </View>
+                ) : null}
               </View>
               <Touchable
                 disabled={!inviteCode}

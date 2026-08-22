@@ -22,10 +22,12 @@ import {
   login as apiLogin,
   logout as apiLogout,
   signup as apiSignup,
+  subscribeToSignOut,
 } from '../auth/authClient';
 import { sendChatMessage } from '../chat/chatClient';
 import { fetchToolContent } from '../tools/toolsClient';
 import { listLinks } from '../care/careClient';
+import { fetchProfileStats } from '../profile/profileClient';
 
 export type Screen =
   | 'splash'
@@ -107,7 +109,12 @@ export type State = {
   person: string;
   rules: Record<string, boolean>;
 
+  /** Modo de visualização atual — pode ser trocado por `setRole` (só na
+   * direção 'care' -> 'user', ver a ação). */
   role: Role;
+  /** Papel real da conta, vindo do cadastro/perfil — nunca muda por
+   * `setRole`. É o que decide se "Entrar no modo cuidador" existe. */
+  accountRole: Role;
   spotify: boolean;
   coach: number;
 
@@ -141,10 +148,11 @@ export type State = {
   capsule: string;
   capsuleSaved: boolean;
 
+  /** Sempre acumulativo, sem teto — nível é derivado dele (ver
+   * `levelFromXp` em src/profile/profileClient.ts), nunca guardado à parte. */
   fed: number;
   played: number;
   xp: number;
-  level: number;
 };
 
 const INITIAL: State = {
@@ -175,7 +183,7 @@ const INITIAL: State = {
 
   petting: 0,
   hearts: [],
-  streak: 47,
+  streak: 0,
 
   period: 0,
 
@@ -191,6 +199,7 @@ const INITIAL: State = {
   rules: { sad3: true, stuck: true, night: true, anger: false, happy: true },
 
   role: 'user',
+  accountRole: 'user',
   spotify: false,
   coach: 0,
 
@@ -214,9 +223,7 @@ const INITIAL: State = {
   quiet: false,
   feedback: null,
 
-  journal: [
-    { text: 'Prova de química foi melhor do que eu esperava.', tag: 'Alívio', when: 'ontem, 22h' },
-  ],
+  journal: [],
   jInput: '',
   jTag: 'Alívio',
   ground: -1,
@@ -226,8 +233,7 @@ const INITIAL: State = {
 
   fed: 0,
   played: 0,
-  xp: 62,
-  level: 4,
+  xp: 0,
 };
 
 type Patch = Partial<State> | ((s: State) => Partial<State>);
@@ -281,6 +287,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         userId: user.userId,
         email: user.email,
         role: user.role,
+        accountRole: user.role,
         screen: user.role === 'care' ? 'care' : 'home',
         navSeq: s.navSeq + 1,
       }));
@@ -289,11 +296,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (alive) dispatch({ linked: res.links.length > 0 });
         })
         .catch(() => undefined);
+      fetchProfileStats(user.userId).then((stats) => {
+        if (alive) dispatch(stats);
+      });
     });
     return () => {
       alive = false;
     };
   }, []);
+
+  useEffect(
+    () =>
+      subscribeToSignOut(() => {
+        dispatch((s) => ({
+          userId: null,
+          email: '',
+          pass: '',
+          screen: 'login',
+          navSeq: s.navSeq + 1,
+        }));
+      }),
+    []
+  );
 
   useEffect(() => {
     // Relógio de 1s: conta a duração da emoção e os ciclos de respiração.
@@ -418,11 +442,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       toggleTheme: () => dispatch((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
 
       setRole: (role) =>
-        dispatch((s) => ({
-          role,
-          screen: role === 'care' ? 'care' : 'home',
-          navSeq: s.navSeq + 1,
-        })),
+        dispatch((s) => {
+          // Quem se cadastrou como usuário comum nunca acessa a tela de
+          // cuidador, nem pelo botão "Entrar no modo cuidador" — só a conta
+          // cadastrada como tal (accountRole) pode entrar nesse modo.
+          if (role === 'care' && s.accountRole !== 'care') return {};
+          return {
+            role,
+            screen: role === 'care' ? 'care' : 'home',
+            navSeq: s.navSeq + 1,
+          };
+        }),
 
       submitAuth: async () => {
         const s = ref.current;
@@ -437,23 +467,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const user = s.signup
             ? await apiSignup(email, password, s.signupRole)
             : await apiLogin(email, password);
+          const isCareSignup = s.signup && s.signupRole === 'care';
           dispatch((cur) => ({
             authLoading: false,
             authError: null,
             userId: user.userId,
             role: user.role,
+            accountRole: user.role,
             pass: '',
-            screen:
-              s.signup && s.signupRole === 'care'
-                ? 'caresignup'
-                : 'onboarding',
-            careStep: s.signup && s.signupRole === 'care' ? 0 : cur.careStep,
-            onb: s.signup && s.signupRole === 'care' ? cur.onb : 0,
+            // Cadastro de cuidador começa no fluxo de gerar convite; cadastro
+            // comum vai pro onboarding (primeira vez); login (conta já
+            // existente) vai direto pra tela do papel — antes, um LOGIN de
+            // cuidador caía sempre em "onboarding", nunca no painel dele.
+            screen: isCareSignup
+              ? 'caresignup'
+              : s.signup
+                ? 'onboarding'
+                : user.role === 'care'
+                  ? 'care'
+                  : 'home',
+            careStep: isCareSignup ? 0 : cur.careStep,
+            onb: isCareSignup ? cur.onb : 0,
             navSeq: cur.navSeq + 1,
           }));
           listLinks(user.userId, 'user')
             .then((res) => dispatch({ linked: res.links.length > 0 }))
             .catch(() => undefined);
+          fetchProfileStats(user.userId).then((stats) => dispatch(stats));
         } catch (error) {
           dispatch({
             authLoading: false,
@@ -463,14 +503,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       logout: async () => {
+        // Estado é atualizado pelo listener SIGNED_OUT (subscribeToSignOut
+        // acima) — mesmo caminho usado quando a sessão cai sozinha em
+        // background, sem duplicar a transição aqui.
         await apiLogout();
-        dispatch((s) => ({
-          userId: null,
-          email: '',
-          pass: '',
-          screen: 'login',
-          navSeq: s.navSeq + 1,
-        }));
       },
     };
   }, [later]);

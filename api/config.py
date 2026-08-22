@@ -45,19 +45,11 @@ class Settings(BaseSettings):
     # usuario exigiriam login de verdade (JWT + tabela de usuarios).
     api_key: str | None = None
 
-    # Assina os tokens JWT emitidos em /api/v1/auth. Sem valor, login/signup
-    # se recusam a emitir token (ver routers/auth.py) — nao geramos um
-    # segredo aleatorio aqui porque ele mudaria a cada restart e invalidaria
-    # todos os tokens ja emitidos.
-    jwt_secret: str | None = None
-    jwt_expires_minutes: int = 60 * 24 * 30
-
     # Caminhos que continuam abertos (health check de load balancer, etc.).
     public_paths: tuple[str, ...] = ("/health", "/", "/docs", "/openapi.json", "/redoc")
 
     # ── Limites de uso ──────────────────────────────────────────────────────
     rate_limit_per_minute: int = 120
-    max_frame_bytes: int = 4_000_000  # ~4 MB de base64 -> ~3 MB de JPEG
     max_request_bytes: int = 6_000_000
 
     # Ligue apenas quando a API estiver atras de um proxy/load balancer que
@@ -65,16 +57,6 @@ class Settings(BaseSettings):
     # da conexao — caso contrario qualquer cliente forjaria o header e
     # escaparia do limite.
     trust_proxy_headers: bool = False
-
-    # ── Banco ───────────────────────────────────────────────────────────────
-    database_url: str = "sqlite+aiosqlite:///./mellowpet.db"
-
-    # ── Deteccao ────────────────────────────────────────────────────────────
-    emotion_confidence_threshold: float = 0.45
-    no_face_alert_timeout_minutes: int = 10
-    # Endpoint legado envia imagem ao servidor. Fica desativado por padrao e
-    # so pode ser reaberto temporariamente para rollback/shadow consentido.
-    legacy_frame_endpoint_enabled: bool = False
 
     # ── Documentacao ────────────────────────────────────────────────────────
     # O Swagger fica desligado em producao para nao expor a superficie da API.
@@ -86,27 +68,6 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
-
-    # ── Alertas por e-mail ──────────────────────────────────────────────────
-    enable_email_alerts: bool = False
-    emergency_contact_email: str | None = None
-
-    # Destinatarios permitidos, separados por virgula. Sem isso, a rota de
-    # alerta aceitaria qualquer endereco e viraria um relay aberto: qualquer
-    # pessoa poderia disparar e-mails com a marca MellowPet para quem quisesse.
-    # Vazio = so o EMERGENCY_CONTACT_EMAIL pode receber.
-    alert_email_allowlist: str = ""
-
-    @property
-    def allowed_alert_recipients(self) -> set[str]:
-        allowed = {
-            e.strip().lower()
-            for e in self.alert_email_allowlist.split(",")
-            if e.strip()
-        }
-        if self.emergency_contact_email:
-            allowed.add(self.emergency_contact_email.strip().lower())
-        return allowed
 
     @field_validator("log_level")
     @classmethod
@@ -136,8 +97,6 @@ class Settings(BaseSettings):
             problems.append("CORS_ORIGINS='*' libera qualquer origem. Defina os dominios do ""app, ex.: CORS_ORIGINS=https://app.mellowpet.app")
         if not self.api_key:
             problems.append("API_KEY nao definida — a API aceita chamadas de qualquer cliente. "f"Sugestao de valor: {secrets.token_urlsafe(32)}")
-        if not self.jwt_secret:
-            problems.append("JWT_SECRET nao definida — login/signup nao emitem token. "f"Sugestao de valor: {secrets.token_urlsafe(32)}")
         if self.debug:
             problems.append("DEBUG=true expõe detalhes de erro nas respostas.")
         if self.enable_docs and self.is_production:

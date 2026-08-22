@@ -74,6 +74,8 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   private var cameraDevice: CameraDevice? = null
   private var captureSession: CameraCaptureSession? = null
   private var imageReader: ImageReader? = null
+  private var previewSurface: Surface? = null
+  private var readerSurface: Surface? = null
   private var sensorOrientation: Int = 90
   private var faceLandmarker: FaceLandmarker? = null
 
@@ -86,14 +88,15 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   private var mirror = true
   // Fora da tela de câmera, a view fica fora da área visível (opacity 0,
   // posição negativa) — o Android para de desenhá-la, o que interrompe o
-  // consumo do SurfaceTexture do preview. Como o preview e o ImageReader
-  // eram alvos do mesmo capture request, a fila de buffers do preview
-  // enchia e travava a sessão inteira (câmera parava de entregar frames
-  // pro ImageReader também), exigindo muita luz/proximidade pra "furar"
-  // ocasionalmente. Quando não precisa mostrar o preview, a sessão nem
-  // inclui essa superfície como alvo — só o ImageReader.
+  // consumo do SurfaceTexture do preview. A sessão do Camera2 continua
+  // configurada com as duas superfícies (preview + ImageReader) o tempo
+  // todo — trocar isso exigiria fechar e reabrir a câmera e reinicializar
+  // o FaceLandmarker, o que é lento e torna o reconhecimento visivelmente
+  // mais devagar toda vez que a tela muda. Em vez disso, só o CaptureRequest
+  // que roda em loop muda: quando escondida, ele nem inclui a superfície de
+  // preview como alvo, então a câmera não tenta entregar frame nenhum pra
+  // ela — sem alvo sem consumidor, sem trava.
   private var showPreview = true
-  private val previewGeneration = AtomicLong(0)
   private val inferenceInFlight = AtomicBoolean(false)
   private val droppedFrames = AtomicLong(0)
   private val receivedFrames = AtomicLong(0)
@@ -138,23 +141,28 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
 
   fun updateMirror(value: Boolean) {
     mirror = value
-    textureView.scaleX = if (mirror) -1f else 1f
+    // Neste aparelho a câmera frontal passa pela camada de injeção da MIUI
+    // (CameraExtImplXiaoMi/CameraInjector, visível no logcat) — ela já
+    // entrega o preview espelhado por padrão (efeito "espelho" nativo do
+    // app de câmera do sistema). Aplicar +1 flip nosso em cima disso
+    // cancelava o espelhamento e virava-o ao contrário do esperado, então
+    // o sinal aqui é invertido em relação ao gesto óbvio.
+    textureView.scaleX = if (mirror) 1f else -1f
   }
 
   fun updateShowPreview(value: Boolean) {
     if (showPreview == value) return
     showPreview = value
-    // Alvos de captura são fixos na sessão do Camera2 — não dá pra
-    // adicionar/remover superfície sem recriar a sessão. Um pequeno atraso
-    // antes de reabrir dá tempo do HAL da câmera liberar o device depois do
-    // close(); reabrir sincronamente demais já se mostrou instável em
-    // aparelhos MIUI (motivo original da migração pra Camera2 puro).
-    if (cameraDevice != null || opening) {
-      val generation = previewGeneration.incrementAndGet()
-      stopPipeline()
-      postDelayed({
-        if (previewGeneration.get() == generation) startIfPossible()
-      }, PREVIEW_RESTART_DELAY_MS)
+    // A sessão já está configurada com as duas superfícies — só reemite o
+    // repeating request com o novo conjunto de alvos. Câmera e modelo
+    // continuam rodando sem interrupção.
+    val session = captureSession
+    val device = cameraDevice
+    if (session != null && device != null) {
+      try {
+        session.setRepeatingRequest(buildRepeatingRequest(device).build(), null, backgroundHandler)
+      } catch (_: Exception) {
+      }
     }
   }
 
@@ -171,8 +179,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   }
 
   private fun startIfPossible() {
-    if (!active || !attached || opening || cameraDevice != null) return
-    if (showPreview && !surfaceReady) return
+    if (!active || !attached || !surfaceReady || opening || cameraDevice != null) return
     if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
       emitError("permission_denied", "Permissão de câmera não concedida.", true)
       return
@@ -263,16 +270,14 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   }
 
   private fun createSession(device: CameraDevice) {
-    var previewSurface: Surface? = null
-    if (showPreview) {
-      val texture = textureView.surfaceTexture
-      if (texture == null) {
-        emitError("camera_unavailable", "Superfície de câmera indisponível.", true)
-        return
-      }
-      texture.setDefaultBufferSize(STREAM_WIDTH, STREAM_HEIGHT)
-      previewSurface = Surface(texture)
+    val texture = textureView.surfaceTexture
+    if (texture == null) {
+      emitError("camera_unavailable", "Superfície de câmera indisponível.", true)
+      return
     }
+    texture.setDefaultBufferSize(STREAM_WIDTH, STREAM_HEIGHT)
+    val preview = Surface(texture)
+    previewSurface = preview
 
     val reader = ImageReader.newInstance(STREAM_WIDTH, STREAM_HEIGHT, ImageFormat.YUV_420_888, 2)
     reader.setOnImageAvailableListener(
@@ -309,15 +314,10 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
       backgroundHandler,
     )
     imageReader = reader
+    readerSurface = reader.surface
 
     try {
-      val requestBuilder = device.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
-        previewSurface?.let { addTarget(it) }
-        addTarget(reader.surface)
-        set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
-      }
-
-      val outputs = listOfNotNull(previewSurface, reader.surface)
+      val outputs = listOf(preview, reader.surface)
       val sessionCallback = object : CameraCaptureSession.StateCallback() {
         override fun onConfigured(session: CameraCaptureSession) {
           if (!active || !attached) {
@@ -326,7 +326,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
           }
           captureSession = session
           try {
-            session.setRepeatingRequest(requestBuilder.build(), null, backgroundHandler)
+            session.setRepeatingRequest(buildRepeatingRequest(device).build(), null, backgroundHandler)
             bound = true
           } catch (error: Exception) {
             emitError("camera_bind_failed", error.message ?: "Falha ao iniciar captura contínua.", true)
@@ -356,6 +356,15 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
       emitError("camera_bind_failed", error.message ?: "Falha ao criar sessão de câmera.", true)
     }
   }
+
+  /** Monta o request de captura em loop com o conjunto de alvos atual —
+   * ImageReader sempre, superfície de preview só quando `showPreview`. */
+  private fun buildRepeatingRequest(device: CameraDevice): CaptureRequest.Builder =
+    device.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+      readerSurface?.let { addTarget(it) }
+      if (showPreview) previewSurface?.let { addTarget(it) }
+      set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+    }
 
   /** Ajusta a matriz de transformação do TextureView pra preencher a view
    * (comportamento equivalente ao FILL_CENTER do PreviewView antigo). */
@@ -581,6 +590,8 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     } catch (_: Exception) {
     }
     cameraDevice = null
+    previewSurface = null
+    readerSurface = null
     pendingFrames.clear()
     inferenceInFlight.set(false)
 
@@ -713,6 +724,5 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     private const val MODEL_ASSET = "face_landmarker.task"
     private const val STREAM_WIDTH = 640
     private const val STREAM_HEIGHT = 480
-    private const val PREVIEW_RESTART_DELAY_MS = 200L
   }
 }

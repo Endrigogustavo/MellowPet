@@ -5,33 +5,12 @@ pydantic==2.12.5
 pydantic-settings==2.13.1
 email-validator==2.2.0
 
-# ── Visao computacional ──────────────────────────────────────────────────────
-# O classificador de emocao roda em ONNX Runtime. Antes eram
-# tensorflow + tf-keras + deepface (~1 GB, dezenas de segundos de carga, e
-# desligado no Python 3.13). O onnxruntime pesa ~15 MB, carrega em ~1 s e roda
-# em 3.11 a 3.13 — ver services/emotion/fer_onnx.py.
-onnxruntime==1.20.1
-opencv-python-headless==4.13.0.92
-mediapipe==0.10.33
-numpy==2.1.3
-Pillow==10.4.0
-
 # ── IA conversacional ────────────────────────────────────────────────────────
 # Os SDKs sao importados sob demanda; instale apenas o do provedor que usar.
 google-genai==1.2.0
 anthropic==0.26.0
 openai==1.30.1
 
-# ── Banco ────────────────────────────────────────────────────────────────────
-aiosqlite==0.20.0
-databases[aiosqlite]==0.9.0
-sqlalchemy==2.0.44
-
-# ── Autenticacao ─────────────────────────────────────────────────────────────
-bcrypt==4.2.0
-pyjwt==2.9.0
-
 # ── Utils ────────────────────────────────────────────────────────────────────
 python-dotenv==1.0.1
 httpx==0.27.0
-aiofiles==23.2.1
