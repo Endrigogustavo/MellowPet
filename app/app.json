@@ -39,7 +39,6 @@
         }
       ],
       "expo-asset",
-      "expo-status-bar",
       "expo-secure-store",
       [
         "expo-camera",

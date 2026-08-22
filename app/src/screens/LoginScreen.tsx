@@ -167,6 +167,11 @@ export function LoginScreen() {
               style={{ letterSpacing: 2, fontWeight: '700' }}
             />
           ) : null}
+          {state.authError ? (
+            <Txt s={12.5} lh={1.5} c="#D64545">
+              {state.authError}
+            </Txt>
+          ) : null}
         </View>
 
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 18 }}>
@@ -181,16 +186,9 @@ export function LoginScreen() {
           ou armazenada; somente eventos agregados podem ser sincronizados com sua conta.
         </Txt>
         <PrimaryButton
-          label={signup ? 'Criar conta' : 'Entrar'}
-          onPress={() =>
-            signup && state.signupRole === 'care'
-              ? actions.set((s) => ({
-                  screen: 'caresignup',
-                  careStep: 0,
-                  navSeq: s.navSeq + 1,
-                }))
-              : actions.set((s) => ({ screen: 'onboarding', onb: 0, navSeq: s.navSeq + 1 }))
-          }
+          label={state.authLoading ? 'Aguarde…' : signup ? 'Criar conta' : 'Entrar'}
+          disabled={state.authLoading}
+          onPress={actions.submitAuth}
         />
       </ScrollView>
     </KeyboardAvoidingView>

@@ -24,6 +24,7 @@ import { SplashScreen } from '../screens/SplashScreen';
 import { ToolsScreen } from '../screens/ToolsScreen';
 import { VisionScreen } from '../screens/VisionScreen';
 import { useApp, useTheme, type Screen } from '../state/AppContext';
+import { VisionEngine } from '../vision/VisionEngine';
 
 const SCREENS: Record<Screen, React.ComponentType> = {
   splash: SplashScreen,
@@ -73,6 +74,7 @@ export function RootNavigator() {
   return (
     <View style={{ flex: 1, backgroundColor: onSplash ? T.splashBg : T.bg }}>
       <StatusBar style={isDark || onSplash ? 'light' : 'dark'} />
+      <VisionEngine />
       <Current />
       {showTabs ? <NowPlayingBar /> : null}
       {showTabs ? <TabBar /> : null}

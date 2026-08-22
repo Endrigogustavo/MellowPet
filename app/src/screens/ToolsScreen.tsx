@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View } from 'react-native';
 
 import { Field } from '../components/Field';
@@ -14,6 +14,7 @@ import {
   TOOL_LIST,
 } from '../data/content';
 import { FACE_ICON } from '../data/emotions';
+import { createJournalEntry, listJournalEntries } from '../journal/journalClient';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER } from '../theme/palette';
 
@@ -56,6 +57,31 @@ export function ToolsScreen() {
   const tools = full ? TOOL_LIST : TOOL_LIST.slice(0, 6);
   const confPct = Math.round(emo.conf * 100);
   const canSave = state.jInput.trim().length > 0;
+
+  useEffect(() => {
+    if (!state.userId) return;
+    listJournalEntries(state.userId)
+      .then((entries) => actions.set({ journal: entries }))
+      .catch(() => undefined);
+    // Só na entrada da tela — o diário é atualizado localmente depois disso.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.userId]);
+
+  const saveJournalEntry = () => {
+    const text = state.jInput.trim();
+    if (!text) return;
+    const tag = state.jTag;
+    actions.set({ jInput: '' });
+    if (state.userId) {
+      createJournalEntry(state.userId, text, tag)
+        .then((entry) => actions.set((s) => ({ journal: [entry, ...s.journal] })))
+        .catch(() => {
+          actions.set((s) => ({ journal: [{ text, tag, when: 'agora' }, ...s.journal] }));
+        });
+    } else {
+      actions.set((s) => ({ journal: [{ text, tag, when: 'agora' }, ...s.journal] }));
+    }
+  };
 
   return (
     <ScreenScroll>
@@ -189,12 +215,7 @@ export function ToolsScreen() {
           </View>
           <Touchable
             disabled={!canSave}
-            onPress={() =>
-              actions.set((s) => ({
-                journal: [{ text: s.jInput.trim(), tag: s.jTag, when: 'agora' }, ...s.journal],
-                jInput: '',
-              }))
-            }
+            onPress={saveJournalEntry}
             style={{
               marginTop: 12,
               paddingVertical: 13,

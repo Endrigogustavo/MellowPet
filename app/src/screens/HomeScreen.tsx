@@ -197,8 +197,8 @@ export function HomeScreen() {
 
       <PetStage />
 
-      {/* convite de vínculo */}
-      {state.pairPending && !state.linked ? (
+      {/* conexão com cuidador */}
+      {!state.linked ? (
         <Section top={2}>
           <View style={{ padding: 16, borderRadius: 20, backgroundColor: T.priL }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
@@ -212,49 +212,31 @@ export function HomeScreen() {
                   justifyContent: 'center',
                 }}
               >
-                <Txt s={15} w={800} c={T.pri}>
-                  M
-                </Txt>
+                <Icon d={ICONS.people} size={17} color={T.pri} />
               </View>
               <View style={{ flex: 1 }}>
                 <Txt s={13} w={800} c={T.t1}>
-                  Marina quer te acompanhar
+                  Conecte um cuidador
                 </Txt>
                 <Txt s={11.5} lh={1.45} c={T.t2} style={{ marginTop: 3 }}>
-                  Ela verá sinais faciais agregados e alertas consentidos — nunca as conversas.
+                  Alguém te enviou um código de convite? Adicione em Ajustes quando quiser.
                 </Txt>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-              <Touchable
-                onPress={() => actions.set({ linked: false, pairPending: false })}
-                style={{
-                  flex: 1,
-                  paddingVertical: 11,
-                  borderRadius: 14,
-                  alignItems: 'center',
-                  backgroundColor: T.surf,
-                }}
-              >
-                <Txt s={13} w={700} c={T.t2}>
-                  Agora não
-                </Txt>
-              </Touchable>
-              <Touchable
-                onPress={() => actions.set({ linked: true, pairPending: false })}
-                style={{
-                  flex: 1,
-                  paddingVertical: 11,
-                  borderRadius: 14,
-                  alignItems: 'center',
-                  backgroundColor: T.pri,
-                }}
-              >
-                <Txt s={13} w={800} c="#fff">
-                  Aceitar
-                </Txt>
-              </Touchable>
-            </View>
+            <Touchable
+              onPress={() => actions.go('settings')}
+              style={{
+                marginTop: 12,
+                paddingVertical: 11,
+                borderRadius: 14,
+                alignItems: 'center',
+                backgroundColor: T.pri,
+              }}
+            >
+              <Txt s={13} w={800} c="#fff">
+                Ir para Ajustes
+              </Txt>
+            </Touchable>
           </View>
         </Section>
       ) : null}

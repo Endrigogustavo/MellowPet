@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
+import { listLinks, type CaregiverLink } from '../care/careClient';
+import { fetchDashboardPeriod } from '../dashboard/dashboardClient';
 import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { Bar, Card, Touchable, Txt, useColumnWidth } from '../components/ui';
@@ -12,6 +14,7 @@ import {
   CARE_TREND,
   CARE_TREND_DAYS,
   ICONS,
+  type CarePerson,
 } from '../data/content';
 import { useApp, useTheme, type Screen } from '../state/AppContext';
 import { DANGER, OK, WARN, hexA } from '../theme/palette';
@@ -20,20 +23,61 @@ function scoreColor(v: number) {
   return v >= 70 ? OK : v >= 40 ? WARN : DANGER;
 }
 
+const LINK_COLORS = ['#FFD166', '#74B9FF', '#A29BFE', '#55EFC4'];
+
 export function CareScreen() {
   const { state, actions } = useApp();
   const { T, isDark, full } = useTheme();
   const quickWidth = useColumnWidth(2, 8);
 
-  const cur = CARE_PEOPLE.find((p) => p.id === state.person) ?? CARE_PEOPLE[0];
-  const curColor = scoreColor(cur.wb);
+  // Sem vínculo real de cuidador ainda, a tela cai para o exemplo — em vez
+  // de aparecer vazia para quem só está explorando o app.
+  const [links, setLinks] = useState<CaregiverLink[] | null>(null);
+  useEffect(() => {
+    if (!state.userId) return;
+    listLinks(state.userId, 'care')
+      .then((res) => setLinks(res.links))
+      .catch(() => setLinks(null));
+  }, [state.userId]);
 
-  const linkLabel = state.linked
-    ? 'Conectado'
-    : state.pairPending
-      ? 'Aguardando você aceitar'
-      : 'Não conectado';
-  const linkColor = state.linked ? OK : state.pairPending ? WARN : T.t3;
+  const realPeople: CarePerson[] | null = links && links.length > 0
+    ? links.map((link, i) => ({
+        id: link.cared_user_id ?? link.invite_code,
+        name: link.cared_name || 'Pessoa cuidada',
+        rel: link.relationship || '',
+        color: LINK_COLORS[i % LINK_COLORS.length],
+        status: 'estável' as const,
+        last: '',
+        wb: 50,
+        ai: 'Ainda reunindo leituras suficientes para um insight.',
+        plan: [],
+        alerts: [],
+      }))
+    : null;
+  const people = realPeople ?? CARE_PEOPLE;
+
+  const cur = people.find((p) => p.id === state.person) ?? people[0];
+  const [liveWb, setLiveWb] = useState<number | null>(null);
+  const [liveAi, setLiveAi] = useState<string | null>(null);
+  useEffect(() => {
+    setLiveWb(null);
+    setLiveAi(null);
+    if (!realPeople || !cur.id) return;
+    fetchDashboardPeriod(cur.id, 0)
+      .then((period) => {
+        if (!period) return;
+        setLiveWb(period.wb);
+        setLiveAi(period.insight);
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur.id]);
+  const wb = liveWb ?? cur.wb;
+  const ai = liveAi ?? cur.ai;
+  const curColor = scoreColor(wb);
+
+  const linkLabel = realPeople ? 'Conectado' : 'Nenhum vínculo real ainda';
+  const linkColor = realPeople ? OK : T.t3;
 
   return (
     <ScreenScroll>
@@ -59,15 +103,15 @@ export function CareScreen() {
             }}
           >
             <Txt s={17} w={800} c={T.pri}>
-              M
+              {(state.email || 'C').charAt(0).toUpperCase()}
             </Txt>
           </View>
           <View style={{ flex: 1 }}>
             <Txt s={10.5} w={800} c={T.t3} ls={1.6}>
               MODO CUIDADOR
             </Txt>
-            <Txt s={20} w={800} c={T.t1} ls={-0.5} lh={1.1} style={{ marginTop: 3 }}>
-              Bom dia, Marina
+            <Txt s={20} w={800} c={T.t1} ls={-0.5} lh={1.1} style={{ marginTop: 3 }} numberOfLines={1}>
+              Olá, {state.email || 'cuidador(a)'}
             </Txt>
           </View>
         </View>
@@ -173,7 +217,7 @@ export function CareScreen() {
 
       {/* pessoas acompanhadas */}
       <Section top={0} style={{ flexDirection: 'row', gap: 9 }}>
-        {CARE_PEOPLE.map((p) => {
+        {people.map((p) => {
           const on = p.id === state.person;
           return (
             <Touchable
@@ -236,11 +280,11 @@ export function CareScreen() {
               {cur.name} · bem-estar
             </Txt>
             <Txt s={22} w={800} c={curColor}>
-              {cur.wb}
+              {wb}
             </Txt>
           </View>
           <View style={{ marginTop: 10 }}>
-            <Bar pct={cur.wb} color={curColor} height={7} />
+            <Bar pct={wb} color={curColor} height={7} />
           </View>
           <View
             style={{
@@ -292,7 +336,7 @@ export function CareScreen() {
             </Txt>
           </View>
           <Txt s={13.5} lh={1.6} c={T.t2} style={{ marginTop: 9 }}>
-            {cur.ai}
+            {ai}
           </Txt>
           <View style={{ marginTop: 14 }}>
             <NumberedList items={cur.plan} bg={T.surf} />
