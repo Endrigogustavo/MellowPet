@@ -5,14 +5,11 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.ImageFormat
 import android.graphics.Matrix
-import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.SurfaceTexture
-import android.graphics.YuvImage
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
@@ -39,7 +36,6 @@ import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.viewevent.EventDispatcher
 import expo.modules.kotlin.views.ExpoView
-import java.io.ByteArrayOutputStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -372,13 +368,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     val width = image.width
     val height = image.height
     try {
-      val nv21 = image.use { img -> yuv420ToNv21(img) }
-      val jpegOut = ByteArrayOutputStream()
-      YuvImage(nv21, ImageFormat.NV21, width, height, null)
-        .compressToJpeg(Rect(0, 0, width, height), 90, jpegOut)
-      val jpegBytes = jpegOut.toByteArray()
-      val bitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
-        ?: throw IllegalStateException("Falha ao decodificar frame YUV")
+      val bitmap = image.use(::yuv420ToBitmap)
       val frameStats = computeFrameStats(bitmap)
       val matrix = Matrix().apply {
         postRotate(sensorOrientation.toFloat())
@@ -402,48 +392,47 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   }
 
   /**
-   * Converte o YUV_420_888 do Camera2 (3 planos, com row/pixel stride que
-   * variam por aparelho) para NV21 respeitando os strides — uma cópia ingênua
-   * dos planos gera imagem diagonal/corrompida na maioria dos aparelhos reais.
+   * Converte YUV_420_888 diretamente para ARGB respeitando row/pixel stride.
+   * O pipeline anterior fazia YUV -> JPEG -> Bitmap em todo frame: além de
+   * adicionar compressão com perdas antes do modelo, criava buffers grandes e
+   * aumentava a latência. A conversão direta mantém os detalhes faciais usados
+   * pelos blendshapes e evita a etapa de encode/decode.
    */
-  private fun yuv420ToNv21(image: Image): ByteArray {
+  private fun yuv420ToBitmap(image: Image): Bitmap {
     val width = image.width
     val height = image.height
-    val nv21 = ByteArray(width * height * 3 / 2)
-    var pos = 0
-
     val yPlane = image.planes[0]
-    val yBuffer = yPlane.buffer
-    val yRowStride = yPlane.rowStride
-    for (row in 0 until height) {
-      yBuffer.position(row * yRowStride)
-      yBuffer.get(nv21, pos, width)
-      pos += width
-    }
-
     val uPlane = image.planes[1]
     val vPlane = image.planes[2]
+    val yBuffer = yPlane.buffer
     val uBuffer = uPlane.buffer
     val vBuffer = vPlane.buffer
-    val uRowStride = uPlane.rowStride
-    val vRowStride = vPlane.rowStride
-    val uPixelStride = uPlane.pixelStride
-    val vPixelStride = vPlane.pixelStride
-    val chromaWidth = width / 2
-    val chromaHeight = height / 2
-    val uRow = ByteArray(uRowStride)
-    val vRow = ByteArray(vRowStride)
-    for (row in 0 until chromaHeight) {
-      vBuffer.position(row * vRowStride)
-      vBuffer.get(vRow, 0, min(vRowStride, vBuffer.remaining()))
-      uBuffer.position(row * uRowStride)
-      uBuffer.get(uRow, 0, min(uRowStride, uBuffer.remaining()))
-      for (col in 0 until chromaWidth) {
-        nv21[pos++] = vRow[col * vPixelStride]
-        nv21[pos++] = uRow[col * uPixelStride]
+    val yStart = yBuffer.position()
+    val uStart = uBuffer.position()
+    val vStart = vBuffer.position()
+    val pixels = IntArray(width * height)
+
+    for (row in 0 until height) {
+      val yRow = yStart + row * yPlane.rowStride
+      val uvRow = row / 2
+      val uRow = uStart + uvRow * uPlane.rowStride
+      val vRow = vStart + uvRow * vPlane.rowStride
+      for (col in 0 until width) {
+        val y = yBuffer.get(yRow + col * yPlane.pixelStride).toInt() and 0xff
+        val uvCol = col / 2
+        val u = uBuffer.get(uRow + uvCol * uPlane.pixelStride).toInt() and 0xff
+        val v = vBuffer.get(vRow + uvCol * vPlane.pixelStride).toInt() and 0xff
+
+        val c = max(0, y - 16)
+        val d = u - 128
+        val e = v - 128
+        val red = ((298 * c + 409 * e + 128) shr 8).coerceIn(0, 255)
+        val green = ((298 * c - 100 * d - 208 * e + 128) shr 8).coerceIn(0, 255)
+        val blue = ((298 * c + 516 * d + 128) shr 8).coerceIn(0, 255)
+        pixels[row * width + col] = Color.rgb(red, green, blue)
       }
     }
-    return nv21
+    return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
   }
 
   private fun monotonicTimestamp(): Long {
@@ -689,7 +678,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
 
   companion object {
     const val MODEL_VERSION = "mediapipe-face-landmarker-float16-v1"
-    const val PIPELINE_VERSION = "mellow-vision-v2.0.0-camera2"
+    const val PIPELINE_VERSION = "mellow-vision-v3.0.0-camera2-rgb"
     private const val MODEL_ASSET = "face_landmarker.task"
     private const val STREAM_WIDTH = 640
     private const val STREAM_HEIGHT = 480

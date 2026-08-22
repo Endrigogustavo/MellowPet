@@ -24,25 +24,25 @@ export function DashboardScreen() {
 
   // Sem leituras reais ainda (comum no Expo Go, onde a câmera roda em modo
   // demo), a tela cai para o conteúdo de exemplo em vez de aparecer vazia.
-  const [real, setReal] = useState<Period | null>(null);
+  const [loaded, setLoaded] = useState<{ key: string; period: Period | null } | null>(null);
   useEffect(() => {
     let alive = true;
-    if (!state.userId) {
-      setReal(null);
-      return;
-    }
+    if (!state.userId) return;
+    const key = `${state.userId}:${state.period}`;
     fetchDashboardPeriod(state.userId, state.period)
       .then((period) => {
-        if (alive) setReal(period);
+        if (alive) setLoaded({ key, period });
       })
       .catch(() => {
-        if (alive) setReal(null);
+        if (alive) setLoaded({ key, period: null });
       });
     return () => {
       alive = false;
     };
   }, [state.userId, state.period]);
 
+  const requestKey = state.userId ? `${state.userId}:${state.period}` : null;
+  const real = requestKey && loaded?.key === requestKey ? loaded.period : null;
   const P = real ?? PERIOD_DATA[state.period];
   const wbColor = scoreColor(P.wb);
 

@@ -57,23 +57,23 @@ export function CareScreen() {
   const people = realPeople ?? CARE_PEOPLE;
 
   const cur = people.find((p) => p.id === state.person) ?? people[0];
-  const [liveWb, setLiveWb] = useState<number | null>(null);
-  const [liveAi, setLiveAi] = useState<string | null>(null);
+  const [live, setLive] = useState<{ personId: string; wb: number; ai: string } | null>(null);
   useEffect(() => {
-    setLiveWb(null);
-    setLiveAi(null);
     if (!realPeople || !cur.id) return;
+    let alive = true;
     fetchDashboardPeriod(cur.id, 0)
       .then((period) => {
-        if (!period) return;
-        setLiveWb(period.wb);
-        setLiveAi(period.insight);
+        if (alive && period) setLive({ personId: cur.id, wb: period.wb, ai: period.insight });
       })
       .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur.id]);
-  const wb = liveWb ?? cur.wb;
-  const ai = liveAi ?? cur.ai;
+  const currentLive = live?.personId === cur.id ? live : null;
+  const wb = currentLive?.wb ?? cur.wb;
+  const ai = currentLive?.ai ?? cur.ai;
   const curColor = scoreColor(wb);
 
   const linkLabel = realPeople ? 'Conectado' : 'Nenhum vínculo real ainda';
