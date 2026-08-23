@@ -141,6 +141,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 # ou: ./run_api.sh
 ```
 
+# Ou 
+.\venv\Scripts\python.exe -m uvicorn main:app --env-file .env --host 0.0.0.0 --port 8000 --reload
+
+
 Acesse:
 - API: http://localhost:8000
 - Swagger: http://localhost:8000/docs
@@ -167,8 +171,10 @@ cp .env.example .env.local
 #   EXPO_PUBLIC_API_KEY=<a mesma chave do api/.env>
 
 # Rodar
-npm start
-npm run android    # ou: npm run ios
+npx expo start --dev-client -c
+adb reverse tcp:8081 tcp:8081
+adb reverse tcp:8000 tcp:8000
+
 ```
 
 > Se a tela ficar sem dados e o console mostrar `401`, a chave do app e a da API
