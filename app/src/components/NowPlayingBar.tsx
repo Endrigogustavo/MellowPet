@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMusic } from '../audio/MusicPlayer';
 import { ICONS, formatTime } from '../data/content';
 import { useSpotify } from '../spotify/spotifyClient';
-import { useTheme } from '../state/AppContext';
+import { useApp, useTheme } from '../state/AppContext';
 import { Icon } from './Icon';
 import { Bar, Touchable, Txt } from './ui';
 
@@ -19,13 +19,16 @@ export function NowPlayingBar() {
   const { playlist, track, isPlaying, isBuffering, position, duration, progress, togglePlayback, skip } =
     useMusic();
   const spotify = useSpotify();
+  const { actions } = useApp();
   const { T } = useTheme();
   const insets = useSafeAreaInsets();
 
   if (spotify.connected && spotify.nowPlaying?.trackName) {
     const np = spotify.nowPlaying;
     return (
-      <View
+      <Touchable
+        onPress={() => actions.go('spotifyplayer')}
+        accessibilityLabel="Abrir player do Spotify"
         style={{
           position: 'absolute',
           left: 12,
@@ -103,7 +106,7 @@ export function NowPlayingBar() {
             />
           </Touchable>
         </View>
-      </View>
+      </Touchable>
     );
   }
 

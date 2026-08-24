@@ -47,7 +47,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     data = null;
   }
   if (!response.ok) {
-    if (response.status === 403) {
+    // A mensagem de Premium só faz sentido pra chamadas de reprodução — um
+    // 403 em busca ou criação de playlist tem outra causa (conta fora do
+    // User Management, escopo faltando) e essa frase só confundiria.
+    if (response.status === 403 && path.includes('/player/')) {
       throw new SpotifyApiError(
         'O Spotify bloqueou a reprodução. Abra o Spotify no celular e confirme que a conta tem Premium.',
         response.status
@@ -89,18 +92,42 @@ export async function suggestTracksFor(seedQuery: string, limit = 15): Promise<S
   return searchTracks(seedQuery, limit);
 }
 
-let cachedUserId: string | null = null;
+export type SpotifyProfile = {
+  id: string;
+  displayName: string;
+  /** 'premium' | 'free' | 'open' (conta aberta, sem plano). Free e open não
+   * conseguem tocar uma faixa específica via API — só playlist embaralhada. */
+  product: string;
+  image: string | null;
+};
 
-export async function getCurrentUserId(): Promise<string> {
-  if (cachedUserId) return cachedUserId;
+let cachedProfile: SpotifyProfile | null = null;
+
+async function fetchProfile(): Promise<SpotifyProfile> {
   const me = await request<any>('/me');
   if (!me?.id) throw new SpotifyApiError('Não foi possível identificar sua conta do Spotify.');
-  cachedUserId = me.id;
-  return me.id;
+  const profile: SpotifyProfile = {
+    id: me.id,
+    displayName: me.display_name ?? me.id,
+    product: me.product ?? 'free',
+    image: me.images?.[me.images.length - 1]?.url ?? null,
+  };
+  cachedProfile = profile;
+  return profile;
+}
+
+export async function getCurrentUserId(): Promise<string> {
+  if (cachedProfile) return cachedProfile.id;
+  return (await fetchProfile()).id;
+}
+
+export async function getMyProfile(): Promise<SpotifyProfile> {
+  if (cachedProfile) return cachedProfile;
+  return fetchProfile();
 }
 
 export function forgetCachedUser(): void {
-  cachedUserId = null;
+  cachedProfile = null;
 }
 
 /** Cria a playlist na conta do usuário e devolve o URI dela. Privada por
@@ -197,6 +224,36 @@ async function ensureSpotifyDevice(): Promise<void> {
       body: JSON.stringify({ device_ids: [target.id], play: false }),
     });
   }
+}
+
+export type SpotifyDevice = {
+  id: string;
+  name: string;
+  type: string;
+  isActive: boolean;
+  volumePercent: number | null;
+};
+
+/** Onde a conta está tocando agora — o App Remote só fala com o Spotify
+ * instalado neste celular; a Web API enxerga a conta inteira (alto-falante,
+ * outro celular, desktop). Serve pra "puxar" a reprodução pra cá. */
+export async function listSpotifyDevices(): Promise<SpotifyDevice[]> {
+  const data = await request<any>('/me/player/devices');
+  const devices = Array.isArray(data?.devices) ? data.devices : [];
+  return devices.map((d: any) => ({
+    id: d.id,
+    name: d.name,
+    type: d.type,
+    isActive: Boolean(d.is_active),
+    volumePercent: typeof d.volume_percent === 'number' ? d.volume_percent : null,
+  }));
+}
+
+export async function transferSpotifyPlayback(deviceId: string, play: boolean): Promise<void> {
+  await request('/me/player', {
+    method: 'PUT',
+    body: JSON.stringify({ device_ids: [deviceId], play }),
+  });
 }
 
 export async function pauseSpotifyPlayback(): Promise<void> {

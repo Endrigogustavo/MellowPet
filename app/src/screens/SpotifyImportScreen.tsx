@@ -98,6 +98,19 @@ export function SpotifyImportScreen() {
     setFormError(null);
   };
 
+  // "Músicas curtidas" não tem um único spotify:uri pra tocar como contexto
+  // — precisa buscar as faixas e enfileirar, igual a uma playlist montada
+  // aqui dentro.
+  const playLiked = async () => {
+    try {
+      const saved = await getSavedTracks();
+      await spotify.playTracks(saved.map((t) => t.uri), LIKED_ID);
+    } catch {
+      // playTracks já cuida do próprio erro de reprodução; um erro aqui é
+      // só a busca das faixas em si.
+    }
+  };
+
   const selectMoment = (next: Moment) => {
     setMoment(next);
     if (!nameTouched && source) setName(source.name);
@@ -237,6 +250,14 @@ export function SpotifyImportScreen() {
                   <Txt s={13.5} w={700} c={T.t1} style={{ flex: 1 }}>
                     Músicas curtidas
                   </Txt>
+                  <Touchable
+                    onPress={() => playLiked()}
+                    accessibilityLabel="Tocar músicas curtidas"
+                    style={{ padding: 6 }}
+                    hitSlop={6}
+                  >
+                    <Icon d={ICONS.playFill} size={16} color={T.t1} sw={2} filled />
+                  </Touchable>
                   <Icon d={ICONS.chevron} size={16} color={T.t3} sw={2} />
                 </Touchable>
 
@@ -280,6 +301,14 @@ export function SpotifyImportScreen() {
                         {p.trackCount} {p.trackCount === 1 ? 'faixa' : 'faixas'}
                       </Txt>
                     </View>
+                    <Touchable
+                      onPress={() => spotify.playUri(`spotify:playlist:${p.id}`)}
+                      accessibilityLabel={'Tocar ' + p.name}
+                      style={{ padding: 6 }}
+                      hitSlop={6}
+                    >
+                      <Icon d={ICONS.playFill} size={16} color={T.t1} sw={2} filled />
+                    </Touchable>
                     <Icon d={ICONS.chevron} size={16} color={T.t3} sw={2} />
                   </Touchable>
                 ))}

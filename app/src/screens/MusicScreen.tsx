@@ -99,9 +99,27 @@ export function MusicScreen() {
             <Icon d={ICONS.spotify} size={19} color="#1DB954" circle />
           </View>
           <View style={{ flex: 1 }}>
-            <Txt s={13.5} w={800} c={T.t1}>
-              Spotify
-            </Txt>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+              <Txt s={13.5} w={800} c={T.t1} numberOfLines={1}>
+                {spotify.profile?.displayName ?? 'Spotify'}
+              </Txt>
+              {spotify.profile ? (
+                <View
+                  style={{
+                    paddingHorizontal: 7,
+                    paddingVertical: 2,
+                    borderRadius: 999,
+                    backgroundColor: spotify.profile.product === 'premium' ? 'rgba(29,185,84,.14)' : T.bg,
+                    borderWidth: spotify.profile.product === 'premium' ? 0 : 1,
+                    borderColor: T.bd,
+                  }}
+                >
+                  <Txt s={9.5} w={800} c={spotify.profile.product === 'premium' ? '#1DB954' : T.t3}>
+                    {spotify.profile.product === 'premium' ? 'PREMIUM' : 'FREE'}
+                  </Txt>
+                </View>
+              ) : null}
+            </View>
             <Txt s={11.5} c={spotify.error ? DANGER : T.t3} numberOfLines={3} style={{ marginTop: 2 }}>
               {spotify.error
                 ? spotify.error

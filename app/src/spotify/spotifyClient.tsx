@@ -15,6 +15,8 @@ import {
 } from './spotifyAuth';
 import {
   forgetCachedUser,
+  getMyProfile,
+  type SpotifyProfile,
 } from './spotifyApi';
 
 const CLIENT_ID = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID ?? '';
@@ -26,7 +28,33 @@ type NowPlaying = {
   artistName: string | null;
   trackUri: string | null;
   isPaused: boolean;
+  positionMs: number;
+  durationMs: number;
 };
+
+/** O SDK do App Remote devolve códigos técnicos em inglês — isto traduz os
+ * que realmente aparecem na prática pra algo que a pessoa consegue agir. */
+function friendlySpotifyError(raw: string): string {
+  if (raw.includes('cant_play_on_demand')) {
+    return 'Sua conta Spotify é Free — o Spotify só deixa apps de terceiros tocarem uma playlist inteira embaralhada, não escolher uma faixa exata. Toque a playlist inteira, ou assine o Premium para escolher faixas.';
+  }
+  if (raw.includes('CouldNotFindSpotifyApp') || raw.includes('not installed')) {
+    return 'Instale o app do Spotify para tocar as playlists.';
+  }
+  if (raw.includes('UserNotAuthorizedException') || raw.includes('Explicit user authorization')) {
+    return 'Sua conta ainda não autorizou o MellowPet no Spotify. Toque em Conectar Spotify.';
+  }
+  if (raw.includes('NotLoggedInException') || raw.includes('not logged in')) {
+    return 'Entre na sua conta no app do Spotify e tente de novo.';
+  }
+  if (raw.includes('SpotifyDisconnectedException') || raw.includes('not connected')) {
+    return 'A conexão com o Spotify caiu. Toque em Conectar Spotify de novo.';
+  }
+  if (raw.includes('OfflineModeException') || raw.includes('offline')) {
+    return 'O Spotify está em modo offline. Verifique sua internet.';
+  }
+  return raw;
+}
 
 type SpotifyValue = {
   /** Módulo nativo presente neste build (falso no iOS por enquanto). */
@@ -48,6 +76,10 @@ type SpotifyValue = {
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   skipNext: () => Promise<void>;
+  skipPrevious: () => Promise<void>;
+  /** Nome e tipo de conta (Free/Premium) — null até autorizar e a busca
+   * completar; nunca bloqueia nada, é só informativo. */
+  profile: SpotifyProfile | null;
   clearError: () => void;
 };
 
@@ -60,6 +92,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [nowPlaying, setNowPlaying] = useState<NowPlaying | null>(null);
   const [currentUri, setCurrentUri] = useState<string | null>(null);
+  const [profile, setProfile] = useState<SpotifyProfile | null>(null);
 
   const connectAppRemote = useCallback(async (): Promise<boolean> => {
     if (!MellowSpotify) return false;
@@ -71,7 +104,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       setConnected(false);
       const message = err instanceof Error ? err.message : 'Não foi possível conectar ao Spotify.';
-      setError(message);
+      setError(friendlySpotifyError(message));
       return false;
     }
   }, []);
@@ -87,6 +120,18 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Nome e Free/Premium só servem pra exibir — uma falha aqui não deve virar
+  // erro visível, então fica de fora do fluxo principal de conectar.
+  useEffect(() => {
+    if (!authorized) {
+      setProfile(null);
+      return;
+    }
+    getMyProfile()
+      .then(setProfile)
+      .catch(() => undefined);
+  }, [authorized]);
+
   useEffect(() => {
     if (!isMellowSpotifyAvailable || !MellowSpotify) return;
     const playerSub = MellowSpotify.addListener(
@@ -97,6 +142,8 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
           artistName: event.artistName,
           trackUri: event.trackUri,
           isPaused: event.isPaused,
+          positionMs: event.positionMs,
+          durationMs: event.durationMs,
         });
       }
     );
@@ -194,7 +241,8 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       awaitingBrowserRef.current = false;
       clearBackoutTimer();
       setConnecting(false);
-      setError(err instanceof Error ? err.message : 'Não foi possível conectar ao Spotify.');
+      const message = err instanceof Error ? err.message : 'Não foi possível conectar ao Spotify.';
+      setError(friendlySpotifyError(message));
     }
   }, [clearBackoutTimer, connectAppRemote]);
 
@@ -206,6 +254,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     setAuthorized(false);
     setNowPlaying(null);
     setCurrentUri(null);
+    setProfile(null);
   }, []);
 
   const playUri = useCallback(
@@ -217,7 +266,8 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
         setCurrentUri(uri);
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Não foi possível tocar no Spotify.');
+        const message = err instanceof Error ? err.message : 'Não foi possível tocar no Spotify.';
+        setError(friendlySpotifyError(message));
       }
     },
     [connected, connectAppRemote]
@@ -234,7 +284,8 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
         setCurrentUri(contextKey);
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Não foi possível tocar no Spotify.');
+        const message = err instanceof Error ? err.message : 'Não foi possível tocar no Spotify.';
+        setError(friendlySpotifyError(message));
       }
     },
     [connected, connectAppRemote]
@@ -244,7 +295,8 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     try {
       if (MellowSpotify) await MellowSpotify.pause();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível pausar no Spotify.');
+      const message = err instanceof Error ? err.message : 'Não foi possível pausar no Spotify.';
+      setError(friendlySpotifyError(message));
     }
   }, []);
 
@@ -252,7 +304,8 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     try {
       if (MellowSpotify) await MellowSpotify.resume();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível retomar no Spotify.');
+      const message = err instanceof Error ? err.message : 'Não foi possível retomar no Spotify.';
+      setError(friendlySpotifyError(message));
     }
   }, []);
 
@@ -260,7 +313,17 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     try {
       if (MellowSpotify) await MellowSpotify.skipNext();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível avançar no Spotify.');
+      const message = err instanceof Error ? err.message : 'Não foi possível avançar no Spotify.';
+      setError(friendlySpotifyError(message));
+    }
+  }, []);
+
+  const skipPrevious = useCallback(async () => {
+    try {
+      if (MellowSpotify) await MellowSpotify.skipPrevious();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Não foi possível voltar no Spotify.';
+      setError(friendlySpotifyError(message));
     }
   }, []);
 
@@ -282,6 +345,8 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       pause,
       resume,
       skipNext,
+      skipPrevious,
+      profile,
       clearError,
     }),
     [
@@ -298,6 +363,8 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       pause,
       resume,
       skipNext,
+      skipPrevious,
+      profile,
       clearError,
     ]
   );

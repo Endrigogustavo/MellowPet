@@ -40,6 +40,7 @@ export function PlaylistEditorScreen() {
   const [picked, setPicked] = useState<SpotifyTrack[]>([]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [mirrorNotice, setMirrorNotice] = useState<string | null>(null);
 
   const selectMoment = (next: Moment) => {
     setMoment(next);
@@ -101,6 +102,7 @@ export function PlaylistEditorScreen() {
     }
     setSaving(true);
     setFormError(null);
+    setMirrorNotice(null);
 
     const tracks: NewTrackInput[] = picked.map((t) => ({
       title: t.name,
@@ -115,6 +117,7 @@ export function PlaylistEditorScreen() {
       // continua tocando as faixas. Só o link com a conta se perde.
       let spotifyUri: string | null = null;
       let spotifyUrl: string | null = null;
+      let mirrorFailed = false;
       if (spotify.authorized && picked.length > 0) {
         try {
           const created = await createSpotifyPlaylist(trimmed, `MellowPet · ${moment.sub}`);
@@ -122,7 +125,7 @@ export function PlaylistEditorScreen() {
           spotifyUri = created.uri;
           spotifyUrl = created.url;
         } catch {
-          setFormError('Playlist salva no MellowPet, mas não foi possível criá-la no Spotify.');
+          mirrorFailed = true;
         }
       }
 
@@ -136,10 +139,19 @@ export function PlaylistEditorScreen() {
         spotifyUrl,
         tracks,
       });
-      actions.go('music');
+
+      // Se espelhar falhou, fica na tela pra pessoa ler o aviso — navegar
+      // direto faria a mensagem sumir antes de alguém perceber que salvou.
+      if (mirrorFailed) {
+        setMirrorNotice(
+          'Playlist salva — toca normalmente pelo app. Só não deu pra criar uma cópia dela na sua conta do Spotify agora.'
+        );
+        setSaving(false);
+      } else {
+        actions.go('music');
+      }
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Não foi possível salvar a playlist.');
-    } finally {
       setSaving(false);
     }
   };
@@ -310,19 +322,37 @@ export function PlaylistEditorScreen() {
             {formError}
           </Txt>
         ) : null}
-        <PrimaryButton
-          label={saving ? 'Salvando…' : 'Salvar playlist'}
-          disabled={saving}
-          onPress={save}
-        />
-        <Touchable
-          onPress={() => actions.go('music')}
-          style={{ alignSelf: 'center', paddingHorizontal: 18, paddingVertical: 14 }}
-        >
-          <Txt s={13.5} w={700} c={T.t3}>
-            Cancelar
-          </Txt>
-        </Touchable>
+
+        {mirrorNotice ? (
+          <>
+            <Card
+              radius={18}
+              padding={14}
+              style={{ backgroundColor: 'rgba(0,184,148,.1)', borderColor: 'transparent', marginBottom: 14 }}
+            >
+              <Txt s={12.5} lh={1.5} c={OK}>
+                {mirrorNotice}
+              </Txt>
+            </Card>
+            <PrimaryButton label="Ir para Música" onPress={() => actions.go('music')} />
+          </>
+        ) : (
+          <>
+            <PrimaryButton
+              label={saving ? 'Salvando…' : 'Salvar playlist'}
+              disabled={saving}
+              onPress={save}
+            />
+            <Touchable
+              onPress={() => actions.go('music')}
+              style={{ alignSelf: 'center', paddingHorizontal: 18, paddingVertical: 14 }}
+            >
+              <Txt s={13.5} w={700} c={T.t3}>
+                Cancelar
+              </Txt>
+            </Touchable>
+          </>
+        )}
       </Section>
     </ScreenScroll>
   );

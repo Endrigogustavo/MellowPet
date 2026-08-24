@@ -23,6 +23,7 @@ import { RoutineScreen } from '../screens/RoutineScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { SpotifyImportScreen } from '../screens/SpotifyImportScreen';
+import { SpotifyPlayerScreen } from '../screens/SpotifyPlayerScreen';
 import { ToolsScreen } from '../screens/ToolsScreen';
 import { VisionScreen } from '../screens/VisionScreen';
 import { useApp, useTheme, type Screen } from '../state/AppContext';
@@ -39,6 +40,7 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   music: MusicScreen,
   playlisteditor: PlaylistEditorScreen,
   spotifyimport: SpotifyImportScreen,
+  spotifyplayer: SpotifyPlayerScreen,
   dashboard: DashboardScreen,
   care: CareScreen,
   agenda: AgendaScreen,
@@ -51,7 +53,7 @@ const SCREENS: Record<Screen, React.ComponentType> = {
 };
 
 /** Telas em que a barra de abas fica escondida. */
-const NO_TABS: Screen[] = ['splash', 'onboarding', 'chat', 'login', 'caresignup', 'vision'];
+const NO_TABS: Screen[] = ['splash', 'onboarding', 'chat', 'login', 'caresignup', 'vision', 'spotifyplayer'];
 
 export function RootNavigator() {
   const { state, actions } = useApp();

@@ -62,9 +62,19 @@ class MellowSpotifyModule : Module() {
           }
 
           override fun onFailure(error: Throwable) {
+            // O SDK do Spotify tem varias subclasses de erro (nao logado,
+            // app nao instalado, usuario nao autorizado, offline...) mas a
+            // .message costuma vir genérica demais pra distinguir qual é.
+            // O nome da classe da exceção é o que diz de fato qual caminho
+            // o SDK tomou.
             val message = error.message ?: "Falha ao conectar ao Spotify."
+            android.util.Log.e(
+              "MellowSpotify",
+              "connect onFailure: class=${error.javaClass.name} message=$message",
+              error,
+            )
             sendEvent("onConnectionChanged", mapOf("connected" to false, "error" to message))
-            promise.reject("connect_failed", message, error)
+            promise.reject("connect_failed", "${error.javaClass.simpleName}: $message", error)
           }
         },
       )

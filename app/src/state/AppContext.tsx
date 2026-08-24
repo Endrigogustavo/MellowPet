@@ -44,6 +44,7 @@ export type Screen =
   | 'music'
   | 'playlisteditor'
   | 'spotifyimport'
+  | 'spotifyplayer'
   | 'dashboard'
   | 'care'
   | 'agenda'
