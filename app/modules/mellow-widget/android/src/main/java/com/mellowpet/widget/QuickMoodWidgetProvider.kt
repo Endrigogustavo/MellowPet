@@ -4,7 +4,6 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.widget.RemoteViews
-import com.mellowpet.widgetbridge.R
 
 /** Registro rápido de sentimento sem precisar abrir o app pra navegar até
  * lá — cada emoji já é o valor final, o MellowPet só confirma o registro

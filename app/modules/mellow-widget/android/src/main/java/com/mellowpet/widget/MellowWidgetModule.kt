@@ -1,33 +1,35 @@
 package com.mellowpet.widget
 
-import android.appwidget.AppWidgetManager
-import android.content.Context
+import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
-const val WIDGET_PREFS_NAME = "mellow_widget_prefs"
-const val WIDGET_PREF_LABEL = "mood_label"
-const val WIDGET_PREF_COLOR = "mood_color"
-
+/**
+ * Ponte JS → widgets da tela inicial. Um widget roda no processo do
+ * launcher, não no do app — a única forma de ele mostrar dado atual é o app
+ * escrever esse dado em algum lugar persistido (ver WidgetStore) e pedir pro
+ * Android redesenhar. É só isso que estas funções fazem.
+ */
 class MellowWidgetModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("MellowWidget")
 
-    AsyncFunction("updateMoodAsync") { label: String, colorHex: String ->
-      val context = appContext.reactContext ?: return@AsyncFunction
-      context.getSharedPreferences(WIDGET_PREFS_NAME, Context.MODE_PRIVATE)
-        .edit()
-        .putString(WIDGET_PREF_LABEL, label)
-        .putString(WIDGET_PREF_COLOR, colorHex)
-        .apply()
+    Function("updateMood") { emoji: String, label: String, sub: String ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      WidgetStore.setMood(context, emoji, label, sub)
+      MellowMoodWidgetProvider.updateAll(context)
+    }
 
-      val manager = AppWidgetManager.getInstance(context)
-      val ids = manager.getAppWidgetIds(
-        android.content.ComponentName(context, MellowMoodWidgetProvider::class.java)
-      )
-      if (ids.isNotEmpty()) {
-        MellowMoodWidgetProvider.updateAll(context, manager, ids)
-      }
+    Function("updateNowPlaying") { track: String?, artist: String?, isPaused: Boolean ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      WidgetStore.setNowPlaying(context, track, artist, isPaused)
+      SpotifyNowPlayingWidgetProvider.updateAll(context)
+    }
+
+    Function("updateRoutine") { time: String?, name: String? ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      WidgetStore.setRoutine(context, time, name)
+      RoutineWidgetProvider.updateAll(context)
     }
   }
 }

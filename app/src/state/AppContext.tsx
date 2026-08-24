@@ -34,7 +34,6 @@ import { fetchProfileStats, levelFromXp } from '../profile/profileClient';
 import { emojiForEmotion, updateMoodWidget } from '../widgets/widgetBridge';
 import { logManualEmotion } from '../vision/manualEmotion';
 import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
-import { loadCoachSeen, markCoachSeen } from './coachStore';
 
 export type Screen =
   | 'splash'
@@ -212,7 +211,10 @@ const INITIAL: State = {
 
   role: 'user',
   accountRole: 'user',
-  coach: 0,
+  // Começa escondido: o tour é da primeira vez que a pessoa cria conta, e
+  // só o próprio cadastro liga ele (ver submitAuth). Entrar numa conta que
+  // já existe — ou reabrir o app — nunca traz o tour de volta.
+  coach: COACH.length,
 
   signup: true,
   email: '',
@@ -298,21 +300,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (cards.size > 0) dispatch({ dismissedCards: [...cards] });
     });
   }, []);
-
-  // Tour de boas-vindas: só na primeira vez que a pessoa abre o app neste
-  // aparelho. Sem isto `state.coach` sempre nasce em 0 e o tour reaparece a
-  // cada cold start, não só no primeiro login.
-  useEffect(() => {
-    loadCoachSeen().then((seen) => {
-      if (seen) dispatch({ coach: COACH.length });
-    });
-  }, []);
-
-  // Marca como visto assim que a pessoa termina (ou pula) o tour, seja pelo
-  // último "Entendi" ou pelo "Pular" — os dois levam `coach` até o fim.
-  useEffect(() => {
-    if (state.coach >= COACH.length) markCoachSeen().catch(() => undefined);
-  }, [state.coach]);
 
   // Widget de humor na tela inicial do celular: atualiza sempre que o
   // sentimento observado ou o nível mudam, não só quando o app está aberto
@@ -596,6 +583,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   : 'home',
             careStep: isCareSignup ? 0 : cur.careStep,
             onb: isCareSignup ? cur.onb : 0,
+            // Só o cadastro de conta pessoal liga o tour de boas-vindas.
+            coach: s.signup && !isCareSignup ? 0 : cur.coach,
             navSeq: cur.navSeq + 1,
           }));
           listLinks(user.userId, 'user')

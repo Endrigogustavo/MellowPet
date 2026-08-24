@@ -5,7 +5,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.widget.RemoteViews
-import com.mellowpet.widgetbridge.R
 
 /** Controle remoto do que está tocando no Spotify — sem abrir o app do
  * Spotify, só o MellowPet (que fala com o Spotify por baixo, como já faz na

@@ -5,7 +5,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.widget.RemoteViews
-import com.mellowpet.widgetbridge.R
 
 /** Próximo item da rotina do dia, direto na tela inicial. */
 class RoutineWidgetProvider : AppWidgetProvider() {

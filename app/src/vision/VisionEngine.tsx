@@ -20,7 +20,6 @@ import {
 import { ExpressionEngine } from './expressionEngine';
 import { VISION_FLAGS } from './featureFlags';
 import { qualityGuidance, VisionTelemetry } from './telemetry';
-import { updateWidgetMood } from '../widget/widgetClient';
 
 const APP_STATE_INTERVAL_MS = 250;
 const TELEMETRY_INTERVAL_MS = 500;
@@ -175,7 +174,6 @@ export function VisionEngine() {
           secondaryEmotions: result.secondaryEmotions,
           ...(result.signalStatus === 'ready' ? { streak: 0 } : null),
         });
-        if (result.signalStatus === 'ready') updateWidgetMood(result.observedExpression);
         lastSignalCommitRef.current = {
           expression: result.observedExpression,
           status: result.signalStatus,

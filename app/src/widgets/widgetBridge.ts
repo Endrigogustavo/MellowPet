@@ -1,4 +1,4 @@
-import MellowWidgets, { isMellowWidgetsAvailable } from '../../modules/mellow-widgets';
+import MellowWidget, { isMellowWidgetAvailable } from '../../modules/mellow-widget';
 import type { EmotionKey } from '../data/emotions';
 
 const MOOD_EMOJI: Record<EmotionKey, string> = {
@@ -22,9 +22,9 @@ export function emojiForEmotion(emotion: EmotionKey): string {
  * pior das hipóteses ele só mostra o dado antigo até a próxima chamada.
  */
 export function updateMoodWidget(emoji: string, label: string, sub: string): void {
-  if (!isMellowWidgetsAvailable || !MellowWidgets) return;
+  if (!isMellowWidgetAvailable || !MellowWidget) return;
   try {
-    MellowWidgets.updateMood(emoji, label, sub);
+    MellowWidget.updateMood(emoji, label, sub);
   } catch {
     // silencioso — ver comentário acima.
   }
@@ -35,18 +35,18 @@ export function updateNowPlayingWidget(
   artist: string | null,
   isPaused: boolean
 ): void {
-  if (!isMellowWidgetsAvailable || !MellowWidgets) return;
+  if (!isMellowWidgetAvailable || !MellowWidget) return;
   try {
-    MellowWidgets.updateNowPlaying(track, artist, isPaused);
+    MellowWidget.updateNowPlaying(track, artist, isPaused);
   } catch {
     // silencioso — ver comentário acima.
   }
 }
 
 export function updateRoutineWidget(time: string | null, name: string | null): void {
-  if (!isMellowWidgetsAvailable || !MellowWidgets) return;
+  if (!isMellowWidgetAvailable || !MellowWidget) return;
   try {
-    MellowWidgets.updateRoutine(time, name);
+    MellowWidget.updateRoutine(time, name);
   } catch {
     // silencioso — ver comentário acima.
   }
