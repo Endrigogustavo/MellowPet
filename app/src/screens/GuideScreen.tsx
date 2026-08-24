@@ -5,12 +5,14 @@ import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { ScreenTitle, Touchable, Txt } from '../components/ui';
 import { GUIDE, ICONS, INTEGRATIONS } from '../data/content';
+import { useSpotify } from '../spotify/spotifyClient';
 import { useApp, useTheme, type Screen } from '../state/AppContext';
 import { hexA } from '../theme/palette';
 
 export function GuideScreen() {
-  const { state, actions } = useApp();
+  const { actions } = useApp();
   const { T } = useTheme();
+  const spotify = useSpotify();
 
   return (
     <ScreenScroll>
@@ -114,12 +116,12 @@ export function GuideScreen() {
         </Txt>
         <View style={{ gap: 8 }}>
           {INTEGRATIONS.map(([id, name, sub, color, icon]) => {
-            const connected = id === 'spotify' && state.spotify;
+            const connected = id === 'spotify' && spotify.connected;
             return (
               <Touchable
                 key={id}
                 onPress={() =>
-                  id === 'spotify' ? actions.set((s) => ({ spotify: !s.spotify })) : undefined
+                  id === 'spotify' ? (spotify.connected ? spotify.disconnect() : spotify.connect()) : undefined
                 }
                 style={{
                   borderRadius: 18,

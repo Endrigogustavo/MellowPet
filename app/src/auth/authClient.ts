@@ -1,6 +1,12 @@
+import { Linking } from 'react-native';
 import type { AuthError as SupabaseAuthError } from '@supabase/supabase-js';
 
 import { supabase, SUPABASE_CONFIGURED } from '../supabase/client';
+
+// Precisa bater com "scheme" no app.json e com a Redirect URL cadastrada no
+// provedor Google, no console do Supabase (Authentication → URL Configuration
+// → Redirect URLs).
+export const OAUTH_REDIRECT_URL = 'mellowpet://login-callback';
 
 export type AuthRole = 'user' | 'care';
 
@@ -80,6 +86,44 @@ export async function login(email: string, password: string): Promise<AuthUser> 
   return {
     userId: data.user.id,
     email: data.user.email ?? email,
+    displayName: profile.displayName,
+    role: profile.role,
+  };
+}
+
+/** Abre o navegador do sistema no fluxo OAuth do Google. A sessão só é
+ * concluída quando o redirect volta pro app — ver `completeOAuthRedirect`. */
+export async function loginWithGoogle(): Promise<void> {
+  if (!SUPABASE_CONFIGURED) throw new AuthError('Supabase não configurado neste build.');
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    // skipBrowserRedirect: no RN não existe redirect automático de página;
+    // sem isto o SDK assume ambiente web e devolve `data.url` vazio.
+    options: { redirectTo: OAUTH_REDIRECT_URL, skipBrowserRedirect: true },
+  });
+  if (error) throw new AuthError(mapAuthError(error));
+  if (!data.url) throw new AuthError('Não foi possível iniciar o login com Google.');
+  await Linking.openURL(data.url);
+}
+
+/** Chamado com a URL de deep link recebida de volta do navegador. Devolve
+ * `null` para qualquer URL que não seja o nosso próprio callback OAuth. */
+export async function completeOAuthRedirect(url: string): Promise<AuthUser | null> {
+  if (!url.startsWith(OAUTH_REDIRECT_URL)) return null;
+  const fragment = url.split('#')[1];
+  if (!fragment) return null;
+  const params = new URLSearchParams(fragment);
+  const access_token = params.get('access_token');
+  const refresh_token = params.get('refresh_token');
+  if (!access_token || !refresh_token) return null;
+
+  const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
+  if (error) throw new AuthError(mapAuthError(error));
+  if (!data.user) throw new AuthError('Não foi possível concluir o login com Google.');
+  const profile = await fetchProfile(data.user.id);
+  return {
+    userId: data.user.id,
+    email: data.user.email ?? '',
     displayName: profile.displayName,
     role: profile.role,
   };

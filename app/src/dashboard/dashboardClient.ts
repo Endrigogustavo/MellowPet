@@ -1,7 +1,7 @@
 import { apiPost } from '../api/client';
 import { EMOTIONS, type EmotionKey } from '../data/emotions';
 import type { Period } from '../data/content';
-import { fetchEmotionEvents, isEmotionKey, wellbeingScore, type EmotionRow } from './aggregate';
+import { fetchEmotionEvents, isEmotionKey, triggerInsights, wellbeingScore, type EmotionRow } from './aggregate';
 
 const HOURS_BY_PERIOD = [24, 72, 168];
 const LABEL_BY_PERIOD = ['24 horas', '3 dias', '7 dias'];
@@ -99,6 +99,7 @@ export async function fetchDashboardPeriod(targetUserId: string, periodIndex: nu
     bars,
     peaks,
     timeline,
+    triggers: triggerInsights(rows),
   };
 }
 

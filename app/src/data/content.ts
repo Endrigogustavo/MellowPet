@@ -15,6 +15,9 @@ export type Period = {
   peaks: [string, number, string, EmotionKey][];
   /** Linha do dia com hora real e emoção dominante. */
   timeline: [string, EmotionKey][];
+  /** Padrões identificados (transição de emoção, horário) — vazio quando não
+   * há amostras suficientes nesse período. */
+  triggers: string[];
 };
 
 export const PERIOD_LABELS = ['24h', '3 dias', '7 dias'];
@@ -209,6 +212,9 @@ export type Playlist = {
   why: string;
   c: string;
   tracks: Track[];
+  /** Playlist editorial equivalente no Spotify, tocada via App Remote quando
+   * a conta estiver conectada — mesmo clima da playlist local de Chopin. */
+  spotifyUri: string;
 };
 
 /**
@@ -230,6 +236,7 @@ export const PLAYLISTS: Playlist[] = [
     name: 'Acolhimento',
     why: 'Tristeza que passa de 3 minutos',
     c: '#74B9FF',
+    spotifyUri: 'spotify:playlist:37i9dQZF1DX3YSRoSdA634', // Life Sucks
     tracks: [
       track('Noturno Op. 9 nº 2', 'Nocturne Op. 9 no. 2 in E flat major.mp3', 276),
       track('Noturno Op. 15 nº 1', 'Nocturne Op. 15 no. 1 In F major.mp3', 305),
@@ -242,6 +249,7 @@ export const PLAYLISTS: Playlist[] = [
     name: 'Quebra de padrão',
     why: 'Mesma emoção travada há muito tempo',
     c: '#B2BEC3',
+    spotifyUri: 'spotify:playlist:37i9dQZF1DX4WYpdgoIcn6', // Chill Hits
     tracks: [
       track('Fantaisie-Impromptu Op. 66', 'Fantasie Impromptu Op. 66.mp3', 326),
       track('Impromptu nº 1, Op. 29', 'Impromptu no. 1 - Op. 29.mp3', 280),
@@ -254,6 +262,7 @@ export const PLAYLISTS: Playlist[] = [
     name: 'Sono profundo',
     why: 'Ansiedade depois das 22h',
     c: '#A29BFE',
+    spotifyUri: 'spotify:playlist:37i9dQZF1DX4sWSpwq3LiO', // Peaceful Piano
     tracks: [
       track('Prelúdio Op. 28 nº 15', 'Prelude Op. 28 no. 15.mp3', 295),
       track('Noturno Op. 27 nº 1', 'Nocturne Op. 27 no. 1 in C sharp minor.mp3', 352),
@@ -270,6 +279,7 @@ export const PLAYLISTS: Playlist[] = [
     name: 'Descarga controlada',
     why: 'Raiva intensa',
     c: '#FF7675',
+    spotifyUri: 'spotify:playlist:37i9dQZF1DX76Wlfdnj7AP', // Beast Mode
     tracks: [
       track('Polonaise Op. 53 · Heroica', 'PolonaiseOp.53InAFlatMajorheroic.mp3', 438),
       track('Balada nº 1, Op. 23', 'Ballade no. 1 - Op. 23.mp3', 613),
@@ -282,6 +292,7 @@ export const PLAYLISTS: Playlist[] = [
     name: 'Manter o embalo',
     why: 'Alegria em alta',
     c: '#FFD166',
+    spotifyUri: 'spotify:playlist:37i9dQZF1DX3rxVfibe1L0', // Mood Booster
     tracks: [
       track(
         'Grande Valsa Brilhante Op. 18',
@@ -298,6 +309,7 @@ export const PLAYLISTS: Playlist[] = [
     name: 'Foco silencioso',
     why: 'Estudo e trabalho',
     c: '#55EFC4',
+    spotifyUri: 'spotify:playlist:37i9dQZF1DWZeKCadgRdKQ', // Deep Focus
     tracks: [
       track('Noturno Op. 32 nº 1', 'Nocturne Op. 32 no. 1 in B major.mp3', 301),
       track('Prelúdio Op. 28 nº 17', 'Prelude Op. 28 no. 17.mp3', 180),
@@ -589,6 +601,7 @@ export const ICONS = {
   back: 'M15 5l-7 7 7 7',
   chevron: 'M9 5l7 7-7 7',
   check: 'M5 12.5l4.5 4.5L19 7.5',
+  plus: 'M12 5v14M5 12h14',
   close: 'M7 7l10 10M17 7L7 17',
   sun: 'M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z',
   moon: 'M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z',

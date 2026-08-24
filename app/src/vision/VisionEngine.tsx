@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { useCameraPermissions } from 'expo-camera';
 
 import {
@@ -76,6 +76,7 @@ export function VisionEngine() {
         state.userId ?? undefined
       )
   );
+  const [appForeground, setAppForeground] = useState(() => AppState.currentState === 'active');
   const baselineLoadedRef = useRef(false);
   const lastSignalCommitRef = useRef({
     expression: 'unknown',
@@ -89,6 +90,21 @@ export function VisionEngine() {
   useEffect(() => {
     eventRecorder.setUserId(state.userId ?? undefined);
   }, [eventRecorder, state.userId]);
+
+  useEffect(() => {
+    // O Android pode revogar o acesso à câmera quando o app vai pra segundo
+    // plano (a MIUI em particular derruba a sessão do Camera2 nesse momento).
+    // A view nativa nunca é desmontada só por trocar de aba — sem isto, uma
+    // sessão derrubada em background nunca tinha um novo gatilho pra reabrir
+    // e o erro ficava travado até o usuário fechar e reabrir o app inteiro.
+    // Soltar `active` no background e religar no foreground força o módulo
+    // nativo a fechar e reconstruir a sessão do zero (mesmo caminho de
+    // `updateActive`), o que resolve sozinho.
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      setAppForeground(nextState === 'active');
+    });
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     engineSingleton = engine;
@@ -243,7 +259,7 @@ export function VisionEngine() {
       pointerEvents="none"
     >
       <MellowVisionView
-        active
+        active={appForeground}
         maxFps={10}
         mirror
         showPreview={onVisionScreen}

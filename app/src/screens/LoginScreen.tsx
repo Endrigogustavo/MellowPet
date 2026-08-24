@@ -72,8 +72,10 @@ export function LoginScreen() {
     );
   };
 
-  const socialButton = (label: string) => (
-    <View
+  const socialButton = (label: string, onPress?: () => void) => (
+    <Touchable
+      onPress={onPress}
+      disabled={!onPress || state.authLoading}
       style={{
         flex: 1,
         paddingVertical: 13,
@@ -82,12 +84,13 @@ export function LoginScreen() {
         backgroundColor: T.surf,
         borderWidth: 1,
         borderColor: T.bd,
+        opacity: onPress ? 1 : 0.5,
       }}
     >
       <Txt s={13} w={700} c={T.t2}>
         {label}
       </Txt>
-    </View>
+    </Touchable>
   );
 
   return (
@@ -175,7 +178,7 @@ export function LoginScreen() {
         </View>
 
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 18 }}>
-          {socialButton('Google')}
+          {socialButton('Google', actions.loginWithGoogle)}
           {socialButton('Apple')}
         </View>
 

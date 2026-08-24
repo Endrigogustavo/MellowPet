@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 
 import { Icon } from '../components/Icon';
@@ -85,7 +85,11 @@ export function DashboardScreen() {
       {!P ? (
         <Section top={0}>
           <Card radius={24} padding={22} style={{ alignItems: 'center', gap: 8 }}>
-            <Icon d={ICONS.robot} size={26} color={T.t3} />
+            {loading ? (
+              <ActivityIndicator size="small" color={T.pri} />
+            ) : (
+              <Icon d={ICONS.robot} size={26} color={T.t3} />
+            )}
             <Txt s={14.5} w={800} c={T.t1} style={{ textAlign: 'center' }}>
               {loading ? 'Carregando suas leituras…' : 'Ainda não há leituras suficientes'}
             </Txt>
@@ -178,8 +182,8 @@ export function DashboardScreen() {
             </Card>
           </Section>
 
-          {/* gatilhos — o backend ainda não correlaciona eventos pra
-              identificar gatilhos reais. */}
+          {/* gatilhos — correlação de transição de emoção e horário, ver
+              triggerInsights em dashboard/aggregate.ts. */}
           <Section>
             <Card radius={24} padding={20}>
               <Txt s={13.5} w={800} c={T.t1}>
@@ -188,9 +192,30 @@ export function DashboardScreen() {
               <Txt s={11.5} c={T.t3} style={{ marginTop: 4 }}>
                 O que costuma vir antes de uma emoção difícil
               </Txt>
-              <Txt s={12.5} c={T.t3} style={{ marginTop: 15 }}>
-                Ainda não há gatilhos identificados com dados suficientes.
-              </Txt>
+              {P.triggers.length > 0 ? (
+                <View style={{ marginTop: 13, gap: 10 }}>
+                  {P.triggers.map((trigger, i) => (
+                    <View key={i} style={{ flexDirection: 'row', gap: 9, alignItems: 'flex-start' }}>
+                      <View
+                        style={{
+                          width: 5,
+                          height: 5,
+                          borderRadius: 3,
+                          marginTop: 6,
+                          backgroundColor: T.pri,
+                        }}
+                      />
+                      <Txt s={12.5} lh={1.5} c={T.t2} style={{ flex: 1 }}>
+                        {trigger}
+                      </Txt>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Txt s={12.5} c={T.t3} style={{ marginTop: 15 }}>
+                  Ainda não há gatilhos identificados com dados suficientes.
+                </Txt>
+              )}
             </Card>
           </Section>
 

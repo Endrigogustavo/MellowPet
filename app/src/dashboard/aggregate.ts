@@ -30,6 +30,57 @@ export function wellbeingScore(rows: EmotionRow[]): number | null {
   return Math.max(0, Math.min(100, Math.round(50 + (positivePct - negativePct) * 0.5)));
 }
 
+const MIN_TRIGGER_SAMPLES = 3;
+/** Janela pra considerar que uma emoção "antecedeu" outra — eventos mais
+ * distantes que isso provavelmente não têm relação causal. */
+const TRANSITION_WINDOW_MS = 2 * 3_600_000;
+
+/** Gatilhos frequentes: (1) qual emoção mais costuma vir logo antes de uma
+ * emoção negativa, e (2) em que horário cada emoção negativa mais aparece.
+ * Só sugere um padrão com pelo menos `MIN_TRIGGER_SAMPLES` ocorrências —
+ * abaixo disso é ruído, não gatilho. */
+export function triggerInsights(rows: EmotionRow[]): string[] {
+  const transitions: Record<string, number> = {};
+  for (let i = 1; i < rows.length; i++) {
+    const prev = rows[i - 1];
+    const curr = rows[i];
+    if (!NEGATIVE.has(curr.emotion) || prev.emotion === curr.emotion) continue;
+    if (!isEmotionKey(prev.emotion) || !isEmotionKey(curr.emotion)) continue;
+    const gap = new Date(curr.created_at).getTime() - new Date(prev.created_at).getTime();
+    if (gap <= 0 || gap > TRANSITION_WINDOW_MS) continue;
+    const key = `${prev.emotion}>${curr.emotion}`;
+    transitions[key] = (transitions[key] ?? 0) + 1;
+  }
+
+  const hourCounts: Partial<Record<EmotionKey, Record<number, number>>> = {};
+  rows.forEach((r) => {
+    if (!NEGATIVE.has(r.emotion) || !isEmotionKey(r.emotion)) return;
+    const hour = new Date(r.created_at).getHours();
+    const forEmotion = (hourCounts[r.emotion] ??= {});
+    forEmotion[hour] = (forEmotion[hour] ?? 0) + 1;
+  });
+
+  const insights: string[] = [];
+
+  const [topTransition, topTransitionCount] =
+    Object.entries(transitions).sort((a, b) => b[1] - a[1])[0] ?? [];
+  if (topTransition && topTransitionCount >= MIN_TRIGGER_SAMPLES) {
+    const [fromKey, toKey] = topTransition.split('>') as [EmotionKey, EmotionKey];
+    insights.push(
+      `${EMOTIONS[fromKey].label} costuma anteceder ${EMOTIONS[toKey].label.toLowerCase()} (${topTransitionCount}x nesse período).`
+    );
+  }
+
+  for (const [emotion, hours] of Object.entries(hourCounts) as [EmotionKey, Record<number, number>][]) {
+    const [topHour, count] = Object.entries(hours).sort((a, b) => b[1] - a[1])[0] ?? [];
+    if (topHour === undefined || count < MIN_TRIGGER_SAMPLES) continue;
+    insights.push(`${EMOTIONS[emotion].label} é mais frequente perto das ${topHour}h.`);
+    if (insights.length >= 3) break;
+  }
+
+  return insights.slice(0, 3);
+}
+
 export async function fetchEmotionEvents(targetUserId: string, sinceMs: number): Promise<EmotionRow[]> {
   const { data, error } = await supabase
     .from('emotion_events')

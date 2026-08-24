@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { BackHandler, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, BackHandler, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { CoachOverlay } from '../components/CoachOverlay';
@@ -18,6 +18,7 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { MusicScreen } from '../screens/MusicScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { PlansScreen } from '../screens/PlansScreen';
+import { PlaylistEditorScreen } from '../screens/PlaylistEditorScreen';
 import { RoutineScreen } from '../screens/RoutineScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SplashScreen } from '../screens/SplashScreen';
@@ -35,6 +36,7 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   tools: ToolsScreen,
   routine: RoutineScreen,
   music: MusicScreen,
+  playlisteditor: PlaylistEditorScreen,
   dashboard: DashboardScreen,
   care: CareScreen,
   agenda: AgendaScreen,
@@ -71,11 +73,21 @@ export function RootNavigator() {
   const showCoach = state.coach < COACH.length && state.screen === 'home';
   const onSplash = state.screen === 'splash';
 
+  // Troca de tela até aqui era um corte seco (componente inteiro trocado no
+  // mesmo frame). O fade não reanima a tela em si, só suaviza a entrada.
+  const fade = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    fade.setValue(0);
+    Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }).start();
+  }, [state.screen, fade]);
+
   return (
     <View style={{ flex: 1, backgroundColor: onSplash ? T.splashBg : T.bg }}>
       <StatusBar style={isDark || onSplash ? 'light' : 'dark'} />
       <VisionEngine />
-      <Current />
+      <Animated.View style={{ flex: 1, opacity: fade }}>
+        <Current />
+      </Animated.View>
       {showTabs ? <NowPlayingBar /> : null}
       {showTabs ? <TabBar /> : null}
       {showCoach ? <CoachOverlay /> : null}

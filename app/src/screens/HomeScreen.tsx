@@ -111,6 +111,10 @@ export function HomeScreen() {
     if (state.userId) {
       bumpProfileStats(delta).then((stats) => {
         if (stats) actions.set(stats);
+        // null = a chamada no servidor falhou (RLS, função ausente etc.) — o
+        // incremento otimista acima fica só na tela e some ao reabrir o app.
+        // Sem verificação silenciosa aqui: senão o bug nunca aparece no log.
+        else if (__DEV__) console.warn('bumpProfileStats falhou — xp não foi persistido no servidor.');
       });
     }
   };
@@ -235,7 +239,7 @@ export function HomeScreen() {
       <PetStage />
 
       {/* conexão com cuidador */}
-      {!state.linked ? (
+      {!state.linked && !state.dismissedCards.includes('caregiver_connect') ? (
         <Section top={2}>
           <View style={{ padding: 16, borderRadius: 20, backgroundColor: T.priL }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
@@ -259,6 +263,13 @@ export function HomeScreen() {
                   Alguém te enviou um código de convite? Adicione em Ajustes quando quiser.
                 </Txt>
               </View>
+              <Touchable
+                onPress={() => actions.dismissCard('caregiver_connect')}
+                accessibilityLabel="Fechar"
+                style={{ padding: 6 }}
+              >
+                <Icon d={ICONS.close} size={16} color={T.t3} />
+              </Touchable>
             </View>
             <Touchable
               onPress={() => actions.go('settings')}

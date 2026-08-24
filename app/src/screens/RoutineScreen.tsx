@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
@@ -44,10 +44,16 @@ export function RoutineScreen() {
     });
   }, [state.userId]);
 
-  const onTimeChange = (event: DateTimePickerEvent, selected?: Date) => {
+  // Precisa de identidade estável: o picker do Android reabre o diálogo
+  // sempre que a prop `onChange` muda de referência (efeito interno da lib,
+  // dependente de [onChange, valueTimestamp, mode]). Sem useCallback, uma
+  // função nova a cada render — inclusive pelo tick de 1s do AppContext, que
+  // re-renderiza toda tela que usa useApp() — reabria o diálogo, resetando a
+  // seleção em andamento de volta pro valor antigo antes do usuário confirmar.
+  const onTimeChange = useCallback((event: DateTimePickerEvent, selected?: Date) => {
     setShowPicker(false);
     if (event.type === 'set' && selected) setTimeValue(selected);
-  };
+  }, []);
 
   const addItem = () => {
     const time = formatTime(timeValue);

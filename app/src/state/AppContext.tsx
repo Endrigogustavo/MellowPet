@@ -7,6 +7,7 @@ import React, {
   useReducer,
   useRef,
 } from 'react';
+import { Linking } from 'react-native';
 
 import { EMOTIONS, REPLIES, type EmotionKey } from '../data/emotions';
 import type { PetKey } from '../data/pets';
@@ -18,8 +19,10 @@ import { VISION_MODE, type SignalStatus, type VisionMode } from '../vision/contr
 import type { CalibrationState } from '../vision/expressionEngine';
 import {
   AuthError,
+  completeOAuthRedirect,
   loadStoredSession,
   login as apiLogin,
+  loginWithGoogle as apiLoginWithGoogle,
   logout as apiLogout,
   signup as apiSignup,
   subscribeToSignOut,
@@ -28,6 +31,7 @@ import { sendChatMessage } from '../chat/chatClient';
 import { fetchToolContent } from '../tools/toolsClient';
 import { listLinks } from '../care/careClient';
 import { fetchProfileStats } from '../profile/profileClient';
+import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
 
 export type Screen =
   | 'splash'
@@ -38,6 +42,7 @@ export type Screen =
   | 'tools'
   | 'routine'
   | 'music'
+  | 'playlisteditor'
   | 'dashboard'
   | 'care'
   | 'agenda'
@@ -115,7 +120,6 @@ export type State = {
   /** Papel real da conta, vindo do cadastro/perfil — nunca muda por
    * `setRole`. É o que decide se "Entrar no modo cuidador" existe. */
   accountRole: Role;
-  spotify: boolean;
   coach: number;
 
   signup: boolean;
@@ -136,6 +140,9 @@ export type State = {
   invited: boolean;
 
   linked: boolean;
+  /** Cards que o usuário já fechou (ex.: "Conecte um cuidador") — não voltam
+   * a aparecer, mesmo depois de reabrir o app. */
+  dismissedCards: string[];
   quiet: boolean;
   feedback: 'yes' | 'no' | 'unsure' | null;
 
@@ -200,7 +207,6 @@ const INITIAL: State = {
 
   role: 'user',
   accountRole: 'user',
-  spotify: false,
   coach: 0,
 
   signup: true,
@@ -220,6 +226,7 @@ const INITIAL: State = {
   invited: false,
 
   linked: false,
+  dismissedCards: [],
   quiet: false,
   feedback: null,
 
@@ -253,7 +260,9 @@ export type Actions = {
   toggleTheme: () => void;
   setRole: (role: Role) => void;
   submitAuth: () => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  dismissCard: (id: string) => void;
 };
 
 type Ctx = { state: State; actions: Actions };
@@ -277,6 +286,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const later = useCallback((fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms);
     pending.current.push(id);
+  }, []);
+
+  useEffect(() => {
+    loadDismissedCards().then((cards) => {
+      if (cards.size > 0) dispatch({ dismissedCards: [...cards] });
+    });
   }, []);
 
   useEffect(() => {
@@ -318,6 +333,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }),
     []
   );
+
+  /** Conclui o login com Google quando o navegador volta pro app via deep
+   * link. `getInitialURL` cobre o caso do Android matar o processo enquanto
+   * o navegador estava em primeiro plano; o listener cobre o caso comum de
+   * app só suspenso. */
+  useEffect(() => {
+    const handleUrl = (url: string) => {
+      completeOAuthRedirect(url)
+        .then((user) => {
+          if (!user) return;
+          dispatch((s) => ({
+            authLoading: false,
+            authError: null,
+            userId: user.userId,
+            role: user.role,
+            accountRole: user.role,
+            screen: user.role === 'care' ? 'care' : 'home',
+            navSeq: s.navSeq + 1,
+          }));
+          listLinks(user.userId, 'user')
+            .then((res) => dispatch({ linked: res.links.length > 0 }))
+            .catch(() => undefined);
+          fetchProfileStats(user.userId).then((stats) => dispatch(stats));
+        })
+        .catch((error) => {
+          dispatch({
+            authLoading: false,
+            authError: error instanceof AuthError ? error.message : 'Não foi possível continuar.',
+          });
+        });
+    };
+
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl(url);
+    });
+    const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     // Relógio de 1s: conta a duração da emoção e os ciclos de respiração.
@@ -500,6 +553,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             authError: error instanceof AuthError ? error.message : 'Não foi possível continuar.',
           });
         }
+      },
+
+      loginWithGoogle: async () => {
+        dispatch({ authLoading: true, authError: null });
+        try {
+          await apiLoginWithGoogle();
+          // Não desliga authLoading aqui: o app perde o foco pro navegador e
+          // só volta a rodar quando o deep link do callback chega, no efeito
+          // acima — que é quem decide o resultado final.
+        } catch (error) {
+          dispatch({
+            authLoading: false,
+            authError: error instanceof AuthError ? error.message : 'Não foi possível continuar.',
+          });
+        }
+      },
+
+      dismissCard: (id: string) => {
+        dispatch((s) => {
+          if (s.dismissedCards.includes(id)) return {};
+          const next = [...s.dismissedCards, id];
+          persistDismissCard(id, new Set(s.dismissedCards)).catch(() => undefined);
+          return { dismissedCards: next };
+        });
       },
 
       logout: async () => {

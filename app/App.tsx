@@ -12,6 +12,7 @@ import { Nunito_900Black } from '@expo-google-fonts/nunito/900Black';
 
 import { MusicProvider } from './src/audio/MusicPlayer';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { SpotifyProvider } from './src/spotify/spotifyClient';
 import { AppProvider } from './src/state/AppContext';
 import { LIGHT } from './src/theme/palette';
 
@@ -33,7 +34,9 @@ export default function App() {
     <SafeAreaProvider>
       <AppProvider>
         <MusicProvider>
-          <RootNavigator />
+          <SpotifyProvider>
+            <RootNavigator />
+          </SpotifyProvider>
         </MusicProvider>
       </AppProvider>
     </SafeAreaProvider>

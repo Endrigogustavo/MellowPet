@@ -1,0 +1,35 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.mellowpet.spotify'
+version = '1.0.0'
+
+android {
+  namespace "com.mellowpet.spotify"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+repositories {
+  // AARs baixados manualmente de github.com/spotify/android-sdk/releases —
+  // não publicados em nenhum repositório Maven público. O AGP recusa
+  // dependencia de arquivo .aar local direto num modulo de biblioteca ("would
+  // produce a broken AAR"), entao viram um repositorio Maven local minimo em
+  // vez de files()/flatDir.
+  maven { url uri('libs-repo') }
+}
+
+dependencies {
+  // O SDK "auth" separado não entra: connect() do App Remote já abre a tela
+  // de autorização do proprio app Spotify sozinho. O "auth" só serviria pra
+  // um fluxo OAuth manual (AuthorizationClient) que este modulo nao usa — e
+  // o manifesto dele exige manifestPlaceholders de redirect que nao temos.
+  implementation 'com.spotify.android:app-remote:0.8.0'
+}
