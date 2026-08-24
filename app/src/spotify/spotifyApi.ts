@@ -47,6 +47,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     data = null;
   }
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new SpotifyApiError(
+        'O Spotify bloqueou a reprodução. Abra o Spotify no celular e confirme que a conta tem Premium.',
+        response.status
+      );
+    }
+    if (response.status === 404 && path.includes('/player/')) {
+      throw new SpotifyApiError('Nenhum dispositivo Spotify ativo. Abra o Spotify e tente novamente.', response.status);
+    }
     const detail = data?.error?.message ?? `http_${response.status}`;
     throw new SpotifyApiError(String(detail), response.status);
   }
@@ -63,10 +72,10 @@ function toTrack(item: any): SpotifyTrack {
   };
 }
 
-export async function searchTracks(query: string, limit = 20): Promise<SpotifyTrack[]> {
+export async function searchTracks(query: string, limit = 10): Promise<SpotifyTrack[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
-  const params = new URLSearchParams({ q: trimmed, type: 'track', limit: String(limit) });
+  const params = new URLSearchParams({ q: trimmed, type: 'track', limit: String(Math.min(Math.max(limit, 1), 10)) });
   const data = await request<any>(`/search?${params.toString()}`);
   return (data?.tracks?.items ?? []).map(toTrack);
 }
@@ -163,4 +172,41 @@ export async function addTracksToPlaylist(playlistId: string, uris: string[]): P
       body: JSON.stringify({ uris: uris.slice(i, i + 100) }),
     });
   }
+}
+
+export async function startSpotifyPlayback(uri: string, queue: string[] = []): Promise<void> {
+  await ensureSpotifyDevice();
+  const uris = [uri, ...queue].filter((value, index, values) => values.indexOf(value) === index);
+  await request('/me/player/play', {
+    method: 'PUT',
+    body: JSON.stringify(uri.startsWith('spotify:playlist:') ? { context_uri: uri } : { uris }),
+  });
+}
+
+async function ensureSpotifyDevice(): Promise<void> {
+  const data = await request<any>('/me/player/devices');
+  const devices = Array.isArray(data?.devices) ? data.devices : [];
+  const active = devices.find((device: any) => device?.is_active);
+  const target = active ?? devices.find((device: any) => device?.type === 'Smartphone') ?? devices[0];
+  if (!target?.id) {
+    throw new SpotifyApiError('Abra o Spotify em um dispositivo para iniciar a reprodução.', 404);
+  }
+  if (!active) {
+    await request('/me/player', {
+      method: 'PUT',
+      body: JSON.stringify({ device_ids: [target.id], play: false }),
+    });
+  }
+}
+
+export async function pauseSpotifyPlayback(): Promise<void> {
+  await request('/me/player/pause', { method: 'PUT' });
+}
+
+export async function resumeSpotifyPlayback(): Promise<void> {
+  await request('/me/player/play', { method: 'PUT' });
+}
+
+export async function skipSpotifyPlayback(): Promise<void> {
+  await request('/me/player/next', { method: 'POST' });
 }

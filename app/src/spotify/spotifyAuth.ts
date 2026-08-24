@@ -21,7 +21,7 @@ export const SPOTIFY_REDIRECT_URI = 'mellowpet://spotify-callback';
 
 const AUTHORIZE_URL = 'https://accounts.spotify.com/authorize';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
-const TOKEN_STORAGE_KEY = 'mellowpet.spotify.tokens.v1';
+const TOKEN_STORAGE_KEY = 'mellowpet.spotify.tokens.v2';
 const VERIFIER_STORAGE_KEY = 'mellowpet.spotify.pkce_verifier.v1';
 
 /**
@@ -34,8 +34,10 @@ const SCOPES = [
   'app-remote-control',
   'streaming',
   'user-read-private',
+  'user-read-email',
   'user-read-playback-state',
   'user-modify-playback-state',
+  'user-library-read',
   'playlist-read-private',
   'playlist-modify-private',
   'playlist-modify-public',

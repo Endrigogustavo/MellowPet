@@ -13,7 +13,9 @@ import {
   SPOTIFY_CLIENT_CONFIGURED,
   SPOTIFY_REDIRECT_URI,
 } from './spotifyAuth';
-import { forgetCachedUser } from './spotifyApi';
+import {
+  forgetCachedUser,
+} from './spotifyApi';
 
 const CLIENT_ID = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID ?? '';
 
@@ -59,24 +61,18 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
   const [nowPlaying, setNowPlaying] = useState<NowPlaying | null>(null);
   const [currentUri, setCurrentUri] = useState<string | null>(null);
 
-  /** App Remote só conecta depois que a pessoa autorizou o app na conta
-   * dela; sem isso o SDK responde "Explicit user authorization is required".
-   * Por isso o fluxo é sempre OAuth primeiro, App Remote depois. */
-  const connectAppRemote = useCallback(async () => {
-    if (!MellowSpotify) return;
+  const connectAppRemote = useCallback(async (): Promise<boolean> => {
+    if (!MellowSpotify) return false;
     try {
       await MellowSpotify.connect(CLIENT_ID, SPOTIFY_REDIRECT_URI);
       setConnected(true);
       setError(null);
+      return true;
     } catch (err) {
       setConnected(false);
       const message = err instanceof Error ? err.message : 'Não foi possível conectar ao Spotify.';
-      console.error(`[MellowSpotify] connect failed: ${message}`);
-      setError(
-        message.includes('CouldNotFindSpotifyApp') || message.includes('not installed')
-          ? 'Instale o app do Spotify para tocar as playlists.'
-          : message
-      );
+      setError(message);
+      return false;
     }
   }, []);
 
@@ -134,11 +130,11 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       clearBackoutTimer();
       awaitingBrowserRef.current = false;
       completeSpotifyAuth(url)
-        .then((tokens) => {
+        .then(async (tokens) => {
           if (!tokens) return;
           setAuthorized(true);
           setError(null);
-          return connectAppRemote();
+          await connectAppRemote();
         })
         .catch((err) => {
           setError(err instanceof Error ? err.message : 'Falha ao autorizar o Spotify.');
@@ -151,7 +147,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     });
     const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
     return () => sub.remove();
-  }, [connectAppRemote, clearBackoutTimer]);
+  }, [clearBackoutTimer, connectAppRemote]);
 
   // Volta ao app sem o deep link ter chegado: assume que a pessoa desistiu
   // no navegador. Dá 1.5s de folga antes de destravar, porque no caminho
@@ -186,23 +182,21 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       const tokens = await loadTokens();
-      if (tokens) {
-        setAuthorized(true);
-        await connectAppRemote();
-        setConnecting(false);
+      if (!tokens) {
+        awaitingBrowserRef.current = true;
+        await beginSpotifyAuth();
         return;
       }
-      // Abre o navegador. `connecting` continua ligado até o deep link
-      // voltar (ou o AppState listener acima destravar por desistência).
-      awaitingBrowserRef.current = true;
-      await beginSpotifyAuth();
+      setAuthorized(true);
+      await connectAppRemote();
+      setConnecting(false);
     } catch (err) {
       awaitingBrowserRef.current = false;
       clearBackoutTimer();
       setConnecting(false);
       setError(err instanceof Error ? err.message : 'Não foi possível conectar ao Spotify.');
     }
-  }, [connectAppRemote, clearBackoutTimer]);
+  }, [clearBackoutTimer, connectAppRemote]);
 
   const disconnect = useCallback(async () => {
     if (MellowSpotify) await MellowSpotify.disconnect().catch(() => undefined);
@@ -216,39 +210,58 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
 
   const playUri = useCallback(
     async (uri: string) => {
-      if (!MellowSpotify) return;
-      if (!connected) await connectAppRemote();
-      await MellowSpotify.play(uri);
-      setCurrentUri(uri);
+      try {
+        if (!MellowSpotify) return;
+        if (!connected && !(await connectAppRemote())) return;
+        await MellowSpotify.play(uri);
+        setCurrentUri(uri);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Não foi possível tocar no Spotify.');
+      }
     },
     [connected, connectAppRemote]
   );
 
   const playTracks = useCallback(
     async (uris: string[], contextKey: string) => {
-      if (!MellowSpotify || uris.length === 0) return;
-      if (!connected) await connectAppRemote();
-      await MellowSpotify.play(uris[0]);
-      // Enfileirar em sequência (e não em paralelo) porque a ordem da fila é
-      // a ordem em que o Spotify recebe as chamadas.
-      for (const uri of uris.slice(1)) {
-        await MellowSpotify.queue(uri).catch(() => undefined);
+      if (uris.length === 0) return;
+      try {
+        if (!MellowSpotify) return;
+        if (!connected && !(await connectAppRemote())) return;
+        await MellowSpotify.play(uris[0]);
+        for (const uri of uris.slice(1)) await MellowSpotify.queue(uri);
+        setCurrentUri(contextKey);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Não foi possível tocar no Spotify.');
       }
-      setCurrentUri(contextKey);
     },
     [connected, connectAppRemote]
   );
 
   const pause = useCallback(async () => {
-    if (MellowSpotify) await MellowSpotify.pause();
+    try {
+      if (MellowSpotify) await MellowSpotify.pause();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível pausar no Spotify.');
+    }
   }, []);
 
   const resume = useCallback(async () => {
-    if (MellowSpotify) await MellowSpotify.resume();
+    try {
+      if (MellowSpotify) await MellowSpotify.resume();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível retomar no Spotify.');
+    }
   }, []);
 
   const skipNext = useCallback(async () => {
-    if (MellowSpotify) await MellowSpotify.skipNext();
+    try {
+      if (MellowSpotify) await MellowSpotify.skipNext();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível avançar no Spotify.');
+    }
   }, []);
 
   const clearError = useCallback(() => setError(null), []);

@@ -35,6 +35,7 @@ class MellowSpotifyModule : Module() {
       remote?.isConnected == true
     }
 
+
     AsyncFunction("connect") { clientId: String, redirectUri: String, promise: Promise ->
       if (remote?.isConnected == true) {
         promise.resolve(true)
@@ -76,6 +77,7 @@ class MellowSpotifyModule : Module() {
       remote = null
       sendEvent("onConnectionChanged", mapOf("connected" to false, "error" to null))
     }
+
 
     AsyncFunction("play") { uri: String, promise: Promise ->
       val api = remote?.playerApi

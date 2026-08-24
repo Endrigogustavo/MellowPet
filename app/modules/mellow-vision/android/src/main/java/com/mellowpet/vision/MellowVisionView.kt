@@ -598,13 +598,11 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     pendingFrames.clear()
     inferenceInFlight.set(false)
 
-    val executor = analysisExecutor
+    // Keep the model alive across camera session restarts. Closing it from a
+    // queued executor task could race with the last ImageReader frame and
+    // leave analyzeImage() with a null landmarker.
+    analysisExecutor?.shutdown()
     analysisExecutor = null
-    executor?.execute {
-      faceLandmarker?.close()
-      faceLandmarker = null
-    }
-    executor?.shutdown()
 
     backgroundThread?.quitSafely()
     backgroundThread = null
