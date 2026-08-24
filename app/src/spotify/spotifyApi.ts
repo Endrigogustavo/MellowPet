@@ -59,6 +59,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     if (response.status === 404 && path.includes('/player/')) {
       throw new SpotifyApiError('Nenhum dispositivo Spotify ativo. Abra o Spotify e tente novamente.', response.status);
     }
+    // "Forbidden" pelado (sem detalhe do Spotify) em criar/ler faixas de
+    // playlist normalmente é o app ainda não ter passado da revisão de
+    // acesso estendido do Spotify — não é nada que reconectar resolva.
+    if (response.status === 403 && (path.includes('/playlists') || path.startsWith('/users/'))) {
+      throw new SpotifyApiError(
+        'O Spotify está limitando esta ação pra este app (fora do modo de acesso liberado). Tente novamente mais tarde, ou use a busca pra montar a playlist manualmente.',
+        response.status
+      );
+    }
     const detail = data?.error?.message ?? `http_${response.status}`;
     throw new SpotifyApiError(String(detail), response.status);
   }
@@ -254,6 +263,22 @@ export async function transferSpotifyPlayback(deviceId: string, play: boolean): 
     method: 'PUT',
     body: JSON.stringify({ device_ids: [deviceId], play }),
   });
+}
+
+/** A capa do que está tocando — o App Remote manda só nome de faixa/artista,
+ * nenhuma imagem; isto complementa com o que a Web API sabe sobre a mesma
+ * faixa. Devolve `null` sem lançar erro quando falha, porque é só estética —
+ * a tela de player continua funcionando sem capa. */
+export async function getCurrentAlbumImage(): Promise<string | null> {
+  try {
+    const data = await request<any>('/me/player/currently-playing');
+    const images = data?.item?.album?.images;
+    if (!Array.isArray(images) || images.length === 0) return null;
+    // A maior primeiro — pega a do meio quando existe, senão a única.
+    return images[Math.floor(images.length / 2)]?.url ?? images[0]?.url ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function pauseSpotifyPlayback(): Promise<void> {

@@ -11,7 +11,7 @@ import { Linking } from 'react-native';
 
 import { EMOTIONS, REPLIES, type EmotionKey } from '../data/emotions';
 import type { PetKey } from '../data/pets';
-import { SOS_MESSAGE, type ToolAction } from '../data/content';
+import { COACH, SOS_MESSAGE, type ToolAction } from '../data/content';
 import { DARK, LIGHT, hexA, mix, type Palette } from '../theme/palette';
 import { PET_BODY } from '../data/pets';
 import { createDemoSnapshot, nextDemoExpression } from '../vision/demoSource';
@@ -30,8 +30,11 @@ import {
 import { sendChatMessage } from '../chat/chatClient';
 import { fetchToolContent } from '../tools/toolsClient';
 import { listLinks } from '../care/careClient';
-import { fetchProfileStats } from '../profile/profileClient';
+import { fetchProfileStats, levelFromXp } from '../profile/profileClient';
+import { emojiForEmotion, updateMoodWidget } from '../widgets/widgetBridge';
+import { logManualEmotion } from '../vision/manualEmotion';
 import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
+import { loadCoachSeen, markCoachSeen } from './coachStore';
 
 export type Screen =
   | 'splash'
@@ -296,6 +299,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Tour de boas-vindas: só na primeira vez que a pessoa abre o app neste
+  // aparelho. Sem isto `state.coach` sempre nasce em 0 e o tour reaparece a
+  // cada cold start, não só no primeiro login.
+  useEffect(() => {
+    loadCoachSeen().then((seen) => {
+      if (seen) dispatch({ coach: COACH.length });
+    });
+  }, []);
+
+  // Marca como visto assim que a pessoa termina (ou pula) o tour, seja pelo
+  // último "Entendi" ou pelo "Pular" — os dois levam `coach` até o fim.
+  useEffect(() => {
+    if (state.coach >= COACH.length) markCoachSeen().catch(() => undefined);
+  }, [state.coach]);
+
+  // Widget de humor na tela inicial do celular: atualiza sempre que o
+  // sentimento observado ou o nível mudam, não só quando o app está aberto
+  // em primeiro plano nele.
+  useEffect(() => {
+    const level = levelFromXp(state.xp);
+    const progress = Math.max(0, state.xp) % 100;
+    updateMoodWidget(
+      emojiForEmotion(state.observedExpression),
+      EMOTIONS[state.observedExpression].label,
+      `Nível ${level} · ${progress}/100`
+    );
+  }, [state.observedExpression, state.xp]);
+
   useEffect(() => {
     let alive = true;
     loadStoredSession().then((user) => {
@@ -342,6 +373,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    * app só suspenso. */
   useEffect(() => {
     const handleUrl = (url: string) => {
+      if (url.startsWith('mellowpet://widget/')) {
+        const [, query] = url.split('?');
+        const params = new URLSearchParams(query ?? '');
+        if (url.includes('/widget/open')) {
+          const target = params.get('screen');
+          const allowed: Screen[] = ['home', 'music', 'routine', 'spotifyplayer'];
+          if (target && (allowed as string[]).includes(target)) {
+            dispatch((s) => ({ screen: target as Screen, navSeq: s.navSeq + 1 }));
+          }
+        } else if (url.includes('/widget/mood')) {
+          const value = params.get('value') as EmotionKey | null;
+          const userId = ref.current.userId;
+          if (value && userId) logManualEmotion(userId, value).catch(() => undefined);
+          dispatch((s) => ({
+            observedExpression: value ?? s.observedExpression,
+            screen: 'home',
+            navSeq: s.navSeq + 1,
+          }));
+        }
+        return;
+      }
+
       completeOAuthRedirect(url)
         .then((user) => {
           if (!user) return;

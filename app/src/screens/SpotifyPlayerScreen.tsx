@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Image, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '../components/Icon';
@@ -7,6 +7,7 @@ import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { Bar, Card, Touchable, Txt } from '../components/ui';
 import { formatTime, ICONS } from '../data/content';
 import {
+  getCurrentAlbumImage,
   listSpotifyDevices,
   SpotifyApiError,
   transferSpotifyPlayback,
@@ -47,6 +48,21 @@ export function SpotifyPlayerScreen() {
     }, 500);
     return () => clearInterval(id);
   }, [np]);
+
+  // O App Remote não manda capa nenhuma no evento de estado — só a Web API
+  // sabe a URL da imagem da mesma faixa que já está tocando.
+  const [albumImage, setAlbumImage] = useState<string | null>(null);
+  useEffect(() => {
+    setAlbumImage(null);
+    if (!np?.trackUri) return;
+    let cancelled = false;
+    getCurrentAlbumImage().then((url) => {
+      if (!cancelled) setAlbumImage(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [np?.trackUri]);
 
   const [devices, setDevices] = useState<SpotifyDevice[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
@@ -133,18 +149,25 @@ export function SpotifyPlayerScreen() {
           <>
             <Section top={36}>
               <View style={{ alignItems: 'center' }}>
-                <View
-                  style={{
-                    width: 220,
-                    height: 220,
-                    borderRadius: 32,
-                    backgroundColor: 'rgba(29,185,84,.14)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Icon d={ICONS.spotify} size={72} color="#1DB954" sw={1.6} />
-                </View>
+                {albumImage ? (
+                  <Image
+                    source={{ uri: albumImage }}
+                    style={{ width: 220, height: 220, borderRadius: 32 }}
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: 220,
+                      height: 220,
+                      borderRadius: 32,
+                      backgroundColor: 'rgba(29,185,84,.14)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Icon d={ICONS.spotify} size={72} color="#1DB954" sw={1.6} />
+                  </View>
+                )}
               </View>
             </Section>
 

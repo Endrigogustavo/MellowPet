@@ -96,7 +96,7 @@ export function MusicScreen() {
               justifyContent: 'center',
             }}
           >
-            <Icon d={ICONS.spotify} size={19} color="#1DB954" circle />
+            <Icon d={ICONS.spotify} size={19} color="#1DB954" />
           </View>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>

@@ -18,6 +18,7 @@ import {
   getMyProfile,
   type SpotifyProfile,
 } from './spotifyApi';
+import { updateNowPlayingWidget } from '../widgets/widgetBridge';
 
 const CLIENT_ID = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID ?? '';
 
@@ -131,6 +132,15 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       .then(setProfile)
       .catch(() => undefined);
   }, [authorized]);
+
+  // Widget "Tocando agora" na tela inicial do celular.
+  useEffect(() => {
+    updateNowPlayingWidget(
+      nowPlaying?.trackName ?? null,
+      nowPlaying?.artistName ?? null,
+      nowPlaying?.isPaused ?? true
+    );
+  }, [nowPlaying]);
 
   useEffect(() => {
     if (!isMellowSpotifyAvailable || !MellowSpotify) return;
@@ -328,6 +338,25 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearError = useCallback(() => setError(null), []);
+
+  /** Botões do widget "Tocando agora" — abrem o app com essa URL, que o
+   * widget nunca consegue interpretar sozinho (ele não fala com o Spotify). */
+  useEffect(() => {
+    const handleWidgetUrl = (url: string) => {
+      if (!url.startsWith('mellowpet://widget/spotify')) return;
+      const [, query] = url.split('?');
+      const action = new URLSearchParams(query ?? '').get('action');
+      if (action === 'pause') pause();
+      else if (action === 'resume') resume();
+      else if (action === 'next') skipNext();
+      else if (action === 'previous') skipPrevious();
+    };
+    Linking.getInitialURL().then((url) => {
+      if (url) handleWidgetUrl(url);
+    });
+    const sub = Linking.addEventListener('url', ({ url }) => handleWidgetUrl(url));
+    return () => sub.remove();
+  }, [pause, resume, skipNext, skipPrevious]);
 
   const value = useMemo<SpotifyValue>(
     () => ({

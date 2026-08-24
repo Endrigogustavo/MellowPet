@@ -17,6 +17,7 @@ import {
 import { cancelRoutineReminder, resyncRoutineReminders, scheduleRoutineReminder } from '../notifications/notifications';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER } from '../theme/palette';
+import { updateRoutineWidget } from '../widgets/widgetBridge';
 
 function formatTime(date: Date): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -43,6 +44,18 @@ export function RoutineScreen() {
       resyncRoutineReminders(list).catch(() => undefined);
     });
   }, [state.userId]);
+
+  // Widget "Próximo na rotina" — atualiza sempre que a lista muda por
+  // qualquer motivo (carregar, adicionar, remover), não só na tela aberta.
+  useEffect(() => {
+    if (items.length === 0) {
+      updateRoutineWidget(null, null);
+      return;
+    }
+    const now = formatTime(new Date());
+    const next = items.find((item) => item.time >= now) ?? items[0];
+    updateRoutineWidget(next.time, next.name);
+  }, [items]);
 
   // Precisa de identidade estável: o picker do Android reabre o diálogo
   // sempre que a prop `onChange` muda de referência (efeito interno da lib,
