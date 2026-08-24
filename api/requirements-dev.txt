@@ -6,7 +6,7 @@
 # dependências leves tocadas pelos testes, incluindo autenticação, sem trazer
 # mediapipe/onnxruntime e os provedores de IA para o job de CI.
 pytest==8.3.3
-httpx==0.27.0
+httpx==0.28.1
 fastapi==0.111.0
 pydantic==2.12.5
 pydantic-settings==2.13.1

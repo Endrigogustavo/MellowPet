@@ -7,10 +7,10 @@ email-validator==2.2.0
 
 # ── IA conversacional ────────────────────────────────────────────────────────
 # Os SDKs sao importados sob demanda; instale apenas o do provedor que usar.
-google-genai==1.2.0
+google-genai==2.19.0
 anthropic==0.26.0
 openai==1.30.1
 
 # ── Utils ────────────────────────────────────────────────────────────────────
 python-dotenv==1.0.1
-httpx==0.27.0
+httpx==0.28.1
