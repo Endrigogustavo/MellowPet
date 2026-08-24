@@ -25,11 +25,13 @@ class MellowMoodWidgetProvider : AppWidgetProvider() {
     }
 
     private fun buildViews(context: Context): RemoteViews {
-      val (emoji, label, sub) = WidgetStore.getMood(context)
+      val mood = WidgetStore.getMood(context)
       val views = RemoteViews(context.packageName, R.layout.widget_mood)
-      views.setTextViewText(R.id.widget_mood_emoji, emoji)
-      views.setTextViewText(R.id.widget_mood_label, label)
-      views.setTextViewText(R.id.widget_mood_sub, sub)
+      views.setTextViewText(R.id.widget_mood_emoji, mood.emoji)
+      views.setTextViewText(R.id.widget_mood_label, mood.label)
+      views.setTextViewText(R.id.widget_mood_level, "Nv ${mood.level}")
+      views.setProgressBar(R.id.widget_mood_bar, 100, mood.progress, false)
+      views.setTextViewText(R.id.widget_mood_sub, "${mood.progress}/100 para o próximo nível")
       views.setOnClickPendingIntent(R.id.widget_mood_root, WidgetIntents.openApp(context, 1, "open?screen=home"))
       return views
     }

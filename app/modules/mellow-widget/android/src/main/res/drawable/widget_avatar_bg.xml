@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fundo do emoji do Mellow: lilás suave, mesmo tom do priL do app. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+  <solid android:color="#EEF0FF" />
+  <corners android:radius="16dp" />
+</shape>

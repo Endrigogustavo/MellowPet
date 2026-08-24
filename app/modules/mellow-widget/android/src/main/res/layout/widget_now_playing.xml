@@ -1,75 +1,97 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Tocando agora: selo do Spotify + faixa/artista em cima, transporte
+     embaixo com o play em destaque. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_np_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_card_bg"
-    android:padding="14dp">
+    android:padding="16dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:orientation="vertical"
+        android:orientation="horizontal"
         android:gravity="center_vertical">
 
         <TextView
-            android:id="@+id/widget_np_track"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:textColor="#161221"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:text="Nada tocando" />
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/widget_spotify_badge"
+            android:gravity="center"
+            android:textSize="17sp"
+            android:text="🎵" />
 
-        <TextView
-            android:id="@+id/widget_np_artist"
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:textSize="11sp"
-            android:textColor="#77728C"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:text="Abra o MellowPet para tocar algo" />
+            android:layout_weight="1"
+            android:layout_marginStart="11dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_np_track"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#1A1A2E"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="Nada tocando" />
+
+            <TextView
+                android:id="@+id/widget_np_artist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textSize="11.5sp"
+                android:textColor="#9CA3AF"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="Abra o MellowPet para tocar" />
+        </LinearLayout>
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
         android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:gravity="center">
 
         <TextView
             android:id="@+id/widget_np_prev"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:gravity="center"
-            android:textSize="16sp"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
             android:background="@drawable/widget_button_bg"
+            android:gravity="center"
+            android:textSize="13sp"
+            android:textColor="#6B7280"
             android:text="⏮" />
 
         <TextView
             android:id="@+id/widget_np_playpause"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="10dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/widget_play_btn"
             android:gravity="center"
-            android:textSize="16sp"
-            android:background="@drawable/widget_button_bg"
+            android:textSize="17sp"
+            android:textColor="#FFFFFF"
             android:text="▶" />
 
         <TextView
             android:id="@+id/widget_np_next"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="10dp"
-            android:gravity="center"
-            android:textSize="16sp"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
             android:background="@drawable/widget_button_bg"
+            android:gravity="center"
+            android:textSize="13sp"
+            android:textColor="#6B7280"
             android:text="⏭" />
     </LinearLayout>
 </LinearLayout>

@@ -21,10 +21,15 @@ export function emojiForEmotion(emotion: EmotionKey): string {
  * um widget desatualizado nunca deve virar erro visível dentro do app; na
  * pior das hipóteses ele só mostra o dado antigo até a próxima chamada.
  */
-export function updateMoodWidget(emoji: string, label: string, sub: string): void {
+export function updateMoodWidget(
+  emoji: string,
+  label: string,
+  level: number,
+  progress: number
+): void {
   if (!isMellowWidgetAvailable || !MellowWidget) return;
   try {
-    MellowWidget.updateMood(emoji, label, sub);
+    MellowWidget.updateMood(emoji, label, level, progress);
   } catch {
     // silencioso — ver comentário acima.
   }

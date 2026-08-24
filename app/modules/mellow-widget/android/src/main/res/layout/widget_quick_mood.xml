@@ -1,75 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Registro rápido: cada emoji num círculo com a cor da própria emoção,
+     as mesmas de data/emotions.ts. Distribuídos por peso pra ficarem
+     espaçados igualmente em qualquer largura de widget. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_card_bg"
-    android:padding="12dp"
-    android:gravity="center">
+    android:padding="16dp"
+    android:gravity="center_vertical">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"
-        android:textSize="10sp"
+        android:textSize="9sp"
         android:textStyle="bold"
-        android:textColor="#8A7FF0"
-        android:letterSpacing="0.08"
+        android:textColor="#6C63FF"
+        android:letterSpacing="0.14"
         android:text="COMO VOCÊ ESTÁ?" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
         android:orientation="horizontal"
-        android:gravity="center">
+        android:baselineAligned="false">
 
         <TextView
             android:id="@+id/widget_qm_happy"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="44dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/widget_mood_chip_happy"
             android:gravity="center"
             android:textSize="20sp"
-            android:background="@drawable/widget_button_bg"
             android:text="😊" />
 
         <TextView
             android:id="@+id/widget_qm_sad"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:layout_marginStart="8dp"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="44dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/widget_mood_chip_sad"
             android:gravity="center"
             android:textSize="20sp"
-            android:background="@drawable/widget_button_bg"
             android:text="😢" />
 
         <TextView
             android:id="@+id/widget_qm_angry"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:layout_marginStart="8dp"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="44dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/widget_mood_chip_angry"
             android:gravity="center"
             android:textSize="20sp"
-            android:background="@drawable/widget_button_bg"
             android:text="😠" />
 
         <TextView
             android:id="@+id/widget_qm_fearful"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:layout_marginStart="8dp"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="44dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/widget_mood_chip_fearful"
             android:gravity="center"
             android:textSize="20sp"
-            android:background="@drawable/widget_button_bg"
             android:text="😰" />
 
         <TextView
             android:id="@+id/widget_qm_surprised"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:layout_marginStart="8dp"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="44dp"
+            android:background="@drawable/widget_mood_chip_surprised"
             android:gravity="center"
             android:textSize="20sp"
-            android:background="@drawable/widget_button_bg"
             android:text="😮" />
     </LinearLayout>
 </LinearLayout>

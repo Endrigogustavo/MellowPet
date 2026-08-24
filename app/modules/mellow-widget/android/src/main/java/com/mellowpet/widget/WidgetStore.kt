@@ -10,20 +10,24 @@ internal object WidgetStore {
 
   private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-  fun setMood(context: Context, emoji: String, label: String, sub: String) {
+  data class Mood(val emoji: String, val label: String, val level: Int, val progress: Int)
+
+  fun setMood(context: Context, emoji: String, label: String, level: Int, progress: Int) {
     prefs(context).edit()
       .putString("mood_emoji", emoji)
       .putString("mood_label", label)
-      .putString("mood_sub", sub)
+      .putInt("mood_level", level)
+      .putInt("mood_progress", progress)
       .apply()
   }
 
-  fun getMood(context: Context): Triple<String, String, String> {
+  fun getMood(context: Context): Mood {
     val p = prefs(context)
-    return Triple(
+    return Mood(
       p.getString("mood_emoji", "🙂") ?: "🙂",
       p.getString("mood_label", "Mellow") ?: "Mellow",
-      p.getString("mood_sub", "Toque para abrir") ?: "Toque para abrir",
+      p.getInt("mood_level", 1),
+      p.getInt("mood_progress", 0),
     )
   }
 

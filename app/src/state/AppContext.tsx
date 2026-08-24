@@ -305,12 +305,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // sentimento observado ou o nível mudam, não só quando o app está aberto
   // em primeiro plano nele.
   useEffect(() => {
-    const level = levelFromXp(state.xp);
-    const progress = Math.max(0, state.xp) % 100;
     updateMoodWidget(
       emojiForEmotion(state.observedExpression),
       EMOTIONS[state.observedExpression].label,
-      `Nível ${level} · ${progress}/100`
+      levelFromXp(state.xp),
+      Math.max(0, state.xp) % 100
     );
   }, [state.observedExpression, state.xp]);
 

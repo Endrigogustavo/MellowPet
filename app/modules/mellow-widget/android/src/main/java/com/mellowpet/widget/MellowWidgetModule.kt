@@ -14,9 +14,9 @@ class MellowWidgetModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("MellowWidget")
 
-    Function("updateMood") { emoji: String, label: String, sub: String ->
+    Function("updateMood") { emoji: String, label: String, level: Int, progress: Int ->
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
-      WidgetStore.setMood(context, emoji, label, sub)
+      WidgetStore.setMood(context, emoji, label, level, progress)
       MellowMoodWidgetProvider.updateAll(context)
     }
 
