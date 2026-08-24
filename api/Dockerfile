@@ -6,14 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# System deps for TensorFlow/MediaPipe/OpenCV wheels on slim images.
 # curl entra para o HEALTHCHECK abaixo.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        libglib2.0-0 \
-        libgl1 \
-        libgomp1 \
-        libxcb1 \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -24,17 +19,10 @@ RUN python -m pip install --upgrade pip \
 COPY . ./
 
 # Roda como usuario sem privilegio: se a API for comprometida, o processo nao
-# tem root dentro do container. /data e o volume do SQLite.
+# tem root dentro do container.
 RUN useradd --create-home --uid 10001 mellow \
-    && mkdir -p /data /models \
-    && chown -R mellow:mellow /app /data /models
+    && chown -R mellow:mellow /app
 USER mellow
-
-# Baixa e verifica os pesos ainda no build. Sem isto, o primeiro request em
-# producao pagaria ~39 MB de download, e uma queda de rede deixaria a deteccao
-# sem modelo. Cada arquivo tem o SHA-256 conferido.
-ENV MELLOWPET_MODEL_DIR=/models
-RUN python -c "from services.emotion.assets import prefetch_all; prefetch_all()"
 
 EXPOSE 8000
 
