@@ -287,6 +287,29 @@ export function MusicScreen() {
               Criar playlist de momento
             </Txt>
           </Touchable>
+
+          {spotify.authorized ? (
+            <Touchable
+              onPress={() => actions.go('spotifyimport')}
+              style={{
+                marginTop: 8,
+                paddingVertical: 13,
+                borderRadius: 14,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: 8,
+                backgroundColor: T.bg,
+                borderWidth: 1,
+                borderColor: T.bd,
+              }}
+            >
+              <Icon d={ICONS.spotify} size={15} color="#1DB954" />
+              <Txt s={13} w={800} c={T.t1}>
+                Importar do Spotify
+              </Txt>
+            </Touchable>
+          ) : null}
         </Card>
       </Section>
 

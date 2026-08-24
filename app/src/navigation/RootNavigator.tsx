@@ -22,6 +22,7 @@ import { PlaylistEditorScreen } from '../screens/PlaylistEditorScreen';
 import { RoutineScreen } from '../screens/RoutineScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SplashScreen } from '../screens/SplashScreen';
+import { SpotifyImportScreen } from '../screens/SpotifyImportScreen';
 import { ToolsScreen } from '../screens/ToolsScreen';
 import { VisionScreen } from '../screens/VisionScreen';
 import { useApp, useTheme, type Screen } from '../state/AppContext';
@@ -37,6 +38,7 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   routine: RoutineScreen,
   music: MusicScreen,
   playlisteditor: PlaylistEditorScreen,
+  spotifyimport: SpotifyImportScreen,
   dashboard: DashboardScreen,
   care: CareScreen,
   agenda: AgendaScreen,

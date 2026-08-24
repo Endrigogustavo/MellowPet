@@ -38,7 +38,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (response.status === 204) return undefined as T;
-  const data = await response.json().catch(() => null);
+  const raw = await response.text();
+  if (!response.ok) console.error(`[SpotifyApi] ${response.status} ${path}: ${raw}`);
+  let data: any = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    data = null;
+  }
   if (!response.ok) {
     const detail = data?.error?.message ?? `http_${response.status}`;
     throw new SpotifyApiError(String(detail), response.status);
@@ -101,6 +108,50 @@ export async function createSpotifyPlaylist(
   });
   if (!created?.uri) throw new SpotifyApiError('O Spotify não devolveu a playlist criada.');
   return { uri: created.uri, id: created.id, url: created.external_urls?.spotify ?? '' };
+}
+
+export type SpotifyOwnPlaylist = {
+  id: string;
+  name: string;
+  owner: string;
+  trackCount: number;
+  image: string | null;
+};
+
+/** Playlists que a própria pessoa já tem no Spotify — para importar, não para
+ * criar. Só as próprias (não as que ela apenas segue), porque importar a
+ * playlist de outra pessoa sem querer misturaria o acolhimento dela com o
+ * gosto de outra conta. */
+export async function getMyPlaylists(limit = 50): Promise<SpotifyOwnPlaylist[]> {
+  const me = await getCurrentUserId();
+  const data = await request<any>(`/me/playlists?limit=${limit}`);
+  return (data?.items ?? [])
+    .filter((item: any) => item?.owner?.id === me)
+    .map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      owner: item.owner?.display_name ?? '',
+      trackCount: item.tracks?.total ?? 0,
+      image: item.images?.[item.images.length - 1]?.url ?? null,
+    }));
+}
+
+/** Até 100 faixas — o suficiente para uma playlist de momento; paginar além
+ * disso não compensa a complexidade para o que isto serve aqui. */
+export async function getPlaylistTracks(playlistId: string, limit = 100): Promise<SpotifyTrack[]> {
+  const data = await request<any>(
+    `/playlists/${encodeURIComponent(playlistId)}/tracks?limit=${limit}&fields=items(track(uri,name,artists,duration_ms,album))`
+  );
+  return (data?.items ?? [])
+    .map((item: any) => item.track)
+    .filter(Boolean)
+    .map(toTrack);
+}
+
+/** "Músicas curtidas" — a biblioteca pessoal sem precisar de uma playlist. */
+export async function getSavedTracks(limit = 50): Promise<SpotifyTrack[]> {
+  const data = await request<any>(`/me/tracks?limit=${limit}`);
+  return (data?.items ?? []).map((item: any) => item.track).filter(Boolean).map(toTrack);
 }
 
 export async function addTracksToPlaylist(playlistId: string, uris: string[]): Promise<void> {

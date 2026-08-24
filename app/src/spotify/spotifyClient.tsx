@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking } from 'react-native';
+import { AppState, Linking } from 'react-native';
 
 import MellowSpotify, {
   isMellowSpotifyAvailable,
@@ -45,6 +45,7 @@ type SpotifyValue = {
   playTracks: (uris: string[], contextKey: string) => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
+  skipNext: () => Promise<void>;
   clearError: () => void;
 };
 
@@ -70,6 +71,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       setConnected(false);
       const message = err instanceof Error ? err.message : 'Não foi possível conectar ao Spotify.';
+      console.error(`[MellowSpotify] connect failed: ${message}`);
       setError(
         message.includes('CouldNotFindSpotifyApp') || message.includes('not installed')
           ? 'Instale o app do Spotify para tocar as playlists.'
@@ -113,9 +115,24 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  /** Enquanto o navegador de autorização está aberto. Se a pessoa voltar ao
+   * app sem completar (botão voltar, trocar de app, fechar a aba), nenhum
+   * deep link chega — sem isto o botão ficava "conectando..." travado pra
+   * sempre, exigindo reinstalar o app pra sair do estado. */
+  const awaitingBrowserRef = useRef(false);
+  const backoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearBackoutTimer = useCallback(() => {
+    if (backoutTimerRef.current) {
+      clearTimeout(backoutTimerRef.current);
+      backoutTimerRef.current = null;
+    }
+  }, []);
+
   /** Retorno do consentimento no navegador. */
   useEffect(() => {
     const handleUrl = (url: string) => {
+      clearBackoutTimer();
+      awaitingBrowserRef.current = false;
       completeSpotifyAuth(url)
         .then((tokens) => {
           if (!tokens) return;
@@ -134,7 +151,27 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     });
     const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
     return () => sub.remove();
-  }, [connectAppRemote]);
+  }, [connectAppRemote, clearBackoutTimer]);
+
+  // Volta ao app sem o deep link ter chegado: assume que a pessoa desistiu
+  // no navegador. Dá 1.5s de folga antes de destravar, porque no caminho
+  // de sucesso o Android às vezes reativa a activity um instante antes de
+  // entregar a intent com a URL de retorno.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || !awaitingBrowserRef.current) return;
+      clearBackoutTimer();
+      backoutTimerRef.current = setTimeout(() => {
+        if (!awaitingBrowserRef.current) return;
+        awaitingBrowserRef.current = false;
+        setConnecting(false);
+      }, 1500);
+    });
+    return () => {
+      sub.remove();
+      clearBackoutTimer();
+    };
+  }, [clearBackoutTimer]);
 
   const connect = useCallback(async () => {
     if (!SPOTIFY_CONFIGURED || !MellowSpotify) {
@@ -156,13 +193,16 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       // Abre o navegador. `connecting` continua ligado até o deep link
-      // voltar (ou o usuário desistir e tocar em conectar de novo).
+      // voltar (ou o AppState listener acima destravar por desistência).
+      awaitingBrowserRef.current = true;
       await beginSpotifyAuth();
     } catch (err) {
+      awaitingBrowserRef.current = false;
+      clearBackoutTimer();
       setConnecting(false);
       setError(err instanceof Error ? err.message : 'Não foi possível conectar ao Spotify.');
     }
-  }, [connectAppRemote]);
+  }, [connectAppRemote, clearBackoutTimer]);
 
   const disconnect = useCallback(async () => {
     if (MellowSpotify) await MellowSpotify.disconnect().catch(() => undefined);
@@ -207,6 +247,10 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     if (MellowSpotify) await MellowSpotify.resume();
   }, []);
 
+  const skipNext = useCallback(async () => {
+    if (MellowSpotify) await MellowSpotify.skipNext();
+  }, []);
+
   const clearError = useCallback(() => setError(null), []);
 
   const value = useMemo<SpotifyValue>(
@@ -224,6 +268,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       playTracks,
       pause,
       resume,
+      skipNext,
       clearError,
     }),
     [
@@ -239,6 +284,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       playTracks,
       pause,
       resume,
+      skipNext,
       clearError,
     ]
   );

@@ -423,8 +423,11 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
         capturedAtMs = System.currentTimeMillis(),
       )
       val mpImage = BitmapImageBuilder(normalizedBitmap).build()
-      faceLandmarker?.detectAsync(mpImage, timestamp)
+      // Keep the instance stable for this frame. The camera lifecycle may
+      // close the shared field while a frame is already being analyzed.
+      val landmarker = faceLandmarker
         ?: throw IllegalStateException("Face Landmarker indisponível")
+      landmarker.detectAsync(mpImage, timestamp)
     } catch (error: Exception) {
       inferenceInFlight.set(false)
       emitError("frame_processing_failed", error.message ?: "Falha ao processar frame.", true)

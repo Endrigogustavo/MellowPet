@@ -43,6 +43,7 @@ export type Screen =
   | 'routine'
   | 'music'
   | 'playlisteditor'
+  | 'spotifyimport'
   | 'dashboard'
   | 'care'
   | 'agenda'
