@@ -77,13 +77,21 @@ function toPlaylist(row: PlaylistRow): UserPlaylist {
   };
 }
 
+/**
+ * Lança em caso de erro em vez de devolver lista vazia.
+ *
+ * Engolir o erro fazia uma falha de rede parecer "você não tem playlist
+ * nenhuma" — indistinguível de terem sumido. Quem chama precisa saber a
+ * diferença entre "vazio" e "não deu para ler".
+ */
 export async function listUserPlaylists(userId: string): Promise<UserPlaylist[]> {
   const { data, error } = await supabase
     .from('playlists')
     .select(SELECT)
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
-  if (error || !data) return [];
+  if (error) throw new Error(`Não foi possível carregar suas playlists: ${error.message}`);
+  if (!data) return [];
   return (data as unknown as PlaylistRow[]).map(toPlaylist);
 }
 
@@ -162,9 +170,38 @@ export async function addTracks(playlistId: string, tracks: NewTrackInput[]): Pr
 
 export async function deleteUserPlaylist(playlistId: string): Promise<void> {
   // playlist_tracks tem ON DELETE CASCADE — não precisa apagar faixa a faixa.
-  await supabase.from('playlists').delete().eq('id', playlistId);
+  const { error } = await supabase.from('playlists').delete().eq('id', playlistId);
+  if (error) throw new Error(`Não foi possível apagar a playlist: ${error.message}`);
 }
 
 export async function removeTrack(trackId: string): Promise<void> {
-  await supabase.from('playlist_tracks').delete().eq('id', trackId);
+  const { error } = await supabase.from('playlist_tracks').delete().eq('id', trackId);
+  if (error) throw new Error(`Não foi possível remover a faixa: ${error.message}`);
+}
+
+/** Renomear, trocar de momento, mudar a cor. */
+export async function updateUserPlaylist(
+  playlistId: string,
+  patch: { name?: string; emotion?: PlaylistEmotion; why?: string; color?: string }
+): Promise<void> {
+  const { error } = await supabase.from('playlists').update(patch).eq('id', playlistId);
+  if (error) throw new Error(`Não foi possível salvar as mudanças: ${error.message}`);
+}
+
+/**
+ * Reordena as faixas gravando a posição de cada uma.
+ *
+ * Um UPDATE por faixa, não `upsert`: o upsert faria INSERT em caso de
+ * conflito ausente, e as colunas obrigatórias (playlist_id, title) não
+ * estão aqui — falharia sempre. São poucas faixas, e o custo é aceitável.
+ */
+export async function reorderTracks(orderedTrackIds: string[]): Promise<void> {
+  if (orderedTrackIds.length === 0) return;
+  const results = await Promise.all(
+    orderedTrackIds.map((id, position) =>
+      supabase.from('playlist_tracks').update({ position }).eq('id', id)
+    )
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw new Error(`Não foi possível reordenar: ${failed.error.message}`);
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, G, Path } from 'react-native-svg';
 
 type Props = {
   /** Um ou mais `d` de path, no viewBox 24×24 do design. */
@@ -12,12 +12,14 @@ type Props = {
   circle?: boolean;
   /** Preenche em vez de contornar. */
   filled?: boolean;
+  /** Graus, no centro. Evita ter que desenhar a mesma seta em 4 direções. */
+  rotate?: number;
 };
 
-export function Icon({ d, size = 20, color = '#000', sw = 1.8, circle, filled }: Props) {
+export function Icon({ d, size = 20, color = '#000', sw = 1.8, circle, filled, rotate }: Props) {
   const paths = d ? (Array.isArray(d) ? d : [d]) : [];
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
+  const body = (
+    <>
       {circle ? (
         <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={sw} fill="none" />
       ) : null}
@@ -34,6 +36,11 @@ export function Icon({ d, size = 20, color = '#000', sw = 1.8, circle, filled }:
             strokeLinejoin="round"
           />
         ))}
+    </>
+  );
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      {rotate ? <G transform={`rotate(${rotate} 12 12)`}>{body}</G> : body}
     </Svg>
   );
 }

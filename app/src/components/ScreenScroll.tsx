@@ -3,6 +3,7 @@ import { ScrollView, type StyleProp, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '../state/AppContext';
+import { useDockInset } from './DockInset';
 import { Enter } from './ui';
 
 /**
@@ -18,13 +19,16 @@ export function ScreenScroll({
 }) {
   const { state } = useApp();
   const insets = useSafeAreaInsets();
+  // O mini-player flutua sobre o conteúdo; sem este espaço as últimas linhas
+  // ficam embaixo dele e o toque vai para o dock.
+  const dock = useDockInset();
 
   return (
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{
         paddingTop: insets.top + 14,
-        paddingBottom: insets.bottom + 104,
+        paddingBottom: insets.bottom + 104 + (dock.height > 0 ? dock.height + 8 : 0),
       }}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"

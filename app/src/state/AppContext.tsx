@@ -36,6 +36,7 @@ import {
 } from '../widgets/widgetBridge';
 import { logManualEmotion } from '../vision/manualEmotion';
 import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
+import { loadDensity, saveDensity } from './preferencesStore';
 
 export type Screen =
   | 'splash'
@@ -47,6 +48,7 @@ export type Screen =
   | 'routine'
   | 'music'
   | 'playlisteditor'
+  | 'playlistdetail'
   | 'spotifyimport'
   | 'spotifyplayer'
   | 'dashboard'
@@ -161,6 +163,9 @@ export type State = {
   capsule: string;
   capsuleSaved: boolean;
 
+  /** Playlist aberta na tela de detalhe. */
+  openPlaylistId: string | null;
+
   /** Sempre acumulativo, sem teto — nível é derivado dele (ver
    * `levelFromXp` em src/profile/profileClient.ts), nunca guardado à parte. */
   fed: number;
@@ -247,6 +252,8 @@ const INITIAL: State = {
   capsule: '',
   capsuleSaved: false,
 
+  openPlaylistId: null,
+
   fed: 0,
   played: 0,
   xp: 0,
@@ -267,6 +274,8 @@ export type Actions = {
   sos: () => void;
   openTool: (act: ToolAction, title: string, sub: string) => void;
   toggleTheme: () => void;
+  /** Modo simples/completo. Persiste no aparelho. */
+  setDensity: (density: Density) => void;
   setRole: (role: Role) => void;
   submitAuth: () => Promise<void>;
   logout: () => Promise<void>;
@@ -299,6 +308,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     loadDismissedCards().then((cards) => {
       if (cards.size > 0) dispatch({ dismissedCards: [...cards] });
+    });
+  }, []);
+
+  // Modo simples/completo escolhido antes — sem isto ele voltava para
+  // "completo" a cada abertura, ignorando a escolha do onboarding.
+  useEffect(() => {
+    loadDensity().then((density) => {
+      if (density) dispatch({ density });
     });
   }, []);
 
@@ -588,6 +605,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       toggleTheme: () => dispatch((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+
+      setDensity: (density: Density) => {
+        dispatch({ density });
+        saveDensity(density).catch(() => undefined);
+      },
 
       setRole: (role) =>
         dispatch((s) => {

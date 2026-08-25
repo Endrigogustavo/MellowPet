@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
 import { useMusic } from '../audio/MusicPlayer';
 import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
+import { NowPlayingPulse } from '../components/NowPlayingPulse';
 import { Card, ScreenTitle, Toggle, Touchable, Txt } from '../components/ui';
 import { EMO_PLAYLIST, ICONS, MUSIC_RULES, PLAYLISTS, playlistMeta, type Playlist } from '../data/content';
 import { FACE_ICON } from '../data/emotions';
-import { deleteUserPlaylist, listUserPlaylists, type UserPlaylist } from '../playlists/playlistClient';
+import { listUserPlaylists, type UserPlaylist } from '../playlists/playlistClient';
 import { useSpotify } from '../spotify/spotifyClient';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, hexA } from '../theme/palette';
@@ -19,13 +20,32 @@ export function MusicScreen() {
   const spotify = useSpotify();
 
   const [mine, setMine] = useState<UserPlaylist[]>([]);
+  const [mineLoading, setMineLoading] = useState(false);
+  // Uma falha de leitura precisa aparecer: sem isto, erro de rede virava
+  // "você não tem playlist nenhuma" — que parece que sumiram.
+  const [mineError, setMineError] = useState<string | null>(null);
+
   const reload = useCallback(() => {
     if (!state.userId) return;
-    listUserPlaylists(state.userId).then(setMine);
+    setMineLoading(true);
+    setMineError(null);
+    listUserPlaylists(state.userId)
+      .then(setMine)
+      .catch((e) =>
+        setMineError(e instanceof Error ? e.message : 'Não foi possível carregar suas playlists.')
+      )
+      .finally(() => setMineLoading(false));
   }, [state.userId]);
   // `navSeq` muda toda vez que a navegação acontece — recarrega ao voltar do
   // editor sem precisar de um evento próprio de "playlist criada".
   useEffect(reload, [reload, state.navSeq]);
+
+  const openPlaylist = (p: UserPlaylist) =>
+    actions.set((s) => ({
+      openPlaylistId: p.id,
+      screen: 'playlistdetail',
+      navSeq: s.navSeq + 1,
+    }));
 
   /** A playlist que a própria pessoa montou para este sentimento tem
    * prioridade sobre a curadoria embutida: o repertório dela acolhe mais. */
@@ -63,11 +83,6 @@ export function MusicScreen() {
     const uris = p.tracks.map((t) => t.spotifyUri).filter((u): u is string => Boolean(u));
     if (p.spotifyUri) spotify.playUri(p.spotifyUri);
     else if (uris.length > 0) spotify.playTracks(uris, p.id);
-  };
-
-  const removeMine = (p: UserPlaylist) => {
-    setMine((prev) => prev.filter((x) => x.id !== p.id));
-    deleteUserPlaylist(p.id).catch(reload);
   };
 
   const isSounding = (p: Playlist) =>
@@ -250,17 +265,67 @@ export function MusicScreen() {
             </View>
           </View>
 
-          {mine.length > 0 ? (
+          {mineError ? (
+            <View style={{ marginTop: 12, gap: 10 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Icon d={ICONS.alert} size={14} color={DANGER} circle sw={1.9} />
+                <Txt s={12.5} lh={1.5} c={DANGER} style={{ flex: 1 }}>
+                  {mineError}
+                </Txt>
+              </View>
+              <Touchable
+                onPress={reload}
+                style={{
+                  alignSelf: 'flex-start',
+                  paddingVertical: 9,
+                  paddingHorizontal: 15,
+                  borderRadius: 999,
+                  backgroundColor: T.bg,
+                  borderWidth: 1,
+                  borderColor: T.bd,
+                }}
+              >
+                <Txt s={12} w={800} c={T.t1}>
+                  Tentar de novo
+                </Txt>
+              </Touchable>
+            </View>
+          ) : mineLoading && mine.length === 0 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 14 }}>
+              <ActivityIndicator size="small" color={T.pri} />
+              <Txt s={12} c={T.t3}>
+                Carregando suas playlists…
+              </Txt>
+            </View>
+          ) : mine.length > 0 ? (
             <View style={{ marginTop: 14, gap: 2 }}>
-              {mine.map((p) => (
-                <View
+              {mine.map((p) => {
+                // A playlist é "a que está tocando" quando a faixa atual do
+                // Spotify é uma das dela — mais confiável que guardar qual
+                // foi a última que mandamos tocar.
+                const playingHere =
+                  !!spotify.nowPlaying?.trackUri &&
+                  p.tracks.some((t) => t.spotifyUri === spotify.nowPlaying?.trackUri);
+                const sounding = playingHere && spotify.nowPlaying?.isPaused === false;
+                const current = playingHere
+                  ? p.tracks.find((t) => t.spotifyUri === spotify.nowPlaying?.trackUri)
+                  : null;
+                return (
+                // A linha toda abre o detalhe; tocar continua no botão à direita.
+                <Touchable
                   key={p.id}
+                  onPress={() => openPlaylist(p)}
+                  accessibilityLabel={'Abrir ' + p.name}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 11,
                     paddingVertical: 11,
-                    borderTopWidth: 1,
+                    paddingHorizontal: playingHere ? 10 : 0,
+                    marginHorizontal: playingHere ? -10 : 0,
+                    borderRadius: playingHere ? 14 : 0,
+                    backgroundColor: playingHere ? hexA(p.color, 0.13) : 'transparent',
+                    borderTopWidth: playingHere ? 0 : 1,
                     borderTopColor: T.bdL,
                   }}
                 >
@@ -274,15 +339,27 @@ export function MusicScreen() {
                       justifyContent: 'center',
                     }}
                   >
-                    <Icon d={ICONS.playFill} size={15} color="#fff" sw={2} filled />
+                    {playingHere ? (
+                      <NowPlayingPulse playing={sounding} color="#fff" size={16} />
+                    ) : (
+                      <Icon d={ICONS.playFill} size={15} color="#fff" sw={2} filled />
+                    )}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Txt s={13.5} w={700} c={T.t1} numberOfLines={1}>
+                    <Txt
+                      s={13.5}
+                      w={playingHere ? 800 : 700}
+                      c={playingHere ? p.color : T.t1}
+                      numberOfLines={1}
+                    >
                       {p.name}
                     </Txt>
-                    <Txt s={11} c={T.t3} style={{ marginTop: 2 }}>
-                      {p.why} · {p.tracks.length}{' '}
-                      {p.tracks.length === 1 ? 'faixa' : 'faixas'}
+                    {/* Tocando: mostra a faixa em vez da contagem — é a
+                        informação que importa naquele instante. */}
+                    <Txt s={11} c={T.t3} numberOfLines={1} style={{ marginTop: 2 }}>
+                      {current
+                        ? `${sounding ? 'Tocando' : 'Pausado'} · ${current.title}`
+                        : `${p.why} · ${p.tracks.length} ${p.tracks.length === 1 ? 'faixa' : 'faixas'}`}
                     </Txt>
                   </View>
                   <Touchable
@@ -292,15 +369,10 @@ export function MusicScreen() {
                   >
                     <Icon d={ICONS.playFill} size={16} color={T.t1} sw={2} filled />
                   </Touchable>
-                  <Touchable
-                    onPress={() => removeMine(p)}
-                    accessibilityLabel={'Apagar ' + p.name}
-                    style={{ padding: 6 }}
-                  >
-                    <Icon d={ICONS.trash} size={15} color={DANGER} />
-                  </Touchable>
-                </View>
-              ))}
+                  <Icon d={ICONS.chevron} size={15} color={T.t3} sw={2} />
+                </Touchable>
+                );
+              })}
             </View>
           ) : (
             <Txt s={12.5} lh={1.5} c={T.t3} style={{ marginTop: 12 }}>

@@ -3,9 +3,11 @@ import { ActivityIndicator, Image, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '../components/Icon';
+import { NowPlayingPulse } from '../components/NowPlayingPulse';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { Bar, Card, Touchable, Txt } from '../components/ui';
 import { formatTime, ICONS } from '../data/content';
+import { getPlaylist, type UserPlaylist } from '../playlists/playlistClient';
 import {
   getCurrentAlbumImage,
   listSpotifyDevices,
@@ -15,7 +17,7 @@ import {
 } from '../spotify/spotifyApi';
 import { useSpotify } from '../spotify/spotifyClient';
 import { useApp, useTheme } from '../state/AppContext';
-import { DANGER } from '../theme/palette';
+import { DANGER, hexA } from '../theme/palette';
 
 /**
  * "Tocando agora" em tela cheia — o mini-player só cabe nome da faixa e dois
@@ -63,6 +65,39 @@ export function SpotifyPlayerScreen() {
       cancelled = true;
     };
   }, [np?.trackUri]);
+
+  /**
+   * Fila de reprodução.
+   *
+   * `currentUri` guarda o id da playlist que mandamos tocar (ver
+   * `playTracks`), então basta relê-la para saber o que vem a seguir. O
+   * App Remote não expõe a fila real — ele só diz a faixa atual — mas como
+   * a fila foi montada por nós, a playlist É a fila.
+   */
+  const [queue, setQueue] = useState<UserPlaylist | null>(null);
+  useEffect(() => {
+    const id = spotify.currentUri;
+    // Só ids de playlist nossa (uuid); um spotify:playlist:... não serve.
+    if (!id || id.startsWith('spotify:')) {
+      setQueue(null);
+      return;
+    }
+    let alive = true;
+    getPlaylist(id)
+      .then((found) => {
+        if (alive) setQueue(found);
+      })
+      .catch(() => {
+        if (alive) setQueue(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [spotify.currentUri]);
+
+  const queueIndex = queue
+    ? queue.tracks.findIndex((t) => t.spotifyUri === np?.trackUri)
+    : -1;
 
   const [devices, setDevices] = useState<SpotifyDevice[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
@@ -231,8 +266,115 @@ export function SpotifyPlayerScreen() {
           </Section>
         )}
 
+        {/* fila da playlist */}
+        {queue && queue.tracks.length > 0 ? (
+          <Section top={36}>
+            <Card radius={22} padding={18}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 11,
+                    backgroundColor: queue.color,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Icon d={ICONS.playFill} size={13} color="#fff" sw={2} filled />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Txt s={13.5} w={800} c={T.t1} numberOfLines={1}>
+                    {queue.name}
+                  </Txt>
+                  <Txt s={11} c={T.t3} style={{ marginTop: 2 }}>
+                    {queueIndex >= 0
+                      ? `${queueIndex + 1} de ${queue.tracks.length}`
+                      : `${queue.tracks.length} faixas`}
+                  </Txt>
+                </View>
+                <Touchable
+                  onPress={() =>
+                    actions.set((s) => ({
+                      openPlaylistId: queue.id,
+                      screen: 'playlistdetail',
+                      navSeq: s.navSeq + 1,
+                    }))
+                  }
+                  style={{ padding: 5 }}
+                  accessibilityLabel="Abrir playlist"
+                >
+                  <Icon d={ICONS.chevron} size={16} color={T.t3} sw={2} />
+                </Touchable>
+              </View>
+
+              <View style={{ marginTop: 8 }}>
+                {queue.tracks.map((track, index) => {
+                  const isCurrent = index === queueIndex;
+                  // Já tocou: fica apagada, para a fila mostrar o caminho
+                  // percorrido sem competir com o que vem.
+                  const played = queueIndex >= 0 && index < queueIndex;
+                  return (
+                    <Touchable
+                      key={track.id}
+                      onPress={() => {
+                        const uris = queue.tracks
+                          .slice(index)
+                          .map((t) => t.spotifyUri)
+                          .filter((u): u is string => Boolean(u));
+                        if (uris.length > 0) spotify.playTracks(uris, queue.id);
+                      }}
+                      accessibilityLabel={'Tocar ' + track.title}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                        paddingVertical: 10,
+                        paddingHorizontal: isCurrent ? 10 : 0,
+                        marginHorizontal: isCurrent ? -10 : 0,
+                        borderRadius: isCurrent ? 12 : 0,
+                        backgroundColor: isCurrent ? hexA(queue.color, 0.14) : 'transparent',
+                        borderTopWidth: isCurrent ? 0 : 1,
+                        borderTopColor: T.bdL,
+                        opacity: played ? 0.45 : 1,
+                      }}
+                    >
+                      <View style={{ width: 20, alignItems: 'center' }}>
+                        {isCurrent ? (
+                          <NowPlayingPulse
+                            playing={np?.isPaused === false}
+                            color={queue.color}
+                            size={15}
+                          />
+                        ) : (
+                          <Txt s={11} w={800} c={T.t3}>
+                            {index + 1}
+                          </Txt>
+                        )}
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Txt
+                          s={12.5}
+                          w={isCurrent ? 800 : 600}
+                          c={isCurrent ? queue.color : T.t1}
+                          numberOfLines={1}
+                        >
+                          {track.title}
+                        </Txt>
+                        <Txt s={10.5} c={T.t3} numberOfLines={1} style={{ marginTop: 1 }}>
+                          {track.artist}
+                        </Txt>
+                      </View>
+                    </Touchable>
+                  );
+                })}
+              </View>
+            </Card>
+          </Section>
+        ) : null}
+
         {/* dispositivos */}
-        <Section top={40}>
+        <Section top={queue ? 12 : 40}>
           <Card radius={22} padding={18}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Txt s={13.5} w={800} c={T.t1}>

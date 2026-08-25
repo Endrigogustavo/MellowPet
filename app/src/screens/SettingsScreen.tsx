@@ -5,7 +5,16 @@ import { acceptInvite, deleteLink, listLinks, type CaregiverLink } from '../care
 import { Field } from '../components/Field';
 import { PetFace } from '../components/PetFace';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Card, PrimaryButton, ScreenTitle, Toggle, ToggleRow, Touchable, Txt } from '../components/ui';
+import {
+  Card,
+  PrimaryButton,
+  ScreenTitle,
+  Segmented,
+  Toggle,
+  ToggleRow,
+  Touchable,
+  Txt,
+} from '../components/ui';
 import { NO_FACE_MINUTES, SETTING_TOGGLES } from '../data/content';
 import { PET_TYPES } from '../data/pets';
 import { fetchSettings, saveSettings, type EmergencyContact } from '../settings/settingsClient';
@@ -296,6 +305,26 @@ export function SettingsScreen() {
               </Txt>
             </View>
             <Toggle on={state.quiet} onPress={() => actions.set((s) => ({ quiet: !s.quiet }))} />
+          </View>
+
+          {/* Modo de exibição: até agora só dava para escolher no onboarding,
+              e quem passava dele ficava preso no que marcou. */}
+          <View style={{ paddingVertical: 15, gap: 10 }}>
+            <View>
+              <Txt s={14.5} w={700} c={T.t1}>
+                Modo de exibição
+              </Txt>
+              <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 3 }}>
+                {full
+                  ? 'Completo: todos os painéis, métricas e ajustes finos.'
+                  : 'Simples: só o essencial, menos informação na tela.'}
+              </Txt>
+            </View>
+            <Segmented
+              items={['Simples', 'Completo']}
+              index={full ? 1 : 0}
+              onChange={(i) => actions.setDensity(i === 1 ? 'completo' : 'simples')}
+            />
           </View>
 
           <ToggleRow

@@ -3,6 +3,7 @@ import { Animated, BackHandler, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { CoachOverlay } from '../components/CoachOverlay';
+import { DockInsetProvider } from '../components/DockInset';
 import { NowPlayingBar } from '../components/NowPlayingBar';
 import { TabBar } from '../components/TabBar';
 import { COACH } from '../data/content';
@@ -18,6 +19,7 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { MusicScreen } from '../screens/MusicScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { PlansScreen } from '../screens/PlansScreen';
+import { PlaylistDetailScreen } from '../screens/PlaylistDetailScreen';
 import { PlaylistEditorScreen } from '../screens/PlaylistEditorScreen';
 import { RoutineScreen } from '../screens/RoutineScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
@@ -39,6 +41,7 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   routine: RoutineScreen,
   music: MusicScreen,
   playlisteditor: PlaylistEditorScreen,
+  playlistdetail: PlaylistDetailScreen,
   spotifyimport: SpotifyImportScreen,
   spotifyplayer: SpotifyPlayerScreen,
   dashboard: DashboardScreen,
@@ -86,15 +89,17 @@ export function RootNavigator() {
   }, [state.screen, fade]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: onSplash ? T.splashBg : T.bg }}>
-      <StatusBar style={isDark || onSplash ? 'light' : 'dark'} />
-      <VisionEngine />
-      <Animated.View style={{ flex: 1, opacity: fade }}>
-        <Current />
-      </Animated.View>
-      {showTabs ? <NowPlayingBar /> : null}
-      {showTabs ? <TabBar /> : null}
-      {showCoach ? <CoachOverlay /> : null}
-    </View>
+    <DockInsetProvider>
+      <View style={{ flex: 1, backgroundColor: onSplash ? T.splashBg : T.bg }}>
+        <StatusBar style={isDark || onSplash ? 'light' : 'dark'} />
+        <VisionEngine />
+        <Animated.View style={{ flex: 1, opacity: fade }}>
+          <Current />
+        </Animated.View>
+        {showTabs ? <NowPlayingBar /> : null}
+        {showTabs ? <TabBar /> : null}
+        {showCoach ? <CoachOverlay /> : null}
+      </View>
+    </DockInsetProvider>
   );
 }
