@@ -11,11 +11,22 @@ import { PET_TYPES } from '../data/pets';
 import { fetchSettings, saveSettings, type EmergencyContact } from '../settings/settingsClient';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK, mix } from '../theme/palette';
+import { isBackgroundEnabled, setBackgroundEnabled } from '../widgets/widgetBridge';
+import {
+  BACKGROUND_VISION_INTERVALS,
+  getBackgroundVision,
+  setBackgroundVision,
+} from '../vision/backgroundVision';
 
 export function SettingsScreen() {
   const { state, actions } = useApp();
   const { T, isDark, full } = useTheme();
   const toggles = full ? SETTING_TOGGLES : SETTING_TOGGLES.slice(0, 3);
+
+  // Vem do lado nativo, não do estado do app: quem manda é o serviço estar
+  // rodando ou não, e ele sobrevive ao app fechar.
+  const [background, setBackground] = useState(() => isBackgroundEnabled());
+  const [bgVision, setBgVision] = useState(() => getBackgroundVision());
 
   const [links, setLinks] = useState<CaregiverLink[]>([]);
   const [codeInput, setCodeInput] = useState('');
@@ -276,6 +287,68 @@ export function SettingsScreen() {
             </View>
             <Toggle on={state.quiet} onPress={() => actions.set((s) => ({ quiet: !s.quiet }))} />
           </View>
+
+          <ToggleRow
+            label="Widgets em segundo plano"
+            sub="Registrar sentimento e controlar a música pela tela inicial com o app fechado. Deixa um aviso fixo na barra."
+            on={background}
+            divider
+            onPress={() => {
+              const next = !background;
+              setBackgroundEnabled(next);
+              setBackground(next);
+            }}
+          />
+
+          <ToggleRow
+            label="Ler expressão com o app fechado"
+            sub={`A câmera abre por alguns segundos a cada ${bgVision.intervalMinutes} min, lê e fecha. Fica um aviso permanente enquanto estiver ligado.`}
+            on={bgVision.enabled}
+            divider
+            onPress={() => {
+              const next = { ...bgVision, enabled: !bgVision.enabled };
+              setBackgroundVision(next.enabled, next.intervalMinutes);
+              setBgVision(next);
+            }}
+          />
+
+          {bgVision.enabled ? (
+            <View style={{ paddingBottom: 15, gap: 8 }}>
+              <Txt s={11.5} c={T.t3}>
+                Uma leitura a cada
+              </Txt>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {BACKGROUND_VISION_INTERVALS.map((minutes) => {
+                  const on = minutes === bgVision.intervalMinutes;
+                  return (
+                    <Touchable
+                      key={minutes}
+                      onPress={() => {
+                        setBackgroundVision(true, minutes);
+                        setBgVision({ enabled: true, intervalMinutes: minutes });
+                      }}
+                      style={{
+                        paddingVertical: 9,
+                        paddingHorizontal: 14,
+                        borderRadius: 999,
+                        backgroundColor: on ? T.priL : T.bg,
+                        borderWidth: 1,
+                        borderColor: on ? T.pri : T.bd,
+                      }}
+                    >
+                      <Txt s={12.5} w={800} c={on ? T.pri : T.t2}>
+                        {minutes} min
+                      </Txt>
+                    </Touchable>
+                  );
+                })}
+              </View>
+              <Txt s={11} lh={1.45} c={T.t3}>
+                Intervalos curtos gastam mais bateria. As imagens não saem do
+                aparelho — só o resultado da leitura é guardado.
+              </Txt>
+            </View>
+          ) : null}
 
           {toggles.map(([key, label, sub]) => (
             <ToggleRow

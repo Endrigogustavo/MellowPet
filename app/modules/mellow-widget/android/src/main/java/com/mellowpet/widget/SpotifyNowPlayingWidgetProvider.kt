@@ -32,18 +32,20 @@ class SpotifyNowPlayingWidgetProvider : AppWidgetProvider() {
       views.setTextViewText(R.id.widget_np_source, np.source)
       views.setTextViewText(R.id.widget_np_track, np.track ?: "Nada tocando")
       views.setTextViewText(R.id.widget_np_artist, np.artist ?: "Abra o MellowPet para tocar")
-      views.setTextViewText(R.id.widget_np_playpause, if (np.isPaused) "▶" else "⏸")
-      views.setTextColor(R.id.widget_np_playpause, WidgetTheme.playlistColor(emotion))
+      views.setImageViewResource(R.id.widget_np_playpause,
+        if (np.isPaused) R.drawable.wi_play else R.drawable.wi_pause)
+      views.setInt(R.id.widget_np_playpause, "setColorFilter", WidgetTheme.playlistColor(emotion))
       views.setProgressBar(R.id.widget_np_bar, 100, np.progress, false)
       // O equalizador só faz sentido com som saindo de verdade.
       views.setViewVisibility(R.id.widget_np_eq, if (np.isPaused) android.view.View.INVISIBLE else android.view.View.VISIBLE)
 
-      views.setOnClickPendingIntent(R.id.widget_np_prev, WidgetIntents.openApp(context, 10, "spotify?action=previous"))
-      views.setOnClickPendingIntent(
-        R.id.widget_np_playpause,
-        WidgetIntents.openApp(context, 11, "spotify?action=" + if (np.isPaused) "resume" else "pause"),
-      )
-      views.setOnClickPendingIntent(R.id.widget_np_next, WidgetIntents.openApp(context, 12, "spotify?action=next"))
+      // Sem abrir o app: fala direto com a sessão de mídia do sistema.
+      views.setOnClickPendingIntent(R.id.widget_np_prev,
+        WidgetIntents.action(context, 10, WidgetActionReceiver.ACTION_MEDIA, "previous"))
+      views.setOnClickPendingIntent(R.id.widget_np_playpause,
+        WidgetIntents.action(context, 11, WidgetActionReceiver.ACTION_MEDIA, "toggle"))
+      views.setOnClickPendingIntent(R.id.widget_np_next,
+        WidgetIntents.action(context, 12, WidgetActionReceiver.ACTION_MEDIA, "next"))
       views.setOnClickPendingIntent(R.id.widget_np_root, WidgetIntents.openApp(context, 13, "open?screen=spotifyplayer"))
       return views
     }

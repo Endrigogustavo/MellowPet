@@ -105,6 +105,27 @@ internal object WidgetTheme {
     else -> 0xFF55B49A.toInt()
   }
 
+  /** Rótulo em português — o widget precisa dele quando registra um
+   * sentimento sozinho, sem o app para traduzir a chave. */
+  fun label(emotion: String): String = when (key(emotion)) {
+    "happy" -> "Feliz"
+    "sad" -> "Triste"
+    "angry" -> "Com raiva"
+    "surprised" -> "Surpreso"
+    "anxious" -> "Ansioso"
+    else -> "Neutro"
+  }
+
+  /** Mesmos valores de MOOD_PCT em src/widgets/widgetBridge.ts. */
+  fun moodPct(emotion: String): Int = when (key(emotion)) {
+    "happy" -> 93
+    "surprised" -> 66
+    "anxious" -> 48
+    "sad" -> 39
+    "angry" -> 31
+    else -> 71
+  }
+
   fun variant(emotion: String): String = when (key(emotion)) {
     "happy" -> "radiante"
     "sad" -> "melancólico"

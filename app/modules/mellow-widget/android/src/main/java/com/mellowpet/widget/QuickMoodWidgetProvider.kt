@@ -21,8 +21,13 @@ class QuickMoodWidgetProvider : AppWidgetProvider() {
       R.id.widget_qm_surprised to "surprised",
       R.id.widget_qm_angry to "angry",
     )
+    // Registra no lugar: o toque não tira a pessoa da tela inicial. O app
+    // sincroniza com o Supabase depois, pela fila de PendingActions.
     moods.forEachIndexed { i, (viewId, value) ->
-      views.setOnClickPendingIntent(viewId, WidgetIntents.openApp(context, 30 + i, "mood?value=$value"))
+      views.setOnClickPendingIntent(
+        viewId,
+        WidgetIntents.action(context, 30 + i, WidgetActionReceiver.ACTION_MOOD, value),
+      )
     }
     for (id in appWidgetIds) appWidgetManager.updateAppWidget(id, views)
   }

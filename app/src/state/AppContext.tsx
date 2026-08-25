@@ -31,7 +31,11 @@ import { sendChatMessage } from '../chat/chatClient';
 import { fetchToolContent } from '../tools/toolsClient';
 import { listLinks } from '../care/careClient';
 import { bumpProfileStats, fetchProfileStats, levelFromXp } from '../profile/profileClient';
-import { moodPctFor, updateMoodWidget } from '../widgets/widgetBridge';
+import {
+  drainPendingWidgetActions,
+  moodPctFor,
+  updateMoodWidget,
+} from '../widgets/widgetBridge';
 import { logManualEmotion } from '../vision/manualEmotion';
 import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
 
@@ -300,6 +304,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (cards.size > 0) dispatch({ dismissedCards: [...cards] });
     });
   }, []);
+
+  // O que a pessoa registrou pelos widgets com o app fechado. Só drena
+  // depois de ter sessão: sem `userId` não há como escrever sob RLS, e a
+  // fila do lado nativo se esvazia ao ser lida — perderíamos os toques.
+  useEffect(() => {
+    if (!state.userId) return;
+    const pending = drainPendingWidgetActions();
+    if (pending.length === 0) return;
+
+    // Registro manual e leitura da câmera entram os dois no histórico, mas
+    // com `source` diferente — o painel precisa poder distinguir o que a
+    // pessoa disse do que o Mellow leu.
+    const moods = pending.filter((a) => a.kind === 'mood' || a.kind === 'vision');
+    moods.forEach((a) => {
+      logManualEmotion(
+        state.userId!,
+        a.value as EmotionKey,
+        a.kind === 'vision' ? 'background_vision' : 'widget_manual'
+      ).catch(() => undefined);
+    });
+    // Carinhos viram XP igual ao botão da Home; um bump só com a soma, em
+    // vez de uma chamada por toque.
+    const pets = pending.filter((a) => a.kind === 'pet').length;
+    if (pets > 0) {
+      dispatch((s) => ({ played: s.played + pets, xp: s.xp + pets * 4 }));
+      bumpProfileStats({ played: pets, xp: pets * 4 })
+        .then((stats) => {
+          if (stats) dispatch(stats);
+        })
+        .catch(() => undefined);
+    }
+    const lastMood = moods[moods.length - 1];
+    if (lastMood) dispatch({ observedExpression: lastMood.value as EmotionKey });
+  }, [state.userId]);
 
   // Widgets de humor/cuidar na tela inicial do celular: atualizam sempre que
   // o sentimento observado, o nível ou os cuidados mudam — não só quando o

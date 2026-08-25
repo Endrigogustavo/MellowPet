@@ -30,7 +30,7 @@ class WaterWidgetProvider : AppWidgetProvider() {
           if (i < glasses) R.drawable.widget_bar_water_on else R.drawable.widget_bar_water_off)
       }
       views.setTextViewText(R.id.widget_water_label, "$glasses de 6 copos")
-      views.setOnClickPendingIntent(R.id.widget_water_root, WidgetIntents.openApp(context, 125, "care?action=water"))
+      views.setOnClickPendingIntent(R.id.widget_water_root, WidgetIntents.action(context, 125, WidgetActionReceiver.ACTION_WATER))
       return views
     }
   }

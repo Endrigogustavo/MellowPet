@@ -154,6 +154,48 @@ export function updateAgendaWidget(
   );
 }
 
+/** Algo registrado com o app fechado — por toque no widget ou pela leitura
+ * em segundo plano. */
+export type PendingAction =
+  | { kind: 'mood'; value: string; at: number }
+  | { kind: 'vision'; value: string; at: number }
+  | { kind: 'water'; value: string; at: number }
+  | { kind: 'pet'; value: string; at: number };
+
+/**
+ * Recolhe o que a pessoa registrou pelos widgets enquanto o app estava
+ * fechado. Esvazia a fila do lado nativo, então só chame quando for
+ * realmente persistir — se descartar o resultado, os toques se perdem.
+ */
+export function drainPendingWidgetActions(): PendingAction[] {
+  if (!isMellowWidgetAvailable || !MellowWidget) return [];
+  try {
+    const parsed = JSON.parse(MellowWidget.drainPendingActions());
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (a): a is PendingAction =>
+        a && typeof a.kind === 'string' && typeof a.value === 'string' && typeof a.at === 'number'
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** Modo segundo plano: mantém os widgets respondendo com o app fechado, ao
+ * custo de uma notificação permanente. */
+export function setBackgroundEnabled(enabled: boolean): void {
+  safely(() => MellowWidget!.setBackgroundEnabled(enabled));
+}
+
+export function isBackgroundEnabled(): boolean {
+  if (!isMellowWidgetAvailable || !MellowWidget) return false;
+  try {
+    return MellowWidget.isBackgroundEnabled();
+  } catch {
+    return false;
+  }
+}
+
 export function updateDailyWidgets(input: {
   water: number;
   journalTag: string;

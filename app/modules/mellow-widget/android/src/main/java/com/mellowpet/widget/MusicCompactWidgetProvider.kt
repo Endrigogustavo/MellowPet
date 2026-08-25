@@ -28,9 +28,10 @@ class MusicCompactWidgetProvider : AppWidgetProvider() {
       views.setTextViewText(R.id.widget_mc_playlist, np.artist ?: "Toque para escolher")
       views.setInt(R.id.widget_mc_art, "setBackgroundResource", WidgetTheme.playlistBlock(emotion))
       views.setInt(R.id.widget_mc_btn, "setBackgroundResource", WidgetTheme.playlistRound(emotion))
-      views.setTextViewText(R.id.widget_mc_btn, if (np.isPaused) "▶" else "⏸")
-      views.setOnClickPendingIntent(R.id.widget_mc_btn, WidgetIntents.openApp(context, 340,
-        "spotify?action=" + if (np.isPaused) "resume" else "pause"))
+      views.setImageViewResource(R.id.widget_mc_btn,
+        if (np.isPaused) R.drawable.wi_play else R.drawable.wi_pause)
+      views.setOnClickPendingIntent(R.id.widget_mc_btn,
+        WidgetIntents.action(context, 340, WidgetActionReceiver.ACTION_MEDIA, "toggle"))
       views.setOnClickPendingIntent(R.id.widget_mc_root, WidgetIntents.openApp(context, 119, "open?screen=spotifyplayer"))
       return views
     }

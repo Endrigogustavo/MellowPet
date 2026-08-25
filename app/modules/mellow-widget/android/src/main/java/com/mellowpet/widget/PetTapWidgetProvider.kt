@@ -25,7 +25,7 @@ class PetTapWidgetProvider : AppWidgetProvider() {
       val mood = WidgetStore.getMood(context)
       views.setInt(R.id.widget_pettap_root, "setBackgroundResource", WidgetTheme.tint26(mood.emotion))
       views.setTextViewText(R.id.widget_pettap_count, "${mood.pets} hoje")
-      views.setOnClickPendingIntent(R.id.widget_pettap_root, WidgetIntents.openApp(context, 122, "care?action=pet"))
+      views.setOnClickPendingIntent(R.id.widget_pettap_root, WidgetIntents.action(context, 122, WidgetActionReceiver.ACTION_PET))
       return views
     }
   }

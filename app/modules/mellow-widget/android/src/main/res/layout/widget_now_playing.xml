@@ -71,37 +71,34 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <TextView
+        <ImageView
             android:id="@+id/widget_np_prev"
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:background="@drawable/widget_on_color_btn"
-            android:gravity="center"
-            android:textSize="12sp"
-            android:textColor="#FFFFFF"
-            android:text="⏮" />
+            android:padding="10dp"
+            android:src="@drawable/wi_prev"
+            android:contentDescription="Faixa anterior" />
 
-        <TextView
+        <ImageView
             android:id="@+id/widget_np_playpause"
             android:layout_width="46dp"
             android:layout_height="46dp"
             android:layout_marginStart="10dp"
             android:background="@drawable/widget_white_btn"
-            android:gravity="center"
-            android:textSize="16sp"
-            android:textColor="#55B49A"
-            android:text="▶" />
+            android:padding="13dp"
+            android:src="@drawable/wi_play"
+            android:contentDescription="Tocar ou pausar" />
 
-        <TextView
+        <ImageView
             android:id="@+id/widget_np_next"
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:layout_marginStart="10dp"
             android:background="@drawable/widget_on_color_btn"
-            android:gravity="center"
-            android:textSize="12sp"
-            android:textColor="#FFFFFF"
-            android:text="⏭" />
+            android:padding="10dp"
+            android:src="@drawable/wi_next"
+            android:contentDescription="Próxima faixa" />
 
         <ProgressBar
             android:id="@+id/widget_np_bar"

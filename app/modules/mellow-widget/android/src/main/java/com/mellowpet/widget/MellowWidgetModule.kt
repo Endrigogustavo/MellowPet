@@ -82,6 +82,28 @@ class MellowWidgetModule : Module() {
       AgendaWidgetProvider.updateAll(context)
     }
 
+    /** Ações que a pessoa fez pelo widget com o app fechado. Devolve JSON e
+     * esvazia a fila — quem chama assume a responsabilidade de persistir. */
+    Function("drainPendingActions") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      PendingActions.drain(context)
+    }
+
+    /** Modo segundo plano: mantém os widgets respondendo com o app fechado.
+     * Opt-in — deixa uma notificação permanente, então quem liga é a pessoa. */
+    Function("setBackgroundEnabled") { enabled: Boolean ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      if (enabled) MellowBackgroundService.start(context) else MellowBackgroundService.stop(context)
+      context.getSharedPreferences("mellow_widget_prefs", android.content.Context.MODE_PRIVATE)
+        .edit().putBoolean("bg_enabled", enabled).apply()
+    }
+
+    Function("isBackgroundEnabled") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      context.getSharedPreferences("mellow_widget_prefs", android.content.Context.MODE_PRIVATE)
+        .getBoolean("bg_enabled", false)
+    }
+
     Function("updateDaily") { water: Int, journalTag: String, capsule: String?,
                               focusPercent: Int, focusLabel: String, focusRunning: Boolean ->
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()

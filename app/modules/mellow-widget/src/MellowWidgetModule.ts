@@ -52,6 +52,11 @@ export declare class MellowWidgetModule extends NativeModule<Record<string, neve
     focusLabel: string,
     focusRunning: boolean
   ): void;
+  /** JSON com as ações feitas pelo widget enquanto o app estava fechado.
+   * Esvazia a fila — quem chama precisa persistir o que recebeu. */
+  drainPendingActions(): string;
+  setBackgroundEnabled(enabled: boolean): void;
+  isBackgroundEnabled(): boolean;
   updateNowPlaying(
     track: string | null,
     artist: string | null,

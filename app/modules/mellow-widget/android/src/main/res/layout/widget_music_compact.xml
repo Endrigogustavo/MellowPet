@@ -53,20 +53,14 @@
         android:ellipsize="end"
         android:text="" />
         </LinearLayout>
-        <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="10dp"
+        <ImageView
         android:id="@+id/widget_mc_btn"
-        android:textSize="15sp"
-        android:textColor="#FFFFFF"
-        android:textStyle="bold"
-        android:maxLines="1"
-        android:ellipsize="end"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="10dp"
         android:background="@drawable/widget_plround_neutral"
-        android:gravity="center"
-        android:minWidth="38dp"
-        android:minHeight="38dp"
-        android:text="▶" />
+        android:padding="11dp"
+        android:src="@drawable/wi_play"
+        android:contentDescription="Tocar ou pausar" />
     </LinearLayout>
 </LinearLayout>

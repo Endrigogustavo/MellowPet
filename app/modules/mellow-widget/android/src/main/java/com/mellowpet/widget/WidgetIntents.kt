@@ -24,4 +24,22 @@ internal object WidgetIntents {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
   }
+
+  /**
+   * Ação executada no lugar, sem abrir o app — ver WidgetActionReceiver.
+   * É o que faz pausar a música ou registrar um copo d'água responder
+   * dentro do próprio widget.
+   */
+  fun action(context: Context, requestCode: Int, action: String, value: String? = null): PendingIntent {
+    val intent = Intent(context, WidgetActionReceiver::class.java).apply {
+      this.action = action
+      if (value != null) putExtra(WidgetActionReceiver.EXTRA_VALUE, value)
+    }
+    return PendingIntent.getBroadcast(
+      context,
+      requestCode,
+      intent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+  }
 }
