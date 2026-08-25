@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- wg-shine: varredura de -60% a 160%, como no design. -->
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:oneshot="false">
+  <item android:drawable="@drawable/widget_shine_f0" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f1" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f2" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f3" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f4" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f5" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f6" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f7" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f8" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f9" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f10" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f11" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f12" android:duration="70" />
+  <item android:drawable="@drawable/widget_shine_f13" android:duration="70" />
+</animation-list>

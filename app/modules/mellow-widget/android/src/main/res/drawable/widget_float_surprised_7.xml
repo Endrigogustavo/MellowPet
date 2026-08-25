@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rotate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fromDegrees="-0.98"
+    android:toDegrees="-0.98"
+    android:pivotX="50%"
+    android:pivotY="50%">
+  <inset android:insetTop="2.1dp" android:insetBottom="3.9dp"
+         android:drawable="@drawable/mellow_surprised" />
+</rotate>

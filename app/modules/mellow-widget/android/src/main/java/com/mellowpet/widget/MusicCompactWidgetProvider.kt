@@ -27,6 +27,8 @@ class MusicCompactWidgetProvider : AppWidgetProvider() {
       views.setTextViewText(R.id.widget_mc_track, np.track ?: "Nada tocando")
       views.setTextViewText(R.id.widget_mc_playlist, np.artist ?: "Toque para escolher")
       views.setInt(R.id.widget_mc_art, "setBackgroundResource", WidgetTheme.playlistBlock(emotion))
+      views.setImageViewResource(R.id.widget_mc_art,
+        if (np.isPaused) R.drawable.widget_eq else R.drawable.widget_eq_anim)
       views.setInt(R.id.widget_mc_btn, "setBackgroundResource", WidgetTheme.playlistRound(emotion))
       views.setImageViewResource(R.id.widget_mc_btn,
         if (np.isPaused) R.drawable.wi_play else R.drawable.wi_pause)

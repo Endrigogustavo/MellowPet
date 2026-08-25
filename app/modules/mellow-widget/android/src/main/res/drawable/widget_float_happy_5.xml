@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rotate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fromDegrees="-1.50"
+    android:toDegrees="-1.50"
+    android:pivotX="50%"
+    android:pivotY="50%">
+  <inset android:insetTop="0.0dp" android:insetBottom="6.0dp"
+         android:drawable="@drawable/mellow_happy" />
+</rotate>

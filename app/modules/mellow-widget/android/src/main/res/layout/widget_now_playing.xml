@@ -27,12 +27,95 @@
             android:maxLines="1"
             android:text="SPOTIFY" />
 
-        <ImageView
-            android:id="@+id/widget_np_eq"
+        <FrameLayout
             android:layout_width="20dp"
-            android:layout_height="18dp"
-            android:src="@drawable/widget_eq"
-            android:contentDescription="@null" />
+            android:layout_height="18dp">
+            <ImageView
+                android:id="@+id/widget_np_eq"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq"
+                android:contentDescription="@null" />
+            <ViewFlipper
+            android:id="@+id/widget_np_eq_anim"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:flipInterval="80"
+            android:autoStart="true">
+            <ImageView
+                android:id="@+id/widget_np_eq_anim_0"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq_f0"
+                android:contentDescription="@null" />
+            <ImageView
+                android:id="@+id/widget_np_eq_anim_1"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq_f1"
+                android:contentDescription="@null" />
+            <ImageView
+                android:id="@+id/widget_np_eq_anim_2"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq_f2"
+                android:contentDescription="@null" />
+            <ImageView
+                android:id="@+id/widget_np_eq_anim_3"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq_f3"
+                android:contentDescription="@null" />
+            <ImageView
+                android:id="@+id/widget_np_eq_anim_4"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq_f4"
+                android:contentDescription="@null" />
+            <ImageView
+                android:id="@+id/widget_np_eq_anim_5"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq_f5"
+                android:contentDescription="@null" />
+            <ImageView
+                android:id="@+id/widget_np_eq_anim_6"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq_f6"
+                android:contentDescription="@null" />
+            <ImageView
+                android:id="@+id/widget_np_eq_anim_7"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq_f7"
+                android:contentDescription="@null" />
+            <ImageView
+                android:id="@+id/widget_np_eq_anim_8"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq_f8"
+                android:contentDescription="@null" />
+            <ImageView
+                android:id="@+id/widget_np_eq_anim_9"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq_f9"
+                android:contentDescription="@null" />
+            <ImageView
+                android:id="@+id/widget_np_eq_anim_10"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq_f10"
+                android:contentDescription="@null" />
+            <ImageView
+                android:id="@+id/widget_np_eq_anim_11"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/widget_eq_f11"
+                android:contentDescription="@null" />
+        </ViewFlipper>
+        </FrameLayout>
     </LinearLayout>
 
     <LinearLayout

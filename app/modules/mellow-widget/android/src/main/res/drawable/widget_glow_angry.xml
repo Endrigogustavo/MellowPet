@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Neon do design: radial-gradient(circle, cor 0%, transparent 70%).
+     Dois halos, um em cada canto, como heroGlow/heroGlow2. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+  <item>
+    <shape android:shape="rectangle">
+      <solid android:color="#FFF0F0" />
+      <corners android:radius="38dp" />
+    </shape>
+  </item>
+  <item android:width="200dp" android:height="200dp" android:gravity="top|left">
+    <shape android:shape="oval">
+      <gradient
+          android:type="radial"
+          android:gradientRadius="100dp"
+          android:startColor="#80FF7675"
+          android:centerColor="#80FF7675"
+          android:endColor="#00FF7675" />
+    </shape>
+  </item>
+  <item android:width="170dp" android:height="170dp" android:gravity="bottom|right">
+    <shape android:shape="oval">
+      <gradient
+          android:type="radial"
+          android:gradientRadius="85dp"
+          android:startColor="#61FF7675"
+          android:centerColor="#61FF7675"
+          android:endColor="#00FF7675" />
+    </shape>
+  </item>
+</layer-list>

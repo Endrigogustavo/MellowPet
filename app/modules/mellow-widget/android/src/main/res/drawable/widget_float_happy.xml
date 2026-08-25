@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- wg-float (3.4s no design) para happy. -->
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:oneshot="false">
+  <item android:drawable="@drawable/widget_float_happy_0" android:duration="340" />
+  <item android:drawable="@drawable/widget_float_happy_1" android:duration="340" />
+  <item android:drawable="@drawable/widget_float_happy_2" android:duration="340" />
+  <item android:drawable="@drawable/widget_float_happy_3" android:duration="340" />
+  <item android:drawable="@drawable/widget_float_happy_4" android:duration="340" />
+  <item android:drawable="@drawable/widget_float_happy_5" android:duration="340" />
+  <item android:drawable="@drawable/widget_float_happy_6" android:duration="340" />
+  <item android:drawable="@drawable/widget_float_happy_7" android:duration="340" />
+  <item android:drawable="@drawable/widget_float_happy_8" android:duration="340" />
+  <item android:drawable="@drawable/widget_float_happy_9" android:duration="340" />
+</animation-list>

@@ -10,12 +10,73 @@
     android:padding="16dp"
     android:gravity="center">
 
-    <ImageView
-        android:id="@+id/widget_mood_pet"
+    <ViewFlipper
+        android:id="@+id/widget_mood_pet_anim"
         android:layout_width="82dp"
         android:layout_height="82dp"
-        android:src="@drawable/mellow_neutral"
-        android:contentDescription="@null" />
+        android:flipInterval="550"
+        android:autoStart="true">
+        <ImageView
+            android:id="@+id/widget_mood_pet_anim_0"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_float_neutral_0"
+            android:contentDescription="@null" />
+        <ImageView
+            android:id="@+id/widget_mood_pet_anim_1"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_float_neutral_1"
+            android:contentDescription="@null" />
+        <ImageView
+            android:id="@+id/widget_mood_pet_anim_2"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_float_neutral_2"
+            android:contentDescription="@null" />
+        <ImageView
+            android:id="@+id/widget_mood_pet_anim_3"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_float_neutral_3"
+            android:contentDescription="@null" />
+        <ImageView
+            android:id="@+id/widget_mood_pet_anim_4"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_float_neutral_4"
+            android:contentDescription="@null" />
+        <ImageView
+            android:id="@+id/widget_mood_pet_anim_5"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_float_neutral_5"
+            android:contentDescription="@null" />
+        <ImageView
+            android:id="@+id/widget_mood_pet_anim_6"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_float_neutral_6"
+            android:contentDescription="@null" />
+        <ImageView
+            android:id="@+id/widget_mood_pet_anim_7"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_float_neutral_7"
+            android:contentDescription="@null" />
+        <ImageView
+            android:id="@+id/widget_mood_pet_anim_8"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_float_neutral_8"
+            android:contentDescription="@null" />
+        <ImageView
+            android:id="@+id/widget_mood_pet_anim_9"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_float_neutral_9"
+            android:contentDescription="@null" />
+    </ViewFlipper>
 
     <TextView
         android:id="@+id/widget_mood_label"

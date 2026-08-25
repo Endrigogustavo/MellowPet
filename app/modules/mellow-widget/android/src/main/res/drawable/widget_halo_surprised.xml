@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- wg-halo: opacidade .22->.5, escala .93->1.07. -->
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:oneshot="false">
+  <item android:drawable="@drawable/widget_halo_surprised_0" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_surprised_1" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_surprised_2" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_surprised_3" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_surprised_4" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_surprised_5" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_surprised_6" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_surprised_7" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_surprised_8" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_surprised_9" android:duration="260" />
+</animation-list>

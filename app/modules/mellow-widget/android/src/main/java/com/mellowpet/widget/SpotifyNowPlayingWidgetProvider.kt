@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
+import android.view.View
 import android.widget.RemoteViews
 
 /**
@@ -28,7 +29,7 @@ class SpotifyNowPlayingWidgetProvider : AppWidgetProvider() {
       val emotion = WidgetStore.getMood(context).emotion
       val views = RemoteViews(context.packageName, R.layout.widget_now_playing)
 
-      views.setInt(R.id.widget_np_root, "setBackgroundResource", WidgetTheme.playlistCard(emotion))
+      views.setInt(R.id.widget_np_root, "setBackgroundResource", WidgetTheme.playlistGlow(emotion))
       views.setTextViewText(R.id.widget_np_source, np.source)
       views.setTextViewText(R.id.widget_np_track, np.track ?: "Nada tocando")
       views.setTextViewText(R.id.widget_np_artist, np.artist ?: "Abra o MellowPet para tocar")
@@ -36,8 +37,11 @@ class SpotifyNowPlayingWidgetProvider : AppWidgetProvider() {
         if (np.isPaused) R.drawable.wi_play else R.drawable.wi_pause)
       views.setInt(R.id.widget_np_playpause, "setColorFilter", WidgetTheme.playlistColor(emotion))
       views.setProgressBar(R.id.widget_np_bar, 100, np.progress, false)
-      // O equalizador só faz sentido com som saindo de verdade.
-      views.setViewVisibility(R.id.widget_np_eq, if (np.isPaused) android.view.View.INVISIBLE else android.view.View.VISIBLE)
+      // wg-eq do design: as barras só dançam com som saindo de verdade;
+      // pausado, mostra a silhueta estática (as alturas 6/13/9/16 do design).
+      // Pausado: silhueta estática. Tocando: o flipper com as ondas.
+      views.setViewVisibility(R.id.widget_np_eq, if (np.isPaused) View.VISIBLE else View.GONE)
+      views.setViewVisibility(R.id.widget_np_eq_anim, if (np.isPaused) View.GONE else View.VISIBLE)
 
       // Sem abrir o app: fala direto com a sessão de mídia do sistema.
       views.setOnClickPendingIntent(R.id.widget_np_prev,

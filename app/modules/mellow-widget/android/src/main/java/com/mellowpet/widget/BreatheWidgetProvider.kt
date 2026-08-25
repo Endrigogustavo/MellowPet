@@ -23,7 +23,7 @@ class BreatheWidgetProvider : AppWidgetProvider() {
     private fun buildViews(context: Context): RemoteViews {
       val views = RemoteViews(context.packageName, R.layout.widget_breathe)
       val mood = WidgetStore.getMood(context)
-      views.setInt(R.id.widget_breathe_root, "setBackgroundResource", WidgetTheme.tintBackground(mood.emotion))
+      views.setInt(R.id.widget_breathe_root, "setBackgroundResource", WidgetTheme.glowBackground(mood.emotion))
       views.setOnClickPendingIntent(R.id.widget_breathe_root, WidgetIntents.openApp(context, 105, "tool?action=breathe"))
       return views
     }

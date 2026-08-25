@@ -59,6 +59,128 @@ internal object WidgetTheme {
     else -> 0xFFB2BEC3.toInt()
   }
 
+  /* ── Efeitos do design ────────────────────────────────────────────────
+   * RemoteViews não roda CSS: cada keyframe do .dc.html virou uma
+   * AnimationDrawable, e cada radial-gradient um <gradient type="radial">.
+   * Ver gen_fx.py, que gerou esses recursos a partir dos keyframes.        */
+
+  /** Fundo tingido + neon radial (heroGlow/heroGlow2 do design). */
+  fun glowBackground(emotion: String): Int = when (key(emotion)) {
+    "happy" -> R.drawable.widget_glow_happy
+    "sad" -> R.drawable.widget_glow_sad
+    "angry" -> R.drawable.widget_glow_angry
+    "surprised" -> R.drawable.widget_glow_surprised
+    "anxious" -> R.drawable.widget_glow_anxious
+    else -> R.drawable.widget_glow_neutral
+  }
+
+  /** Cartão de música com o brilho branco do design. */
+  fun playlistGlow(emotion: String): Int = when (key(emotion)) {
+    "happy" -> R.drawable.widget_plglow_happy
+    "sad" -> R.drawable.widget_plglow_sad
+    "angry" -> R.drawable.widget_plglow_angry
+    "surprised" -> R.drawable.widget_plglow_surprised
+    "anxious" -> R.drawable.widget_plglow_anxious
+    else -> R.drawable.widget_plglow_neutral
+  }
+
+  /**
+   * Quadros de wg-float e wg-halo.
+   *
+   * AnimationDrawable não recebe `start()` dentro de RemoteViews e fica
+   * parada no primeiro frame — por isso a animação é um ViewFlipper, e o
+   * provider precisa dos frames avulsos para apontar cada filho dele.
+   */
+  fun floatFrames(emotion: String): IntArray = when (key(emotion)) {
+    "happy" -> intArrayOf(
+      R.drawable.widget_float_happy_0, R.drawable.widget_float_happy_1,
+      R.drawable.widget_float_happy_2, R.drawable.widget_float_happy_3,
+      R.drawable.widget_float_happy_4, R.drawable.widget_float_happy_5,
+      R.drawable.widget_float_happy_6, R.drawable.widget_float_happy_7,
+      R.drawable.widget_float_happy_8, R.drawable.widget_float_happy_9,
+    )
+    "sad" -> intArrayOf(
+      R.drawable.widget_float_sad_0, R.drawable.widget_float_sad_1,
+      R.drawable.widget_float_sad_2, R.drawable.widget_float_sad_3,
+      R.drawable.widget_float_sad_4, R.drawable.widget_float_sad_5,
+      R.drawable.widget_float_sad_6, R.drawable.widget_float_sad_7,
+      R.drawable.widget_float_sad_8, R.drawable.widget_float_sad_9,
+    )
+    "angry" -> intArrayOf(
+      R.drawable.widget_float_angry_0, R.drawable.widget_float_angry_1,
+      R.drawable.widget_float_angry_2, R.drawable.widget_float_angry_3,
+      R.drawable.widget_float_angry_4, R.drawable.widget_float_angry_5,
+      R.drawable.widget_float_angry_6, R.drawable.widget_float_angry_7,
+      R.drawable.widget_float_angry_8, R.drawable.widget_float_angry_9,
+    )
+    "surprised" -> intArrayOf(
+      R.drawable.widget_float_surprised_0, R.drawable.widget_float_surprised_1,
+      R.drawable.widget_float_surprised_2, R.drawable.widget_float_surprised_3,
+      R.drawable.widget_float_surprised_4, R.drawable.widget_float_surprised_5,
+      R.drawable.widget_float_surprised_6, R.drawable.widget_float_surprised_7,
+      R.drawable.widget_float_surprised_8, R.drawable.widget_float_surprised_9,
+    )
+    "anxious" -> intArrayOf(
+      R.drawable.widget_float_anxious_0, R.drawable.widget_float_anxious_1,
+      R.drawable.widget_float_anxious_2, R.drawable.widget_float_anxious_3,
+      R.drawable.widget_float_anxious_4, R.drawable.widget_float_anxious_5,
+      R.drawable.widget_float_anxious_6, R.drawable.widget_float_anxious_7,
+      R.drawable.widget_float_anxious_8, R.drawable.widget_float_anxious_9,
+    )
+    else -> intArrayOf(
+      R.drawable.widget_float_neutral_0, R.drawable.widget_float_neutral_1,
+      R.drawable.widget_float_neutral_2, R.drawable.widget_float_neutral_3,
+      R.drawable.widget_float_neutral_4, R.drawable.widget_float_neutral_5,
+      R.drawable.widget_float_neutral_6, R.drawable.widget_float_neutral_7,
+      R.drawable.widget_float_neutral_8, R.drawable.widget_float_neutral_9,
+    )
+  }
+
+  fun haloFrames(emotion: String): IntArray = when (key(emotion)) {
+    "happy" -> intArrayOf(
+      R.drawable.widget_halo_happy_0, R.drawable.widget_halo_happy_1,
+      R.drawable.widget_halo_happy_2, R.drawable.widget_halo_happy_3,
+      R.drawable.widget_halo_happy_4, R.drawable.widget_halo_happy_5,
+      R.drawable.widget_halo_happy_6, R.drawable.widget_halo_happy_7,
+      R.drawable.widget_halo_happy_8, R.drawable.widget_halo_happy_9,
+    )
+    "sad" -> intArrayOf(
+      R.drawable.widget_halo_sad_0, R.drawable.widget_halo_sad_1,
+      R.drawable.widget_halo_sad_2, R.drawable.widget_halo_sad_3,
+      R.drawable.widget_halo_sad_4, R.drawable.widget_halo_sad_5,
+      R.drawable.widget_halo_sad_6, R.drawable.widget_halo_sad_7,
+      R.drawable.widget_halo_sad_8, R.drawable.widget_halo_sad_9,
+    )
+    "angry" -> intArrayOf(
+      R.drawable.widget_halo_angry_0, R.drawable.widget_halo_angry_1,
+      R.drawable.widget_halo_angry_2, R.drawable.widget_halo_angry_3,
+      R.drawable.widget_halo_angry_4, R.drawable.widget_halo_angry_5,
+      R.drawable.widget_halo_angry_6, R.drawable.widget_halo_angry_7,
+      R.drawable.widget_halo_angry_8, R.drawable.widget_halo_angry_9,
+    )
+    "surprised" -> intArrayOf(
+      R.drawable.widget_halo_surprised_0, R.drawable.widget_halo_surprised_1,
+      R.drawable.widget_halo_surprised_2, R.drawable.widget_halo_surprised_3,
+      R.drawable.widget_halo_surprised_4, R.drawable.widget_halo_surprised_5,
+      R.drawable.widget_halo_surprised_6, R.drawable.widget_halo_surprised_7,
+      R.drawable.widget_halo_surprised_8, R.drawable.widget_halo_surprised_9,
+    )
+    "anxious" -> intArrayOf(
+      R.drawable.widget_halo_anxious_0, R.drawable.widget_halo_anxious_1,
+      R.drawable.widget_halo_anxious_2, R.drawable.widget_halo_anxious_3,
+      R.drawable.widget_halo_anxious_4, R.drawable.widget_halo_anxious_5,
+      R.drawable.widget_halo_anxious_6, R.drawable.widget_halo_anxious_7,
+      R.drawable.widget_halo_anxious_8, R.drawable.widget_halo_anxious_9,
+    )
+    else -> intArrayOf(
+      R.drawable.widget_halo_neutral_0, R.drawable.widget_halo_neutral_1,
+      R.drawable.widget_halo_neutral_2, R.drawable.widget_halo_neutral_3,
+      R.drawable.widget_halo_neutral_4, R.drawable.widget_halo_neutral_5,
+      R.drawable.widget_halo_neutral_6, R.drawable.widget_halo_neutral_7,
+      R.drawable.widget_halo_neutral_8, R.drawable.widget_halo_neutral_9,
+    )
+  }
+
   /** Barra colorida da linha do dia. */
   fun barFor(emotion: String): Int = when (key(emotion)) {
     "happy" -> R.drawable.widget_bar_happy

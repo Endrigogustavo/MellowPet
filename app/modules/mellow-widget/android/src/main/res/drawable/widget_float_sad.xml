@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- wg-float (6.5s no design) para sad. -->
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:oneshot="false">
+  <item android:drawable="@drawable/widget_float_sad_0" android:duration="650" />
+  <item android:drawable="@drawable/widget_float_sad_1" android:duration="650" />
+  <item android:drawable="@drawable/widget_float_sad_2" android:duration="650" />
+  <item android:drawable="@drawable/widget_float_sad_3" android:duration="650" />
+  <item android:drawable="@drawable/widget_float_sad_4" android:duration="650" />
+  <item android:drawable="@drawable/widget_float_sad_5" android:duration="650" />
+  <item android:drawable="@drawable/widget_float_sad_6" android:duration="650" />
+  <item android:drawable="@drawable/widget_float_sad_7" android:duration="650" />
+  <item android:drawable="@drawable/widget_float_sad_8" android:duration="650" />
+  <item android:drawable="@drawable/widget_float_sad_9" android:duration="650" />
+</animation-list>

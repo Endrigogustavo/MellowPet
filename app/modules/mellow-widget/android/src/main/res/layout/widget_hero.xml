@@ -78,12 +78,151 @@
         android:orientation="horizontal"
         android:gravity="center"
         android:baselineAligned="false">
-        <ImageView
-        android:layout_width="150dp"
-        android:layout_height="150dp"
-        android:id="@+id/widget_hero_pet"
-        android:src="@drawable/mellow_neutral"
-        android:contentDescription="@null" />
+        <!-- Halo pulsando atrás e bichinho flutuando na frente, empilhados
+             como no design (o anel fica em inset:-16px do corpo). -->
+        <FrameLayout
+            android:layout_width="182dp"
+            android:layout_height="182dp">
+            <ViewFlipper
+                android:id="@+id/widget_hero_halo_anim"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:flipInterval="260"
+                android:autoStart="true">
+                <ImageView
+                    android:id="@+id/widget_hero_halo_anim_0"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_halo_neutral_0"
+                    android:contentDescription="@null" />
+                <ImageView
+                    android:id="@+id/widget_hero_halo_anim_1"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_halo_neutral_1"
+                    android:contentDescription="@null" />
+                <ImageView
+                    android:id="@+id/widget_hero_halo_anim_2"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_halo_neutral_2"
+                    android:contentDescription="@null" />
+                <ImageView
+                    android:id="@+id/widget_hero_halo_anim_3"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_halo_neutral_3"
+                    android:contentDescription="@null" />
+                <ImageView
+                    android:id="@+id/widget_hero_halo_anim_4"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_halo_neutral_4"
+                    android:contentDescription="@null" />
+                <ImageView
+                    android:id="@+id/widget_hero_halo_anim_5"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_halo_neutral_5"
+                    android:contentDescription="@null" />
+                <ImageView
+                    android:id="@+id/widget_hero_halo_anim_6"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_halo_neutral_6"
+                    android:contentDescription="@null" />
+                <ImageView
+                    android:id="@+id/widget_hero_halo_anim_7"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_halo_neutral_7"
+                    android:contentDescription="@null" />
+                <ImageView
+                    android:id="@+id/widget_hero_halo_anim_8"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_halo_neutral_8"
+                    android:contentDescription="@null" />
+                <ImageView
+                    android:id="@+id/widget_hero_halo_anim_9"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_halo_neutral_9"
+                    android:contentDescription="@null" />
+            </ViewFlipper>
+            <FrameLayout
+                android:layout_width="150dp"
+                android:layout_height="150dp"
+                android:layout_gravity="center">
+                <ViewFlipper
+                    android:id="@+id/widget_hero_pet_anim"
+                    android:layout_width="150dp"
+                    android:layout_height="150dp"
+                    android:flipInterval="550"
+                    android:autoStart="true">
+                    <ImageView
+                        android:id="@+id/widget_hero_pet_anim_0"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/widget_float_neutral_0"
+                        android:contentDescription="@null" />
+                    <ImageView
+                        android:id="@+id/widget_hero_pet_anim_1"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/widget_float_neutral_1"
+                        android:contentDescription="@null" />
+                    <ImageView
+                        android:id="@+id/widget_hero_pet_anim_2"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/widget_float_neutral_2"
+                        android:contentDescription="@null" />
+                    <ImageView
+                        android:id="@+id/widget_hero_pet_anim_3"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/widget_float_neutral_3"
+                        android:contentDescription="@null" />
+                    <ImageView
+                        android:id="@+id/widget_hero_pet_anim_4"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/widget_float_neutral_4"
+                        android:contentDescription="@null" />
+                    <ImageView
+                        android:id="@+id/widget_hero_pet_anim_5"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/widget_float_neutral_5"
+                        android:contentDescription="@null" />
+                    <ImageView
+                        android:id="@+id/widget_hero_pet_anim_6"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/widget_float_neutral_6"
+                        android:contentDescription="@null" />
+                    <ImageView
+                        android:id="@+id/widget_hero_pet_anim_7"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/widget_float_neutral_7"
+                        android:contentDescription="@null" />
+                    <ImageView
+                        android:id="@+id/widget_hero_pet_anim_8"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/widget_float_neutral_8"
+                        android:contentDescription="@null" />
+                    <ImageView
+                        android:id="@+id/widget_hero_pet_anim_9"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/widget_float_neutral_9"
+                        android:contentDescription="@null" />
+                </ViewFlipper>
+            </FrameLayout>
+        </FrameLayout>
     </LinearLayout>
 
     <ProgressBar

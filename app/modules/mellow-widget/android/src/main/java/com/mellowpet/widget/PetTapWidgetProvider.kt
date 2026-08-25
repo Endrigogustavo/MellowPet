@@ -24,6 +24,7 @@ class PetTapWidgetProvider : AppWidgetProvider() {
       val views = RemoteViews(context.packageName, R.layout.widget_pet_tap)
       val mood = WidgetStore.getMood(context)
       views.setInt(R.id.widget_pettap_root, "setBackgroundResource", WidgetTheme.tint26(mood.emotion))
+      views.setImageViewResource(R.id.widget_pettap_pet, WidgetTheme.petDrawable(mood.emotion))
       views.setTextViewText(R.id.widget_pettap_count, "${mood.pets} hoje")
       views.setOnClickPendingIntent(R.id.widget_pettap_root, WidgetIntents.action(context, 122, WidgetActionReceiver.ACTION_PET))
       return views

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- wg-halo: opacidade .22->.5, escala .93->1.07. -->
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:oneshot="false">
+  <item android:drawable="@drawable/widget_halo_sad_0" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_sad_1" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_sad_2" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_sad_3" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_sad_4" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_sad_5" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_sad_6" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_sad_7" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_sad_8" android:duration="260" />
+  <item android:drawable="@drawable/widget_halo_sad_9" android:duration="260" />
+</animation-list>

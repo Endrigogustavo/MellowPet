@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- box-shadow do design aproximada em camadas: RemoteViews não tem
+     elevation, então o halo escuro vem de retângulos deslocados. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+  <item android:top="6dp" android:left="3dp" android:right="3dp">
+    <shape android:shape="rectangle">
+      <solid android:color="#14000000" />
+      <corners android:radius="26dp" />
+    </shape>
+  </item>
+  <item android:top="3dp" android:left="1dp" android:right="1dp">
+    <shape android:shape="rectangle">
+      <solid android:color="#0F000000" />
+      <corners android:radius="26dp" />
+    </shape>
+  </item>
+  <item android:bottom="6dp">
+    <shape android:shape="rectangle">
+      <solid android:color="#FFFFFF" />
+      <corners android:radius="26dp" />
+    </shape>
+  </item>
+</layer-list>
