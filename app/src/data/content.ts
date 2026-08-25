@@ -610,11 +610,20 @@ export const ICONS = {
   focus: 'M12 12m-3.4 0a3.4 3.4 0 106.8 0a3.4 3.4 0 10-6.8 0',
   heart: 'M12 4c3.2 0 5.6 2.4 5.6 5.3 0 4-5.6 10.7-5.6 10.7S6.4 13.3 6.4 9.3C6.4 6.4 8.8 4 12 4z',
   heartOutline: 'M12 21s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.4-7 10-7 10z',
-  feed: 'M6 3v8a3 3 0 006 0V3M9 11v10M15 3c-1.5 2-1.5 6 0 8v10',
-  play: 'M4 9h16M9 3.5c-2 5-2 12 0 17M15 3.5c2 5 2 12 0 17',
+  // Garfo e faca. O desenho antigo era só um "U" sem dentes, que virava um
+  // rabisco no tamanho de 20px usado na Home.
+  feed: 'M6.5 3v5M9.5 3v5M12.5 3v5M6.5 8h6v1a3 3 0 01-6 0zM9.5 12v9M17.5 3c-1.6 2-1.6 5.5 0 7.5V21',
+  // Bola: círculo + equador + meridianos. Sem o círculo (que dependia da
+  // prop `circle` que a Home não passa) sobravam três riscos soltos.
+  play:
+    'M12 3a9 9 0 100 18 9 9 0 000-18zM3.2 12h17.6M12 3c2.4 2.7 2.4 15.3 0 18M12 3c-2.4 2.7-2.4 15.3 0 18',
   rest: 'M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z',
-  robot: 'M12 4v3M9 13h.01M15 13h.01',
-  note: 'M9 18V5l10-2v13',
+  // Corpo, antena e olhos. Antes era só a antena e dois pontos — sem o
+  // corpo, os quatro usos (painel, cuidador) mostravam riscos soltos.
+  robot: 'M6 8h12a2 2 0 012 2v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7a2 2 0 012-2zM12 4v4M9.5 13h.01M14.5 13h.01',
+  // Nota musical: haste + as duas cabeças. Sem elas sobrava só a bandeira,
+  // que no mini-player parecia um traço solto.
+  note: 'M9 17.5V5l10-2v12.5M9 17.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zM19 15.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z',
   send: 'M12 19V5M6 11l6-6 6 6',
   trash: 'M5 7h14M10 7V5h4v2M8 7l1 12h6l1-12',
   chat: 'M20 12a8 8 0 01-11.5 7.2L4 20l.9-4.3A8 8 0 1120 12z',
@@ -628,6 +637,9 @@ export const ICONS = {
   smile: 'M8.5 14.5c1 1.4 2.1 2 3.5 2s2.5-.6 3.5-2M9 9.5h.01M15 9.5h.01',
   spotify:
     'M12 3a9 9 0 100 18 9 9 0 000-18zM7.5 9.5c3.4-.9 6.6-.5 9 1M8 13c2.7-.7 5.2-.4 7.2.8M8.5 16.2c2-.5 3.9-.3 5.5.6',
+  eye: 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 9a3 3 0 100 6 3 3 0 000-6z',
+  eyeOff: 'M4 4l16 16M9.9 5.9A9.8 9.8 0 0112 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 01-3.3 4M6.6 7.9A17 17 0 002.5 12S6 18.5 12 18.5c1.2 0 2.2-.2 3.2-.5M10 10a3 3 0 004.2 4.2',
+  shield: 'M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6z',
   pause: 'M9 6v12M15 6v12',
   playFill: 'M8 5.5l10 6.5-10 6.5z',
 };

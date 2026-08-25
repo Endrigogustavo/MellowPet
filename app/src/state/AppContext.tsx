@@ -19,10 +19,8 @@ import { VISION_MODE, type SignalStatus, type VisionMode } from '../vision/contr
 import type { CalibrationState } from '../vision/expressionEngine';
 import {
   AuthError,
-  completeOAuthRedirect,
   loadStoredSession,
   login as apiLogin,
-  loginWithGoogle as apiLoginWithGoogle,
   logout as apiLogout,
   signup as apiSignup,
   subscribeToSignOut,
@@ -271,7 +269,6 @@ export type Actions = {
   toggleTheme: () => void;
   setRole: (role: Role) => void;
   submitAuth: () => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   dismissCard: (id: string) => void;
 };
@@ -459,29 +456,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      completeOAuthRedirect(url)
-        .then((user) => {
-          if (!user) return;
-          dispatch((s) => ({
-            authLoading: false,
-            authError: null,
-            userId: user.userId,
-            role: user.role,
-            accountRole: user.role,
-            screen: user.role === 'care' ? 'care' : 'home',
-            navSeq: s.navSeq + 1,
-          }));
-          listLinks(user.userId, 'user')
-            .then((res) => dispatch({ linked: res.links.length > 0 }))
-            .catch(() => undefined);
-          fetchProfileStats(user.userId).then((stats) => dispatch(stats));
-        })
-        .catch((error) => {
-          dispatch({
-            authLoading: false,
-            authError: error instanceof AuthError ? error.message : 'Não foi possível continuar.',
-          });
-        });
+      // Fora os deep links de widget, nada mais chega aqui: o login com
+      // Google foi removido, então não há callback de OAuth para tratar.
     };
 
     Linking.getInitialURL().then((url) => {
@@ -676,20 +652,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       },
 
-      loginWithGoogle: async () => {
-        dispatch({ authLoading: true, authError: null });
-        try {
-          await apiLoginWithGoogle();
-          // Não desliga authLoading aqui: o app perde o foco pro navegador e
-          // só volta a rodar quando o deep link do callback chega, no efeito
-          // acima — que é quem decide o resultado final.
-        } catch (error) {
-          dispatch({
-            authLoading: false,
-            authError: error instanceof AuthError ? error.message : 'Não foi possível continuar.',
-          });
-        }
-      },
 
       dismissCard: (id: string) => {
         dispatch((s) => {

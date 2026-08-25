@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, View } from 'react-native';
 
+import { ICONS } from '../data/content';
 import { EMOTIONS, type IdleAnim } from '../data/emotions';
 import { useApp, useTheme } from '../state/AppContext';
+import { Icon } from './Icon';
 import { PetFace } from './PetFace';
 import { Txt, useLoop } from './ui';
 
@@ -52,14 +54,12 @@ function Heart({ x, color }: { x: number; color: string }) {
   }, [v]);
 
   return (
-    <Animated.Text
+    <Animated.View
       pointerEvents="none"
       style={{
         position: 'absolute',
         bottom: 76,
         left: `${x}%`,
-        fontSize: 22,
-        color,
         opacity: v.interpolate({ inputRange: [0, 0.18, 1], outputRange: [0, 1, 0] }),
         transform: [
           { translateY: v.interpolate({ inputRange: [0, 0.18, 1], outputRange: [0, -14, -96] }) },
@@ -67,8 +67,10 @@ function Heart({ x, color }: { x: number; color: string }) {
         ],
       }}
     >
-      ♥
-    </Animated.Text>
+      {/* Ícone desenhado em vez do caractere ♥: o glifo muda de forma entre
+          fontes e sistemas, e num app sem emoji ele destoava do resto. */}
+      <Icon d={ICONS.heart} size={22} color={color} filled />
+    </Animated.View>
   );
 }
 

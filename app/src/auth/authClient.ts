@@ -1,12 +1,6 @@
-import { Linking } from 'react-native';
 import type { AuthError as SupabaseAuthError } from '@supabase/supabase-js';
 
 import { supabase, SUPABASE_CONFIGURED } from '../supabase/client';
-
-// Precisa bater com "scheme" no app.json e com a Redirect URL cadastrada no
-// provedor Google, no console do Supabase (Authentication → URL Configuration
-// → Redirect URLs).
-export const OAUTH_REDIRECT_URL = 'mellowpet://login-callback';
 
 export type AuthRole = 'user' | 'care';
 
@@ -19,24 +13,54 @@ export type AuthUser = {
 
 export class AuthError extends Error {}
 
+/**
+ * Traduz o erro do Supabase para algo acionável.
+ *
+ * Cada mensagem diz o que aconteceu E o que fazer — "Não foi possível
+ * continuar" deixa a pessoa sem saída, ainda mais numa tela de conta.
+ * O fallback inclui o texto original porque um erro desconhecido sem
+ * detalhe nenhum é impossível de reportar ou depurar.
+ */
 function mapAuthError(error: SupabaseAuthError): string {
   const message = error.message.toLowerCase();
+
   if (message.includes('already registered') || message.includes('already exists')) {
-    return 'Este email já está cadastrado.';
+    return 'Este e-mail já tem conta. Toque em "Entrar" para acessar, ou use outro e-mail.';
   }
   if (message.includes('invalid login credentials')) {
-    return 'Email ou senha incorretos.';
+    return 'E-mail ou senha incorretos. Confira os dois — a senha diferencia maiúsculas de minúsculas.';
   }
   if (message.includes('email not confirmed')) {
-    return 'Confirme seu email antes de entrar.';
+    return 'Confirme seu e-mail antes de entrar. Procure a mensagem na caixa de entrada e no spam.';
   }
   if (message.includes('password') && message.includes('least')) {
-    return 'A senha precisa ter pelo menos 6 caracteres.';
+    return 'A senha é curta demais. Use pelo menos 8 caracteres, com uma letra e um número.';
   }
-  if (message.includes('network') || message.includes('fetch')) {
-    return 'Não foi possível falar com o servidor. Verifique sua conexão.';
+  if (message.includes('email rate limit') || message.includes('over_email_send_rate')) {
+    return 'Muitas tentativas seguidas. Espere alguns minutos antes de tentar de novo.';
   }
-  return 'Não foi possível continuar.';
+  if (message.includes('rate limit') || message.includes('too many')) {
+    return 'Você tentou várias vezes seguidas. Aguarde um instante e tente novamente.';
+  }
+  if (message.includes('invalid email') || message.includes('unable to validate email')) {
+    return 'Esse e-mail não parece válido. Confira se não faltou uma letra ou o domínio.';
+  }
+  if (message.includes('user not found')) {
+    return 'Não encontramos conta com esse e-mail. Toque em "Criar conta" para começar.';
+  }
+  if (message.includes('signup') && message.includes('disabled')) {
+    return 'Cadastros estão temporariamente desativados neste servidor.';
+  }
+  if (message.includes('provider is not enabled') || message.includes('unsupported provider')) {
+    return 'Esse tipo de login não está habilitado neste servidor.';
+  }
+  if (message.includes('network') || message.includes('fetch') || message.includes('failed to fetch')) {
+    return 'Não foi possível falar com o servidor. Verifique sua conexão e tente de novo.';
+  }
+  if (message.includes('timeout') || message.includes('timed out')) {
+    return 'O servidor demorou para responder. Tente novamente em instantes.';
+  }
+  return `Não foi possível continuar: ${error.message}`;
 }
 
 async function fetchProfile(userId: string): Promise<{ displayName: string | null; role: AuthRole }> {
@@ -86,44 +110,6 @@ export async function login(email: string, password: string): Promise<AuthUser> 
   return {
     userId: data.user.id,
     email: data.user.email ?? email,
-    displayName: profile.displayName,
-    role: profile.role,
-  };
-}
-
-/** Abre o navegador do sistema no fluxo OAuth do Google. A sessão só é
- * concluída quando o redirect volta pro app — ver `completeOAuthRedirect`. */
-export async function loginWithGoogle(): Promise<void> {
-  if (!SUPABASE_CONFIGURED) throw new AuthError('Supabase não configurado neste build.');
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    // skipBrowserRedirect: no RN não existe redirect automático de página;
-    // sem isto o SDK assume ambiente web e devolve `data.url` vazio.
-    options: { redirectTo: OAUTH_REDIRECT_URL, skipBrowserRedirect: true },
-  });
-  if (error) throw new AuthError(mapAuthError(error));
-  if (!data.url) throw new AuthError('Não foi possível iniciar o login com Google.');
-  await Linking.openURL(data.url);
-}
-
-/** Chamado com a URL de deep link recebida de volta do navegador. Devolve
- * `null` para qualquer URL que não seja o nosso próprio callback OAuth. */
-export async function completeOAuthRedirect(url: string): Promise<AuthUser | null> {
-  if (!url.startsWith(OAUTH_REDIRECT_URL)) return null;
-  const fragment = url.split('#')[1];
-  if (!fragment) return null;
-  const params = new URLSearchParams(fragment);
-  const access_token = params.get('access_token');
-  const refresh_token = params.get('refresh_token');
-  if (!access_token || !refresh_token) return null;
-
-  const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
-  if (error) throw new AuthError(mapAuthError(error));
-  if (!data.user) throw new AuthError('Não foi possível concluir o login com Google.');
-  const profile = await fetchProfile(data.user.id);
-  return {
-    userId: data.user.id,
-    email: data.user.email ?? '',
     displayName: profile.displayName,
     role: profile.role,
   };

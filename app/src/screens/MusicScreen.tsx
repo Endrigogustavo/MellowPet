@@ -126,30 +126,52 @@ export function MusicScreen() {
                 : spotify.connected
                   ? (spotify.nowPlaying?.trackName ?? 'Conectado')
                   : spotify.authorized
-                    ? 'Conta autorizada — toque para tocar aqui'
+                    ? 'Conta autorizada, mas sem conexão com o app do Spotify'
                     : 'Conecte para criar e tocar playlists da sua conta'}
             </Txt>
           </View>
+
+          {/* Três estados, não dois: estar autorizado (token OAuth) não é o
+              mesmo que estar conectado (App Remote). Quando o App Remote cai
+              — o Spotify fechou, o aparelho reiniciou — é preciso oferecer
+              reconectar, senão o botão fica preso em "Desconectar". */}
           <Touchable
-            onPress={spotify.connected || spotify.authorized ? spotify.disconnect : spotify.connect}
+            onPress={spotify.connected ? spotify.disconnect : spotify.connect}
             disabled={spotify.connecting}
+            accessibilityRole="button"
             style={{
               paddingVertical: 10,
               paddingHorizontal: 15,
               borderRadius: 999,
-              backgroundColor: spotify.authorized ? T.bg : '#1DB954',
+              backgroundColor: spotify.connected ? T.bg : '#1DB954',
               opacity: spotify.connecting ? 0.6 : 1,
             }}
           >
-            <Txt s={12} w={800} c={spotify.authorized ? T.t2 : '#fff'}>
+            <Txt s={12} w={800} c={spotify.connected ? T.t2 : '#fff'}>
               {spotify.connecting
                 ? 'Conectando…'
-                : spotify.authorized
+                : spotify.connected
                   ? 'Desconectar'
-                  : 'Conectar Spotify'}
+                  : spotify.authorized
+                    ? 'Reconectar'
+                    : 'Conectar Spotify'}
             </Txt>
           </Touchable>
         </Card>
+
+        {/* Autorizado mas desconectado: dá pra tentar de novo acima, ou sair
+            da conta de vez — que é o que resolve quando a autorização é que
+            expirou. */}
+        {spotify.authorized && !spotify.connected && !spotify.connecting ? (
+          <Touchable
+            onPress={spotify.disconnect}
+            style={{ alignSelf: 'flex-end', paddingHorizontal: 6, paddingVertical: 10 }}
+          >
+            <Txt s={11.5} w={700} c={T.t3}>
+              Sair da conta do Spotify
+            </Txt>
+          </Touchable>
+        ) : null}
       </Section>
 
       {/* sugestão pela emoção */}
