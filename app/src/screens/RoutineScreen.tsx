@@ -45,16 +45,27 @@ export function RoutineScreen() {
     });
   }, [state.userId]);
 
-  // Widget "Próximo na rotina" — atualiza sempre que a lista muda por
-  // qualquer motivo (carregar, adicionar, remover), não só na tela aberta.
+  // Widget "Rotina de hoje" — atualiza sempre que a lista muda por qualquer
+  // motivo (carregar, adicionar, remover), não só com a tela aberta. Mostra
+  // três itens em volta do agora: o que já passou fica "feito", o próximo
+  // vira "agora" e o resto "a fazer", como no design.
   useEffect(() => {
     if (items.length === 0) {
-      updateRoutineWidget(null, null);
+      updateRoutineWidget([]);
       return;
     }
     const now = formatTime(new Date());
-    const next = items.find((item) => item.time >= now) ?? items[0];
-    updateRoutineWidget(next.time, next.name);
+    const nextIndex = items.findIndex((item) => item.time >= now);
+    const currentIndex = nextIndex === -1 ? items.length - 1 : nextIndex;
+    // Uma janela de três centrada no item atual, sem estourar as pontas.
+    const start = Math.max(0, Math.min(currentIndex - 1, items.length - 3));
+    updateRoutineWidget(
+      items.slice(start, start + 3).map((item) => ({
+        time: item.time,
+        name: item.name,
+        state: item.time < now ? 'done' : items.indexOf(item) === currentIndex ? 'now' : 'todo',
+      }))
+    );
   }, [items]);
 
   // Precisa de identidade estável: o picker do Android reabre o diálogo

@@ -1,54 +1,188 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Próximo na rotina: faixa roxa + horário grande, nome embaixo. -->
+<!-- ROTINA · 4×2 — três itens do dia com horário, ponto de estado e rótulo,
+     como no design (feito / agora / a fazer). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_routine_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="horizontal"
+    android:orientation="vertical"
     android:background="@drawable/widget_card_bg"
-    android:padding="16dp"
+    android:padding="18dp"
     android:gravity="center_vertical">
 
-    <View
-        android:layout_width="4dp"
-        android:layout_height="match_parent"
-        android:layout_marginEnd="13dp"
-        android:background="@drawable/widget_accent_bar" />
-
     <LinearLayout
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical">
+        android:orientation="horizontal"
+        android:baselineAligned="true">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
+            android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:textSize="9sp"
-            android:textStyle="bold"
-            android:textColor="#6C63FF"
-            android:letterSpacing="0.14"
-            android:text="PRÓXIMO NA ROTINA" />
-
-        <TextView
-            android:id="@+id/widget_routine_time"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
-            android:textSize="26sp"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:textColor="#1A1A2E"
-            android:text="--:--" />
+            android:text="Rotina de hoje" />
 
         <TextView
-            android:id="@+id/widget_routine_name"
-            android:layout_width="match_parent"
+            android:id="@+id/widget_routine_now"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="#F59E0B"
+            android:maxLines="1"
+            android:text="" />
+    </LinearLayout>
+
+    <!-- item 1 -->
+    <LinearLayout
+        android:id="@+id/widget_routine_row1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_routine_time1"
+            android:layout_width="42dp"
+            android:layout_height="wrap_content"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="#9CA3AF"
+            android:text="--:--" />
+
+        <ImageView
+            android:id="@+id/widget_routine_dot1"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:layout_marginStart="11dp"
+            android:src="@drawable/widget_dot_todo"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/widget_routine_name1"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="11dp"
             android:textSize="12.5sp"
-            android:textColor="#6B7280"
+            android:textColor="#1A1A2E"
             android:maxLines="1"
             android:ellipsize="end"
             android:text="Nada agendado ainda" />
+
+        <TextView
+            android:id="@+id/widget_routine_state1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textSize="9.5sp"
+            android:textStyle="bold"
+            android:textColor="#9CA3AF"
+            android:letterSpacing="0.05"
+            android:text="" />
+    </LinearLayout>
+
+    <!-- item 2 -->
+    <LinearLayout
+        android:id="@+id/widget_routine_row2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="11dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_routine_time2"
+            android:layout_width="42dp"
+            android:layout_height="wrap_content"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="#9CA3AF"
+            android:text="" />
+
+        <ImageView
+            android:id="@+id/widget_routine_dot2"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:layout_marginStart="11dp"
+            android:src="@drawable/widget_dot_todo"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/widget_routine_name2"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="11dp"
+            android:textSize="12.5sp"
+            android:textColor="#1A1A2E"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:text="" />
+
+        <TextView
+            android:id="@+id/widget_routine_state2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textSize="9.5sp"
+            android:textStyle="bold"
+            android:textColor="#9CA3AF"
+            android:letterSpacing="0.05"
+            android:text="" />
+    </LinearLayout>
+
+    <!-- item 3 -->
+    <LinearLayout
+        android:id="@+id/widget_routine_row3"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="11dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_routine_time3"
+            android:layout_width="42dp"
+            android:layout_height="wrap_content"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="#9CA3AF"
+            android:text="" />
+
+        <ImageView
+            android:id="@+id/widget_routine_dot3"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:layout_marginStart="11dp"
+            android:src="@drawable/widget_dot_todo"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/widget_routine_name3"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="11dp"
+            android:textSize="12.5sp"
+            android:textColor="#1A1A2E"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:text="" />
+
+        <TextView
+            android:id="@+id/widget_routine_state3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textSize="9.5sp"
+            android:textStyle="bold"
+            android:textColor="#9CA3AF"
+            android:letterSpacing="0.05"
+            android:text="" />
     </LinearLayout>
 </LinearLayout>

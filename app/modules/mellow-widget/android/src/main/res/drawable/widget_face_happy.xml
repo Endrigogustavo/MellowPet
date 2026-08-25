@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Check-in: happy — círculo da cor da emoção com olhos e boca, como no design. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="30dp" android:height="30dp"
+    android:viewportWidth="100" android:viewportHeight="100">
+  <path android:pathData="M8,50 a42,42 0 1,0 84,0 a42,42 0 1,0 -84,0 z" android:fillColor="#FFD166" />
+  <path android:pathData="M30.4,52 a5.6,5.6 0 1,0 11.2,0 a5.6,5.6 0 1,0 -11.2,0 z" android:fillColor="#2E2A33" />
+  <path android:pathData="M58.4,52 a5.6,5.6 0 1,0 11.2,0 a5.6,5.6 0 1,0 -11.2,0 z" android:fillColor="#2E2A33" />
+  <path android:pathData="M40,70 q10,10 20,0" android:strokeColor="#2E2A33" android:strokeWidth="3"
+        android:strokeLineCap="round" />
+</vector>

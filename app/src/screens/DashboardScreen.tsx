@@ -8,6 +8,8 @@ import { Card, ScreenTitle, Segmented, Txt } from '../components/ui';
 import { ICONS, PERIOD_LABELS, type Period } from '../data/content';
 import { fetchDashboardPeriod } from '../dashboard/dashboardClient';
 import { subscribeToEmotionEvents } from '../dashboard/aggregate';
+import { fetchStreak } from '../dashboard/streak';
+import { updateStreakWidget } from '../widgets/widgetBridge';
 import { EMOTIONS, FACE_ICON } from '../data/emotions';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK, WARN, hexA } from '../theme/palette';
@@ -48,6 +50,15 @@ export function DashboardScreen() {
       unsubscribe();
     };
   }, [state.userId, state.period]);
+
+  // Widget "Sequência" — independe do recorte escolhido na tela, por isso
+  // fica num efeito próprio, preso só ao usuário.
+  useEffect(() => {
+    if (!state.userId) return;
+    fetchStreak(state.userId)
+      .then(({ days, week }) => updateStreakWidget(days, week))
+      .catch(() => undefined);
+  }, [state.userId]);
 
   const requestKey = state.userId ? `${state.userId}:${state.period}` : null;
   const loading = requestKey !== null && loaded?.key !== requestKey;

@@ -30,8 +30,8 @@ import {
 import { sendChatMessage } from '../chat/chatClient';
 import { fetchToolContent } from '../tools/toolsClient';
 import { listLinks } from '../care/careClient';
-import { fetchProfileStats, levelFromXp } from '../profile/profileClient';
-import { emojiForEmotion, updateMoodWidget } from '../widgets/widgetBridge';
+import { bumpProfileStats, fetchProfileStats, levelFromXp } from '../profile/profileClient';
+import { moodPctFor, updateMoodWidget } from '../widgets/widgetBridge';
 import { logManualEmotion } from '../vision/manualEmotion';
 import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
 
@@ -301,17 +301,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Widget de humor na tela inicial do celular: atualiza sempre que o
-  // sentimento observado ou o nível mudam, não só quando o app está aberto
-  // em primeiro plano nele.
+  // Widgets de humor/cuidar na tela inicial do celular: atualizam sempre que
+  // o sentimento observado, o nível ou os cuidados mudam — não só quando o
+  // app está aberto em primeiro plano.
   useEffect(() => {
-    updateMoodWidget(
-      emojiForEmotion(state.observedExpression),
-      EMOTIONS[state.observedExpression].label,
-      levelFromXp(state.xp),
-      Math.max(0, state.xp) % 100
-    );
-  }, [state.observedExpression, state.xp]);
+    const cared = state.fed + state.played;
+    updateMoodWidget({
+      emotion: state.observedExpression,
+      label: EMOTIONS[state.observedExpression].label,
+      level: levelFromXp(state.xp),
+      progress: Math.max(0, state.xp) % 100,
+      moodPct: moodPctFor(state.observedExpression),
+      petName: state.petName,
+      hunger: cared > 14 ? 'bem cuidado hoje' : 'quer atenção',
+    });
+  }, [state.observedExpression, state.xp, state.fed, state.played, state.petName]);
 
   useEffect(() => {
     let alive = true;
@@ -377,6 +381,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             screen: 'home',
             navSeq: s.navSeq + 1,
           }));
+        } else if (url.includes('/widget/care')) {
+          // Mesmos deltas dos botões da Home (ver HomeScreen.bumpCare): o
+          // widget é um atalho pra mesma ação, não uma economia paralela.
+          const action = params.get('action');
+          const delta =
+            action === 'feed'
+              ? { fed: 1, xp: 6 }
+              : action === 'play'
+                ? { played: 1, xp: 4 }
+                : action === 'rest'
+                  ? { xp: 3 }
+                  : null;
+          if (!delta) return;
+          const mood: Partial<State> =
+            action === 'feed'
+              ? { petMood: 'happy' }
+              : action === 'play'
+                ? { petMood: 'surprised' }
+                : { petMood: 'neutral', breathing: true, breathTick: 0 };
+          dispatch((s) => ({
+            fed: s.fed + (delta.fed ?? 0),
+            played: s.played + (delta.played ?? 0),
+            xp: s.xp + (delta.xp ?? 0),
+            streak: 0,
+            screen: 'home',
+            navSeq: s.navSeq + 1,
+            ...mood,
+          }));
+          if (ref.current.userId) {
+            bumpProfileStats(delta)
+              .then((stats) => {
+                if (stats) dispatch(stats);
+              })
+              .catch(() => undefined);
+          }
         }
         return;
       }

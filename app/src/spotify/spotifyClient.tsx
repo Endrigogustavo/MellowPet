@@ -133,13 +133,16 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       .catch(() => undefined);
   }, [authorized]);
 
-  // Widget "Tocando agora" na tela inicial do celular.
+  // Widget "Música" na tela inicial do celular.
   useEffect(() => {
-    updateNowPlayingWidget(
-      nowPlaying?.trackName ?? null,
-      nowPlaying?.artistName ?? null,
-      nowPlaying?.isPaused ?? true
-    );
+    const duration = nowPlaying?.durationMs ?? 0;
+    updateNowPlayingWidget({
+      track: nowPlaying?.trackName ?? null,
+      artist: nowPlaying?.artistName ?? null,
+      isPaused: nowPlaying?.isPaused ?? true,
+      source: 'SPOTIFY',
+      progress: duration > 0 ? Math.round(((nowPlaying?.positionMs ?? 0) / duration) * 100) : 0,
+    });
   }, [nowPlaying]);
 
   useEffect(() => {

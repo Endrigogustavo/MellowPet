@@ -7,10 +7,9 @@ import android.content.Context
 import android.widget.RemoteViews
 
 /**
- * Widget de tela inicial, somente leitura: mostra o último humor e nível
- * gravados pelo app (ver WidgetStore). Não roda câmera nem processamento
- * nenhum — widgets não têm acesso a isso, só refletem o que o app já
- * calculou enquanto estava aberto. Toque abre o app na Home.
+ * HUMOR · 2×2 — o Mellow desenhado sobre o fundo tingido pela emoção.
+ * Somente leitura: widgets não têm acesso à câmera nem ao pipeline de visão,
+ * só refletem o que o app já calculou (ver WidgetStore).
  */
 class MellowMoodWidgetProvider : AppWidgetProvider() {
   override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -27,11 +26,10 @@ class MellowMoodWidgetProvider : AppWidgetProvider() {
     private fun buildViews(context: Context): RemoteViews {
       val mood = WidgetStore.getMood(context)
       val views = RemoteViews(context.packageName, R.layout.widget_mood)
-      views.setTextViewText(R.id.widget_mood_emoji, mood.emoji)
+      views.setInt(R.id.widget_mood_root, "setBackgroundResource", WidgetTheme.tintBackground(mood.emotion))
+      views.setImageViewResource(R.id.widget_mood_pet, WidgetTheme.petDrawable(mood.emotion))
       views.setTextViewText(R.id.widget_mood_label, mood.label)
-      views.setTextViewText(R.id.widget_mood_level, "Nv ${mood.level}")
-      views.setProgressBar(R.id.widget_mood_bar, 100, mood.progress, false)
-      views.setTextViewText(R.id.widget_mood_sub, "${mood.progress}/100 para o próximo nível")
+      views.setTextViewText(R.id.widget_mood_sub, "Nível ${mood.level} · ${mood.progress}/100")
       views.setOnClickPendingIntent(R.id.widget_mood_root, WidgetIntents.openApp(context, 1, "open?screen=home"))
       return views
     }

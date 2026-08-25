@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SEQUÊNCIA · 2×2 — cartão roxo cheio com o número grande e a semana em
+     pontinhos, exatamente como no design. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_streak_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_pri_card"
+    android:padding="17dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:textColor="#B8FFFFFF"
+        android:letterSpacing="0.16"
+        android:text="SEQUÊNCIA" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="bottom">
+
+        <TextView
+            android:id="@+id/widget_streak_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="46sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:includeFontPadding="false"
+            android:text="0" />
+
+        <TextView
+            android:id="@+id/widget_streak_sub"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textSize="12sp"
+            android:textColor="#B8FFFFFF"
+            android:text="dias seguidos" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal"
+        android:baselineAligned="false">
+
+        <ImageView android:id="@+id/widget_streak_d0" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="6dp" android:src="@drawable/widget_week_off"
+            android:scaleType="fitXY" android:contentDescription="@null" />
+        <ImageView android:id="@+id/widget_streak_d1" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="6dp" android:layout_marginStart="4dp" android:src="@drawable/widget_week_off"
+            android:scaleType="fitXY" android:contentDescription="@null" />
+        <ImageView android:id="@+id/widget_streak_d2" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="6dp" android:layout_marginStart="4dp" android:src="@drawable/widget_week_off"
+            android:scaleType="fitXY" android:contentDescription="@null" />
+        <ImageView android:id="@+id/widget_streak_d3" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="6dp" android:layout_marginStart="4dp" android:src="@drawable/widget_week_off"
+            android:scaleType="fitXY" android:contentDescription="@null" />
+        <ImageView android:id="@+id/widget_streak_d4" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="6dp" android:layout_marginStart="4dp" android:src="@drawable/widget_week_off"
+            android:scaleType="fitXY" android:contentDescription="@null" />
+        <ImageView android:id="@+id/widget_streak_d5" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="6dp" android:layout_marginStart="4dp" android:src="@drawable/widget_week_off"
+            android:scaleType="fitXY" android:contentDescription="@null" />
+        <ImageView android:id="@+id/widget_streak_d6" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="6dp" android:layout_marginStart="4dp" android:src="@drawable/widget_week_off"
+            android:scaleType="fitXY" android:contentDescription="@null" />
+    </LinearLayout>
+</LinearLayout>

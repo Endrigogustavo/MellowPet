@@ -1,92 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Humor do Mellow: avatar + nome, pílula de nível e barra de XP. -->
+<!-- HUMOR · 2×2 — do design "MellowPet Widgets": o Mellow desenhado sobre o
+     fundo tingido pela emoção, rótulo e há-quanto-tempo embaixo. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_mood_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/widget_card_bg"
+    android:background="@drawable/widget_tint_neutral"
     android:padding="16dp"
-    android:gravity="center_vertical">
+    android:gravity="center">
 
-    <LinearLayout
-        android:layout_width="match_parent"
+    <ImageView
+        android:id="@+id/widget_mood_pet"
+        android:layout_width="82dp"
+        android:layout_height="82dp"
+        android:src="@drawable/mellow_neutral"
+        android:contentDescription="@null" />
+
+    <TextView
+        android:id="@+id/widget_mood_label"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <TextView
-            android:id="@+id/widget_mood_emoji"
-            android:layout_width="46dp"
-            android:layout_height="46dp"
-            android:background="@drawable/widget_avatar_bg"
-            android:gravity="center"
-            android:textSize="24sp"
-            android:text="🙂" />
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="12dp"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="9sp"
-                android:textStyle="bold"
-                android:textColor="#9CA3AF"
-                android:letterSpacing="0.14"
-                android:text="MELLOW" />
-
-            <TextView
-                android:id="@+id/widget_mood_label"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
-                android:textSize="17sp"
-                android:textStyle="bold"
-                android:textColor="#1A1A2E"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:text="Neutro" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/widget_mood_level"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/widget_level_pill"
-            android:paddingStart="10dp"
-            android:paddingEnd="10dp"
-            android:paddingTop="5dp"
-            android:paddingBottom="5dp"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:textColor="#6C63FF"
-            android:text="Nv 1" />
-    </LinearLayout>
-
-    <ProgressBar
-        android:id="@+id/widget_mood_bar"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="6dp"
-        android:layout_marginTop="14dp"
-        android:progressDrawable="@drawable/widget_progress"
-        android:max="100"
-        android:progress="0" />
+        android:layout_marginTop="10dp"
+        android:textSize="17sp"
+        android:textStyle="bold"
+        android:textColor="#1A1A2E"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Neutro" />
 
     <TextView
         android:id="@+id/widget_mood_sub"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="7dp"
+        android:layout_marginTop="2dp"
         android:textSize="11sp"
-        android:textColor="#9CA3AF"
+        android:textColor="#6B7280"
         android:maxLines="1"
-        android:ellipsize="end"
-        android:text="0/100 para o próximo nível" />
+        android:text="Nível 1" />
 </LinearLayout>

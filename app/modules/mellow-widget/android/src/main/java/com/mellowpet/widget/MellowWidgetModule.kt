@@ -14,22 +14,41 @@ class MellowWidgetModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("MellowWidget")
 
-    Function("updateMood") { emoji: String, label: String, level: Int, progress: Int ->
+    Function("updateMood") { emotion: String, label: String, level: Int, progress: Int,
+                             moodPct: Int, petName: String, hunger: String ->
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
-      WidgetStore.setMood(context, emoji, label, level, progress)
+      WidgetStore.setMood(context, emotion, label, level, progress, moodPct, petName, hunger)
+      // O humor tinge três widgets diferentes (a foca, o card de cuidar e a
+      // cor do card de música), então todos precisam ser redesenhados juntos.
       MellowMoodWidgetProvider.updateAll(context)
-    }
-
-    Function("updateNowPlaying") { track: String?, artist: String?, isPaused: Boolean ->
-      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
-      WidgetStore.setNowPlaying(context, track, artist, isPaused)
+      CareWidgetProvider.updateAll(context)
       SpotifyNowPlayingWidgetProvider.updateAll(context)
     }
 
-    Function("updateRoutine") { time: String?, name: String? ->
+    Function("updateNowPlaying") { track: String?, artist: String?, isPaused: Boolean,
+                                   source: String, progress: Int ->
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
-      WidgetStore.setRoutine(context, time, name)
+      WidgetStore.setNowPlaying(context, track, artist, isPaused, source, progress)
+      SpotifyNowPlayingWidgetProvider.updateAll(context)
+    }
+
+    Function("updateRoutine") { times: List<String>, names: List<String>, states: List<String> ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      val items = times.indices.take(3).map { i ->
+        WidgetStore.RoutineItem(
+          times[i],
+          names.getOrElse(i) { "" },
+          states.getOrElse(i) { "todo" },
+        )
+      }
+      WidgetStore.setRoutine(context, items)
       RoutineWidgetProvider.updateAll(context)
+    }
+
+    Function("updateStreak") { days: Int, week: List<Boolean> ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      WidgetStore.setStreak(context, days, week)
+      StreakWidgetProvider.updateAll(context)
     }
   }
 }
