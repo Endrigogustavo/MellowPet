@@ -57,6 +57,13 @@ export declare class MellowWidgetModule extends NativeModule<Record<string, neve
   drainPendingActions(): string;
   setBackgroundEnabled(enabled: boolean): void;
   isBackgroundEnabled(): boolean;
+  /** Sem isenção do Doze o serviço morre depois de um tempo parado. */
+  isIgnoringBatteryOptimizations(): boolean;
+  requestIgnoreBatteryOptimizations(): boolean;
+  /** Abre a tela de Autostart do fabricante. `false` quando não existe. */
+  openAutostartSettings(): boolean;
+  /** Fabricantes que matam serviço mesmo com tudo certo do lado do app. */
+  isAggressiveOem(): boolean;
   updateNowPlaying(
     track: string | null,
     artist: string | null,

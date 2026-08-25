@@ -196,6 +196,50 @@ export function isBackgroundEnabled(): boolean {
   }
 }
 
+/**
+ * O que ainda pode derrubar o serviço, do lado do sistema.
+ *
+ * Um serviço em primeiro plano deveria bastar, mas na prática duas coisas
+ * o matam: o Doze (quando o app não está isento) e o gerenciador de
+ * inicialização de fabricantes como Xiaomi. Nenhuma das duas o app resolve
+ * sozinho — só a pessoa, nas telas do sistema.
+ */
+export type BackgroundHealth = {
+  /** Isento da otimização de bateria (Doze). */
+  batteryExempt: boolean;
+  /** ROM conhecida por matar serviço mesmo com tudo certo. */
+  aggressiveOem: boolean;
+};
+
+export function getBackgroundHealth(): BackgroundHealth {
+  if (!isMellowWidgetAvailable || !MellowWidget) {
+    return { batteryExempt: true, aggressiveOem: false };
+  }
+  try {
+    return {
+      batteryExempt: MellowWidget.isIgnoringBatteryOptimizations(),
+      aggressiveOem: MellowWidget.isAggressiveOem(),
+    };
+  } catch {
+    return { batteryExempt: true, aggressiveOem: false };
+  }
+}
+
+/** Abre o diálogo do sistema para isentar o app do Doze. */
+export function requestBatteryExemption(): void {
+  safely(() => MellowWidget!.requestIgnoreBatteryOptimizations());
+}
+
+/** Abre a tela de Autostart do fabricante. Devolve `false` se não existir. */
+export function openAutostartSettings(): boolean {
+  if (!isMellowWidgetAvailable || !MellowWidget) return false;
+  try {
+    return MellowWidget.openAutostartSettings();
+  } catch {
+    return false;
+  }
+}
+
 export function updateDailyWidgets(input: {
   water: number;
   journalTag: string;

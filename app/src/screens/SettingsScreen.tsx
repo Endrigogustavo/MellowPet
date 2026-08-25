@@ -10,8 +10,14 @@ import { NO_FACE_MINUTES, SETTING_TOGGLES } from '../data/content';
 import { PET_TYPES } from '../data/pets';
 import { fetchSettings, saveSettings, type EmergencyContact } from '../settings/settingsClient';
 import { useApp, useTheme } from '../state/AppContext';
-import { DANGER, OK, mix } from '../theme/palette';
-import { isBackgroundEnabled, setBackgroundEnabled } from '../widgets/widgetBridge';
+import { DANGER, OK, WARN, hexA, mix } from '../theme/palette';
+import {
+  getBackgroundHealth,
+  isBackgroundEnabled,
+  openAutostartSettings,
+  requestBatteryExemption,
+  setBackgroundEnabled,
+} from '../widgets/widgetBridge';
 import {
   BACKGROUND_VISION_INTERVALS,
   getBackgroundVision,
@@ -27,6 +33,10 @@ export function SettingsScreen() {
   // rodando ou não, e ele sobrevive ao app fechar.
   const [background, setBackground] = useState(() => isBackgroundEnabled());
   const [bgVision, setBgVision] = useState(() => getBackgroundVision());
+  // Reconsultado ao voltar de uma tela do sistema — é o único jeito de
+  // saber se a pessoa concedeu a isenção.
+  const [health, setHealth] = useState(() => getBackgroundHealth());
+  const backgroundOn = background || bgVision.enabled;
 
   const [links, setLinks] = useState<CaregiverLink[]>([]);
   const [codeInput, setCodeInput] = useState('');
@@ -347,6 +357,78 @@ export function SettingsScreen() {
                 Intervalos curtos gastam mais bateria. As imagens não saem do
                 aparelho — só o resultado da leitura é guardado.
               </Txt>
+            </View>
+          ) : null}
+
+          {/* O serviço parar sozinho quase sempre é o sistema derrubando, não
+              o app desistindo. Estas duas travas são as culpadas comuns. */}
+          {backgroundOn && (!health.batteryExempt || health.aggressiveOem) ? (
+            <View
+              style={{
+                marginBottom: 15,
+                padding: 14,
+                borderRadius: 16,
+                backgroundColor: hexA(WARN, 0.1),
+                gap: 10,
+              }}
+            >
+              <Txt s={12.5} w={800} c={T.t1}>
+                Para não parar sozinho
+              </Txt>
+              <Txt s={11.5} lh={1.5} c={T.t2}>
+                O Android desliga o MellowPet depois de um tempo se estas duas
+                permissões não estiverem liberadas.
+              </Txt>
+
+              {!health.batteryExempt ? (
+                <Touchable
+                  onPress={() => {
+                    requestBatteryExemption();
+                    // A resposta vem de outra tela; reconsulta ao voltar.
+                    setTimeout(() => setHealth(getBackgroundHealth()), 800);
+                  }}
+                  style={{
+                    paddingVertical: 11,
+                    borderRadius: 13,
+                    alignItems: 'center',
+                    backgroundColor: T.pri,
+                  }}
+                >
+                  <Txt s={12.5} w={800} c="#fff">
+                    1. Liberar bateria sem restrição
+                  </Txt>
+                </Touchable>
+              ) : (
+                <Txt s={11.5} w={700} c={OK}>
+                  Bateria sem restrição — liberado
+                </Txt>
+              )}
+
+              {health.aggressiveOem ? (
+                <Touchable
+                  onPress={() => openAutostartSettings()}
+                  style={{
+                    paddingVertical: 11,
+                    borderRadius: 13,
+                    alignItems: 'center',
+                    backgroundColor: T.surf,
+                    borderWidth: 1,
+                    borderColor: T.bd,
+                  }}
+                >
+                  <Txt s={12.5} w={800} c={T.t1}>
+                    2. Ativar inicialização automática
+                  </Txt>
+                </Touchable>
+              ) : null}
+
+              {health.aggressiveOem ? (
+                <Txt s={11} lh={1.45} c={T.t3}>
+                  No seu aparelho, procure o MellowPet na lista e ligue a chave.
+                  Vale também abrir os apps recentes e travar o MellowPet com o
+                  cadeado.
+                </Txt>
+              ) : null}
             </View>
           ) : null}
 

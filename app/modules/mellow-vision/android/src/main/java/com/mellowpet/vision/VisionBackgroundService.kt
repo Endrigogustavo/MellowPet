@@ -62,7 +62,22 @@ class VisionBackgroundService : Service() {
     // Primeira leitura com folga: deixa a notificação aparecer antes de
     // acender a câmera, para a pessoa ver o que começou.
     handler.postDelayed(tick, FIRST_DELAY_MS)
+    scheduleWatchdog()
     return START_STICKY
+  }
+
+  /** Fechar o app pelos recentes é onde a MIUI mais derruba serviço. */
+  override fun onTaskRemoved(rootIntent: Intent?) {
+    scheduleWatchdog()
+    super.onTaskRemoved(rootIntent)
+  }
+
+  /** Pede ao vigia (que mora no módulo de widgets) a próxima checagem. Vai
+   * por broadcast para não criar dependência entre os dois módulos. */
+  private fun scheduleWatchdog() {
+    sendBroadcast(
+      Intent("com.mellowpet.widget.WATCHDOG_CHECK").setPackage(packageName),
+    )
   }
 
   private fun takeReading() {

@@ -38,9 +38,18 @@ class MellowBackgroundService : Service() {
       return START_NOT_STICKY
     }
     startForeground(NOTIFICATION_ID, buildNotification())
-    // START_STICKY: se o sistema matar por pressão de memória, volta sozinho
-    // — é o ponto todo de ficar em segundo plano.
+    // START_STICKY pede que o sistema reinicie o serviço se o matar. Em
+    // ROMs como a MIUI essa promessa nem sempre é cumprida, por isso o
+    // ServiceGuard também vigia por alarme.
+    ServiceGuard.scheduleNextCheck(this)
     return START_STICKY
+  }
+
+  /** Fechar o app pelos recentes é onde a MIUI mais derruba serviço. O
+   * alarme garante que ele volte mesmo assim. */
+  override fun onTaskRemoved(rootIntent: Intent?) {
+    ServiceGuard.scheduleNextCheck(this)
+    super.onTaskRemoved(rootIntent)
   }
 
   private fun buildNotification(): Notification {

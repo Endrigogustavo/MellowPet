@@ -93,9 +93,66 @@ class MellowWidgetModule : Module() {
      * Opt-in — deixa uma notificação permanente, então quem liga é a pessoa. */
     Function("setBackgroundEnabled") { enabled: Boolean ->
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
-      if (enabled) MellowBackgroundService.start(context) else MellowBackgroundService.stop(context)
+      if (enabled) {
+        MellowBackgroundService.start(context)
+        ServiceGuard.scheduleNextCheck(context)
+      } else {
+        MellowBackgroundService.stop(context)
+      }
       context.getSharedPreferences("mellow_widget_prefs", android.content.Context.MODE_PRIVATE)
         .edit().putBoolean("bg_enabled", enabled).apply()
+    }
+
+    /**
+     * Sem isenção de bateria o Doze derruba o serviço depois de um tempo —
+     * é a causa nº1 de "parou sozinho". Abre o diálogo do sistema.
+     */
+    Function("isIgnoringBatteryOptimizations") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+      pm.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    Function("requestIgnoreBatteryOptimizations") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      val intent = android.content.Intent(
+        android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+        android.net.Uri.parse("package:${context.packageName}"),
+      ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+      runCatching { context.startActivity(intent) }.isSuccess
+    }
+
+    /**
+     * Xiaomi/MIUI mata serviços de apps sem "Autostart", e isso não é
+     * exposto por nenhuma API — só abrindo a tela do próprio fabricante.
+     * Devolve false quando o aparelho não é Xiaomi ou a tela não existe,
+     * para a interface não oferecer um botão que não faz nada.
+     */
+    Function("openAutostartSettings") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      val candidates = listOf(
+        android.content.ComponentName(
+          "com.miui.securitycenter",
+          "com.miui.permcenter.autostart.AutoStartManagementActivity",
+        ),
+        android.content.ComponentName(
+          "com.miui.securitycenter",
+          "com.miui.powercenter.PowerSettings",
+        ),
+      )
+      candidates.any { component ->
+        runCatching {
+          context.startActivity(
+            android.content.Intent().setComponent(component)
+              .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+          )
+        }.isSuccess
+      }
+    }
+
+    Function("isAggressiveOem") {
+      val vendor = android.os.Build.MANUFACTURER.lowercase()
+      vendor in listOf("xiaomi", "redmi", "poco", "oppo", "vivo", "realme", "oneplus", "huawei", "honor")
     }
 
     Function("isBackgroundEnabled") {
