@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FERRAMENTAS · 4×1 — os cinco atalhos rápidos do app. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_tools_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_card_26"
+        android:padding="11dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <LinearLayout
+        android:id="@+id/widget_tool0"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/widget_slot_18">
+            <ImageView
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:src="@drawable/wi_breathe"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:textSize="9sp"
+        android:textColor="#6B7280"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Respirar" />
+        </LinearLayout>
+        <LinearLayout
+        android:id="@+id/widget_tool1"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/widget_slot_18"
+        android:layout_marginStart="8dp">
+            <ImageView
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:src="@drawable/wi_ground"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:textSize="9sp"
+        android:textColor="#6B7280"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Aterrar" />
+        </LinearLayout>
+        <LinearLayout
+        android:id="@+id/widget_tool2"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/widget_slot_18"
+        android:layout_marginStart="8dp">
+            <ImageView
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:src="@drawable/wi_journal"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:textSize="9sp"
+        android:textColor="#6B7280"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Diário" />
+        </LinearLayout>
+        <LinearLayout
+        android:id="@+id/widget_tool3"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/widget_slot_18"
+        android:layout_marginStart="8dp">
+            <ImageView
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:src="@drawable/wi_chat"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:textSize="9sp"
+        android:textColor="#6B7280"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Conversar" />
+        </LinearLayout>
+        <LinearLayout
+        android:id="@+id/widget_tool4"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/widget_slot_18"
+        android:layout_marginStart="8dp">
+            <ImageView
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:src="@drawable/wi_stretch"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:textSize="9sp"
+        android:textColor="#6B7280"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Alongar" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

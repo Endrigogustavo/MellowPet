@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CONQUISTAS · 2×2 — as seis medalhas, apagadas até desbloquear. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_badges_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_card_bg"
+        android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="12.5sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Conquistas" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="11dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <ImageView
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:id="@+id/widget_badge0"
+        android:background="@drawable/widget_badge_off"
+        android:padding="9dp"
+        android:src="@drawable/wi_star"
+        android:contentDescription="@null"
+        android:layout_weight="1" />
+        <ImageView
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="7dp"
+        android:id="@+id/widget_badge1"
+        android:background="@drawable/widget_badge_off"
+        android:padding="9dp"
+        android:src="@drawable/wi_drop"
+        android:contentDescription="@null"
+        android:layout_weight="1" />
+        <ImageView
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="7dp"
+        android:id="@+id/widget_badge2"
+        android:background="@drawable/widget_badge_off"
+        android:padding="9dp"
+        android:src="@drawable/wi_note"
+        android:contentDescription="@null"
+        android:layout_weight="1" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="7dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <ImageView
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:id="@+id/widget_badge3"
+        android:background="@drawable/widget_badge_off"
+        android:padding="9dp"
+        android:src="@drawable/wi_people"
+        android:contentDescription="@null"
+        android:layout_weight="1" />
+        <ImageView
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="7dp"
+        android:id="@+id/widget_badge4"
+        android:background="@drawable/widget_badge_off"
+        android:padding="9dp"
+        android:src="@drawable/wi_moon"
+        android:contentDescription="@null"
+        android:layout_weight="1" />
+        <ImageView
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="7dp"
+        android:id="@+id/widget_badge5"
+        android:background="@drawable/widget_badge_off"
+        android:padding="9dp"
+        android:src="@drawable/wi_calendar"
+        android:contentDescription="@null"
+        android:layout_weight="1" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="9dp"
+        android:id="@+id/widget_badges_sub"
+        android:textSize="10.5sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="0 de 6 desbloqueadas" />
+</LinearLayout>

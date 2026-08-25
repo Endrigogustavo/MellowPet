@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PLAYLISTS · 2×2 — as quatro playlists de momento, cada uma na sua cor. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_playlists_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_card_bg"
+        android:padding="14dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <LinearLayout
+        android:id="@+id/widget_pl_cell0"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_slot_18"
+        android:padding="11dp">
+            <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:id="@+id/widget_pl_dot0"
+        android:background="@drawable/widget_plround_neutral"
+        android:padding="6dp"
+        android:src="@drawable/wi_play_fill"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:id="@+id/widget_pl_name0"
+        android:textSize="10.5sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+        <LinearLayout
+        android:id="@+id/widget_pl_cell1"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_slot_18"
+        android:padding="11dp"
+        android:layout_marginStart="8dp">
+            <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:id="@+id/widget_pl_dot1"
+        android:background="@drawable/widget_plround_neutral"
+        android:padding="6dp"
+        android:src="@drawable/wi_play_fill"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:id="@+id/widget_pl_name1"
+        android:textSize="10.5sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <LinearLayout
+        android:id="@+id/widget_pl_cell2"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_slot_18"
+        android:padding="11dp">
+            <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:id="@+id/widget_pl_dot2"
+        android:background="@drawable/widget_plround_neutral"
+        android:padding="6dp"
+        android:src="@drawable/wi_play_fill"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:id="@+id/widget_pl_name2"
+        android:textSize="10.5sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+        <LinearLayout
+        android:id="@+id/widget_pl_cell3"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_slot_18"
+        android:padding="11dp"
+        android:layout_marginStart="8dp">
+            <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:id="@+id/widget_pl_dot3"
+        android:background="@drawable/widget_plround_neutral"
+        android:padding="6dp"
+        android:src="@drawable/wi_play_fill"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:id="@+id/widget_pl_name3"
+        android:textSize="10.5sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

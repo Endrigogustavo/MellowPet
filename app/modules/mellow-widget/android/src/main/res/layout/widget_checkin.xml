@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CHECK-IN COMBINADO · 2×2 — o combinado com quem cuida de você. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_checkin_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_card_bg"
+        android:padding="17dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/widget_checkin_when"
+        android:textSize="10sp"
+        android:textColor="#9CA3AF"
+        android:textStyle="bold"
+        android:letterSpacing="0.14"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="SEM COMBINADO" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:id="@+id/widget_checkin_title"
+        android:textSize="14sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:text="Nenhum check-in" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="10dp"
+        android:id="@+id/widget_checkin_q"
+        android:textSize="11sp"
+        android:textColor="#6B7280"
+        android:maxLines="3"
+        android:ellipsize="end"
+        android:layout_weight="1"
+        android:text="" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:id="@+id/widget_checkin_btn"
+        android:textSize="12sp"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:background="@drawable/widget_btn_pri_14"
+        android:gravity="center"
+        android:paddingTop="11dp"
+        android:paddingBottom="11dp"
+        android:text="Marcar feito" />
+</LinearLayout>

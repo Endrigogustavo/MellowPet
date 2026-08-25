@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- LINHA DO DIA · 4×2 — oito faixas horárias com a emoção dominante de cada uma. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_timeline_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_card_bg"
+        android:padding="18dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <TextView
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:layout_weight="1"
+        android:text="Linha do dia" />
+        <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/widget_timeline_range"
+        android:textSize="11sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="7h — 21h" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="14dp"
+        android:orientation="horizontal"
+        android:gravity="bottom"
+        android:baselineAligned="false">
+        <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="bottom|center_horizontal">
+            <ImageView
+        android:id="@+id/widget_tl_bar0"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:src="@drawable/widget_bar_neutral"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:id="@+id/widget_tl_hour0"
+        android:textSize="9sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="bottom|center_horizontal"
+        android:layout_marginStart="7dp">
+            <ImageView
+        android:id="@+id/widget_tl_bar1"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:src="@drawable/widget_bar_neutral"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:id="@+id/widget_tl_hour1"
+        android:textSize="9sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="bottom|center_horizontal"
+        android:layout_marginStart="7dp">
+            <ImageView
+        android:id="@+id/widget_tl_bar2"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:src="@drawable/widget_bar_neutral"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:id="@+id/widget_tl_hour2"
+        android:textSize="9sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="bottom|center_horizontal"
+        android:layout_marginStart="7dp">
+            <ImageView
+        android:id="@+id/widget_tl_bar3"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:src="@drawable/widget_bar_neutral"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:id="@+id/widget_tl_hour3"
+        android:textSize="9sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="bottom|center_horizontal"
+        android:layout_marginStart="7dp">
+            <ImageView
+        android:id="@+id/widget_tl_bar4"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:src="@drawable/widget_bar_neutral"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:id="@+id/widget_tl_hour4"
+        android:textSize="9sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="bottom|center_horizontal"
+        android:layout_marginStart="7dp">
+            <ImageView
+        android:id="@+id/widget_tl_bar5"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:src="@drawable/widget_bar_neutral"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:id="@+id/widget_tl_hour5"
+        android:textSize="9sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="bottom|center_horizontal"
+        android:layout_marginStart="7dp">
+            <ImageView
+        android:id="@+id/widget_tl_bar6"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:src="@drawable/widget_bar_neutral"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:id="@+id/widget_tl_hour6"
+        android:textSize="9sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="bottom|center_horizontal"
+        android:layout_marginStart="7dp">
+            <ImageView
+        android:id="@+id/widget_tl_bar7"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:src="@drawable/widget_bar_neutral"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:id="@+id/widget_tl_hour7"
+        android:textSize="9sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

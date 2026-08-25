@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RESPIRAÇÃO · 2×2 — atalho para o exercício guiado, no tom da emoção atual. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_breathe_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_tint_neutral"
+        android:padding="16dp"
+        android:gravity="center">
+
+    <ImageView
+        android:layout_width="78dp"
+        android:layout_height="78dp"
+        android:background="@drawable/widget_circle_pri"
+        android:padding="24dp"
+        android:src="@drawable/wi_breathe"
+        android:contentDescription="@null" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="13dp"
+        android:id="@+id/widget_breathe_label"
+        android:textSize="15sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Respirar" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:id="@+id/widget_breathe_sub"
+        android:textSize="11sp"
+        android:textColor="#6B7280"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="4 · 4 · 6" />
+</LinearLayout>

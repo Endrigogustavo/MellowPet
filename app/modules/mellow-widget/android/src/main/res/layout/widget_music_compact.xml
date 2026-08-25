@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MÚSICA COMPACTA · 4×1 — a faixa atual em faixa fina, com um botão só. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_mc_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_card_26"
+        android:padding="13dp"
+        android:gravity="center_vertical"
+        android:paddingStart="15dp"
+        android:paddingEnd="15dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <ImageView
+        android:layout_width="46dp"
+        android:layout_height="46dp"
+        android:id="@+id/widget_mc_art"
+        android:background="@drawable/widget_plblock_neutral"
+        android:padding="14dp"
+        android:src="@drawable/wi_play_fill"
+        android:contentDescription="@null" />
+        <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:orientation="vertical">
+            <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/widget_mc_track"
+        android:textSize="13.5sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Nada tocando" />
+            <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:id="@+id/widget_mc_playlist"
+        android:textSize="11sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="" />
+        </LinearLayout>
+        <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:id="@+id/widget_mc_btn"
+        android:textSize="15sp"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:background="@drawable/widget_plround_neutral"
+        android:gravity="center"
+        android:minWidth="38dp"
+        android:minHeight="38dp"
+        android:text="▶" />
+    </LinearLayout>
+</LinearLayout>

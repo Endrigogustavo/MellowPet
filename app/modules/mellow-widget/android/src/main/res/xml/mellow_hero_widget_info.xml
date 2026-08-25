@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 4×4 células. minWidth/minHeight seguem a fórmula do Android
+     (70 * células - 30); targetCellWidth/Height mandam no Android 12+. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="250dp"
+    android:minResizeWidth="180dp"
+    android:minResizeHeight="180dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="4"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_hero"
+    android:previewLayout="@layout/widget_hero"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen" />

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NÍVEL · 2×1 — o vínculo com o Mellow em barra fina. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_level_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_tint26_neutral"
+        android:padding="13dp"
+        android:gravity="center_vertical"
+        android:paddingStart="15dp"
+        android:paddingEnd="15dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <ImageView
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:id="@+id/widget_level_pet"
+        android:src="@drawable/mellow_neutral"
+        android:contentDescription="@null" />
+        <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="11dp"
+        android:orientation="vertical">
+            <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+                <TextView
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:id="@+id/widget_level_n"
+        android:textSize="12.5sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:layout_weight="1"
+        android:text="Nível 1" />
+                <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/widget_level_xp"
+        android:textSize="10sp"
+        android:textColor="#6B7280"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="0/100" />
+            </LinearLayout>
+            <ProgressBar
+        android:id="@+id/widget_level_bar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="6dp"
+        android:layout_marginTop="8dp"
+        android:progressDrawable="@drawable/widget_progress"
+        android:max="100"
+        android:progress="0" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

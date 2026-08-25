@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ÁGUA · 2×1 — copos do dia; cada toque registra um. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_water_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_card_26"
+        android:padding="13dp"
+        android:gravity="center_vertical"
+        android:paddingStart="15dp"
+        android:paddingEnd="15dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <ImageView
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="@drawable/widget_icon_water"
+        android:padding="10dp"
+        android:src="@drawable/wi_water"
+        android:contentDescription="@null" />
+        <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="11dp"
+        android:orientation="vertical">
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/widget_water_label"
+        android:textSize="12.5sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="0 de 6 copos" />
+            <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="7dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+                <ImageView
+        android:layout_width="0dp"
+        android:layout_height="5dp"
+        android:id="@+id/widget_glass0"
+        android:src="@drawable/widget_bar_water_off"
+        android:contentDescription="@null"
+        android:layout_weight="1"
+        android:scaleType="fitXY" />
+                <ImageView
+        android:layout_width="0dp"
+        android:layout_height="5dp"
+        android:layout_marginStart="3dp"
+        android:id="@+id/widget_glass1"
+        android:src="@drawable/widget_bar_water_off"
+        android:contentDescription="@null"
+        android:layout_weight="1"
+        android:scaleType="fitXY" />
+                <ImageView
+        android:layout_width="0dp"
+        android:layout_height="5dp"
+        android:layout_marginStart="3dp"
+        android:id="@+id/widget_glass2"
+        android:src="@drawable/widget_bar_water_off"
+        android:contentDescription="@null"
+        android:layout_weight="1"
+        android:scaleType="fitXY" />
+                <ImageView
+        android:layout_width="0dp"
+        android:layout_height="5dp"
+        android:layout_marginStart="3dp"
+        android:id="@+id/widget_glass3"
+        android:src="@drawable/widget_bar_water_off"
+        android:contentDescription="@null"
+        android:layout_weight="1"
+        android:scaleType="fitXY" />
+                <ImageView
+        android:layout_width="0dp"
+        android:layout_height="5dp"
+        android:layout_marginStart="3dp"
+        android:id="@+id/widget_glass4"
+        android:src="@drawable/widget_bar_water_off"
+        android:contentDescription="@null"
+        android:layout_weight="1"
+        android:scaleType="fitXY" />
+                <ImageView
+        android:layout_width="0dp"
+        android:layout_height="5dp"
+        android:layout_marginStart="3dp"
+        android:id="@+id/widget_glass5"
+        android:src="@drawable/widget_bar_water_off"
+        android:contentDescription="@null"
+        android:layout_weight="1"
+        android:scaleType="fitXY" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

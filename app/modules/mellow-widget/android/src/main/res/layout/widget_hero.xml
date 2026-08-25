@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MELLOW · 4×4 — o widget grande do design: bichinho no centro, estado em cima e vínculo embaixo. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_hero_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_card_38"
+        android:padding="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="top"
+        android:baselineAligned="false">
+        <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="10sp"
+        android:textColor="#9CA3AF"
+        android:textStyle="bold"
+        android:letterSpacing="0.18"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="MELLOW · AGORA" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:id="@+id/widget_hero_label"
+        android:textSize="32sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Neutro" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:id="@+id/widget_hero_variant"
+        android:textSize="12.5sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="estável" />
+        </LinearLayout>
+        <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:id="@+id/widget_hero_level"
+        android:textSize="12sp"
+        android:textColor="#6C63FF"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:background="@drawable/widget_pill_pri"
+        android:paddingStart="13dp"
+        android:paddingEnd="13dp"
+        android:paddingTop="7dp"
+        android:paddingBottom="7dp"
+        android:layout_marginStart="8dp"
+        android:text="Nv 1" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:baselineAligned="false">
+        <ImageView
+        android:layout_width="150dp"
+        android:layout_height="150dp"
+        android:id="@+id/widget_hero_pet"
+        android:src="@drawable/mellow_neutral"
+        android:contentDescription="@null" />
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/widget_hero_bar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="7dp"
+        android:progressDrawable="@drawable/widget_progress"
+        android:max="100"
+        android:progress="0" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <TextView
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:id="@+id/widget_hero_bond"
+        android:textSize="11.5sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:layout_weight="1"
+        android:text="0/100 de vínculo" />
+        <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/widget_hero_pets"
+        android:textSize="11.5sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="0 carinhos" />
+    </LinearLayout>
+</LinearLayout>

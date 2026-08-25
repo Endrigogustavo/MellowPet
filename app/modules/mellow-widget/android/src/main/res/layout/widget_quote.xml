@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FRASE DO DIA · 4×2 — a frase que combina com o estado atual, sobre fundo tingido. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_quote_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_tint_neutral"
+        android:padding="22dp"
+        android:gravity="center_vertical">
+
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/wi_quote"
+        android:contentDescription="@null"
+        android:alpha="0.35" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:id="@+id/widget_quote_text"
+        android:textSize="17.5sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="3"
+        android:ellipsize="end"
+        android:lineSpacingMultiplier="1.35"
+        android:text="" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:id="@+id/widget_quote_from"
+        android:textSize="11sp"
+        android:textColor="#9CA3AF"
+        android:textStyle="bold"
+        android:letterSpacing="0.08"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="MELLOW" />
+</LinearLayout>

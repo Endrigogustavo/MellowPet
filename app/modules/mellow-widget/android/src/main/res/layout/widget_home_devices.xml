@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CASA CONECTADA · 4×1 — atalhos de ambiente para acompanhar o estado emocional. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_home_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_card_26"
+        android:padding="11dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <LinearLayout
+        android:id="@+id/widget_home0"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/widget_slot_18">
+            <ImageView
+        android:layout_width="17dp"
+        android:layout_height="17dp"
+        android:src="@drawable/wi_lights"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:textSize="9sp"
+        android:textColor="#6B7280"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Luzes" />
+        </LinearLayout>
+        <LinearLayout
+        android:id="@+id/widget_home1"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/widget_slot_18"
+        android:layout_marginStart="8dp">
+            <ImageView
+        android:layout_width="17dp"
+        android:layout_height="17dp"
+        android:src="@drawable/wi_voice"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:textSize="9sp"
+        android:textColor="#6B7280"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Voz" />
+        </LinearLayout>
+        <LinearLayout
+        android:id="@+id/widget_home2"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/widget_slot_18"
+        android:layout_marginStart="8dp">
+            <ImageView
+        android:layout_width="17dp"
+        android:layout_height="17dp"
+        android:src="@drawable/wi_net"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:textSize="9sp"
+        android:textColor="#6B7280"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Rede" />
+        </LinearLayout>
+        <LinearLayout
+        android:id="@+id/widget_home3"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/widget_slot_18"
+        android:layout_marginStart="8dp">
+            <ImageView
+        android:layout_width="17dp"
+        android:layout_height="17dp"
+        android:src="@drawable/wi_silence"
+        android:contentDescription="@null" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:textSize="9sp"
+        android:textColor="#6B7280"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Silêncio" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

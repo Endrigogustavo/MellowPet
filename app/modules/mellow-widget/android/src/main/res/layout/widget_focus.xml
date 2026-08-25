@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FOCO · 2×2 — sessão de foco com o tempo restante no anel. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_focus_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_card_bg"
+        android:padding="17dp"
+        android:gravity="center">
+
+    <FrameLayout
+        android:layout_width="88dp"
+        android:layout_height="88dp">
+        <ProgressBar
+        android:id="@+id/widget_focus_ring"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="88dp"
+        android:layout_height="88dp"
+        android:progressDrawable="@drawable/widget_ring_pri"
+        android:max="100"
+        android:progress="0" />
+        <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center">
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/widget_focus_time"
+        android:textSize="21sp"
+        android:textColor="#6C63FF"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="25:00" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:id="@+id/widget_focus_label"
+        android:textSize="12.5sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Modo foco" />
+</LinearLayout>

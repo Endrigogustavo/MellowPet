@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AJUDA AGORA · 2×1 — acesso imediato à rede de apoio e ao CVV. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_help_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_danger_card"
+        android:padding="13dp"
+        android:gravity="center_vertical"
+        android:paddingStart="15dp"
+        android:paddingEnd="15dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <ImageView
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="@drawable/widget_icon_on_danger"
+        android:padding="10dp"
+        android:src="@drawable/wi_alert"
+        android:contentDescription="@null" />
+        <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="11dp"
+        android:orientation="vertical">
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="13sp"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Preciso de ajuda" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textSize="10.5sp"
+        android:textColor="#CCFFFFFF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="CVV 188 · avisar rede" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CÁPSULA · 2×1 — a carta que você escreveu para o seu eu de daqui a um mês. -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/widget_capsule_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/widget_card_26"
+        android:padding="13dp"
+        android:gravity="center_vertical"
+        android:paddingStart="15dp"
+        android:paddingEnd="15dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
+        <ImageView
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="@drawable/widget_icon_pri_13"
+        android:padding="10dp"
+        android:src="@drawable/wi_clock"
+        android:contentDescription="@null" />
+        <LinearLayout
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="11dp"
+        android:orientation="vertical">
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="12.5sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Cápsula do tempo" />
+            <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:id="@+id/widget_capsule_sub"
+        android:textSize="10.5sp"
+        android:textColor="#9CA3AF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="nada selado" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

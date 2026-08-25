@@ -8,7 +8,49 @@ export declare class MellowWidgetModule extends NativeModule<Record<string, neve
     progress: number,
     moodPct: number,
     petName: string,
-    hunger: string
+    hunger: string,
+    pets: number
+  ): void;
+  /** Listas paralelas em vez de objetos: a ponte do Expo converte arrays de
+   * primitivos direto, sem precisar de um record convertível. */
+  updateDashboard(
+    wellbeing: number,
+    tlHours: string[],
+    tlEmotions: string[],
+    badges: boolean[],
+    sleep: number[]
+  ): void;
+  updateInsights(
+    tgNames: string[],
+    tgCounts: number[],
+    glNames: string[],
+    glDone: number[],
+    glTarget: number[]
+  ): void;
+  updateCare(
+    names: string[],
+    states: string[],
+    wellbeing: number[],
+    alertTitle: string | null,
+    alertSub: string | null,
+    checkinWhen: string | null,
+    checkinTitle: string | null,
+    checkinQuestion: string | null
+  ): void;
+  updatePlaylists(ids: string[], names: string[], emotions: string[]): void;
+  updateAgenda(
+    dow: string | null,
+    day: string | null,
+    title: string | null,
+    sub: string | null
+  ): void;
+  updateDaily(
+    water: number,
+    journalTag: string,
+    capsule: string | null,
+    focusPercent: number,
+    focusLabel: string,
+    focusRunning: boolean
   ): void;
   updateNowPlaying(
     track: string | null,

@@ -314,6 +314,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       moodPct: moodPctFor(state.observedExpression),
       petName: state.petName,
       hunger: cared > 14 ? 'bem cuidado hoje' : 'quer atenção',
+      pets: state.fed + state.played,
     });
   }, [state.observedExpression, state.xp, state.fed, state.played, state.petName]);
 
