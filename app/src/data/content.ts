@@ -379,10 +379,12 @@ export const CARE_RELS = [
 
 /** [chave, rótulo, descrição] */
 export const CARE_SCOPES: [string, string, string][] = [
-  ['scopeEmotion', 'Emoção do dia', 'O rótulo e a intensidade, sem imagem'],
-  ['scopeAlerts', 'Alertas prolongados', 'Aviso quando uma emoção negativa persiste'],
-  ['scopeTrends', 'Tendências semanais', 'Gráficos agregados, sem eventos isolados'],
-  ['scopeChat', 'Conversas com o Mellow', 'Fica privado por padrão'],
+  ['summary', 'Resumo de sinais', 'Visão agregada, sem imagens ou conversas'],
+  ['trends', 'Tendências', 'Padrões por período, sem eventos individuais'],
+  ['alerts', 'Alertas prolongados', 'Aviso quando um padrão difícil persiste'],
+  ['checkins', 'Check-ins', 'Convites de conversa e seus horários'],
+  ['agenda', 'Agenda', 'Compromissos combinados'],
+  ['care_plan', 'Plano de cuidado', 'Sinais, próximos passos e rede de apoio'],
 ];
 
 /** [título, subtítulo, ícone, tela de destino] */
@@ -400,7 +402,7 @@ export const CARE_QUICK: [string, string, string, string][] = [
 
 /** [título, subtítulo, ícone] */
 export const CARE_TOOLS: [string, string, string][] = [
-  ['Relatório semanal', 'PDF pronto para o terapeuta', 'M6 4h10l4 4v12H6zM16 4v4h4M9 13h7M9 16.5h5'],
+  ['Relatório semanal', 'Resumo consentido para compartilhar', 'M6 4h10l4 4v12H6zM16 4v4h4M9 13h7M9 16.5h5'],
   ['Definir alertas', 'Quando você quer ser avisado', 'M12 4a6 6 0 016 6v4l2 3H4l2-3v-4a6 6 0 016-6zM10 20h4'],
   ['Combinar limites', 'O que você vê e o que não vê', 'M7 11V8a5 5 0 0110 0v3M5 11h14v9H5z'],
   ['Conversar', 'Roteiros de conversa por idade', 'M20 12a8 8 0 01-11.5 7.2L4 20l.9-4.3A8 8 0 1120 12z'],
@@ -414,7 +416,7 @@ export const CARE_TOOLS: [string, string, string][] = [
   ['Notas privadas', 'Só você lê o que anotar aqui', 'M6 4h9l4 4v12H6zM15 4v4h4M9 12.5h6M9 16h4'],
   ['Comparar semanas', 'O que mudou entre um período e outro', 'M5 19V9M10 19V5M15 19v-7M20 19v-4M4 19h17'],
   ['Lembretes de rotina', 'Sono, remédio, terapia', 'M12 4a6 6 0 016 6v4l2 3H4l2-3v-4a6 6 0 016-6zM9 20h6M12 8v3'],
-  ['Exportar dados', 'LGPD: baixe ou apague tudo', 'M12 4v10M8 11l4 4 4-4M5 19h14'],
+  ['Exportar dados', 'Compartilhe um resumo consentido', 'M12 4v10M8 11l4 4-4M5 19h14'],
   [
     'Equipe de cuidado',
     'Terapeuta, escola e família',

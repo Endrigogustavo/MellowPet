@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Share, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
@@ -8,13 +8,14 @@ import { Field } from '../components/Field';
 import { Icon } from '../components/Icon';
 import { Chip, PrimaryButton, ToggleRow, Touchable, Txt } from '../components/ui';
 import { CARE_RELS, CARE_SCOPES, ICONS } from '../data/content';
+import type { CareScopeMap } from '../care/careTypes';
 import { useApp, useTheme } from '../state/AppContext';
 
 const TITLES = ['Quem você cuida?', 'Combine o que você verá', 'Convide a pessoa'];
 const SUBS = [
   'O MellowPet do cuidador não usa sua câmera — ele acompanha somente sinais agregados e consentidos de quem você cuida.',
-  'Nada é ativado sem o consentimento dela. Você escolhe agora, ela confirma no aparelho.',
-  'Envie o código. A conexão só existe depois que ela aceitar.',
+  'Nada é ativado sem o consentimento dela. Você indica suas preferências agora; ela confirma no aparelho.',
+  'Envie o código. A conexão só existe depois que ela aceitar — e nenhum dado aparece antes disso.',
 ];
 
 export function CareSignupScreen() {
@@ -25,28 +26,61 @@ export function CareSignupScreen() {
   const step = state.careStep;
 
   const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const generateInvite = useCallback(async () => {
+    if (!state.userId) {
+      setInviteError('Não foi possível identificar sua conta para gerar o convite.');
+      return;
+    }
+
+    const requestedScopes = Object.fromEntries(
+      CARE_SCOPES.map(([key]) => [key, state.toggles[key] !== false])
+    ) as Partial<CareScopeMap>;
+    setInviteLoading(true);
+    setInviteError(null);
+    try {
+      const link = await createInvite(state.userId, state.careName, state.careRel, requestedScopes);
+      setInviteCode(link.invite_code);
+    } catch (error) {
+      setInviteError(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Não foi possível gerar o código. Verifique a conexão e tente novamente.'
+      );
+    } finally {
+      setInviteLoading(false);
+    }
+  }, [state.careName, state.careRel, state.toggles, state.userId]);
+
   useEffect(() => {
-    if (step !== 2 || inviteCode || inviteError || !state.userId) return;
-    createInvite(state.userId, state.careName, state.careRel)
-      .then((link) => setInviteCode(link.invite_code))
-      .catch((error) => setInviteError(error instanceof Error ? error.message : 'Não foi possível gerar o código'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, state.userId]);
+    if (step !== 2 || inviteCode || inviteLoading || inviteError) return;
+    void generateInvite();
+  }, [generateInvite, inviteCode, inviteError, inviteLoading, step]);
 
   const copyCode = async () => {
     if (!inviteCode) return;
-    await Clipboard.setStringAsync(inviteCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await Clipboard.setStringAsync(inviteCode);
+      setCopied(true);
+      setInviteError(null);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setInviteError('Não foi possível copiar o código. Você pode digitá-lo ou tentar novamente.');
+    }
   };
 
-  const shareCode = () => {
+  const shareCode = async () => {
     if (!inviteCode) return;
-    Share.share({
-      message: `Use o código ${inviteCode} para se conectar comigo no MellowPet.`,
-    }).catch(() => undefined);
+    try {
+      await Share.share({
+        message: `Use o código ${inviteCode} para se conectar comigo no MellowPet.`,
+      });
+    } catch {
+      setInviteError('Não foi possível abrir o compartilhamento. Copie o código e envie pelo canal que preferir.');
+    }
   };
 
   return (
@@ -147,34 +181,49 @@ export function CareSignupScreen() {
           ) : null}
 
           {step === 1 ? (
-            <View
-              style={{
-                backgroundColor: T.surf,
-                borderWidth: 1,
-                borderColor: T.bd,
-                borderRadius: 22,
-                paddingHorizontal: 18,
-                paddingVertical: 6,
-              }}
-            >
-              {CARE_SCOPES.map(([key, label, sub], i) => {
-                // Conversas ficam privadas por padrão: o interruptor nasce desligado.
-                const on = state.toggles[key] !== false && key !== 'scopeChat';
-                return (
-                  <ToggleRow
-                    key={key}
-                    label={label}
-                    sub={sub}
-                    on={on}
-                    divider={i > 0}
-                    onPress={() =>
-                      actions.set((s) => ({
-                        toggles: { ...s.toggles, [key]: s.toggles[key] === false },
-                      }))
-                    }
-                  />
-                );
-              })}
+            <View style={{ gap: 12 }}>
+              <View
+                style={{
+                  padding: 15,
+                  borderRadius: 18,
+                  backgroundColor: T.priL,
+                }}
+              >
+                <Txt s={12.5} w={800} c={T.t1}>
+                  Preferências, não autorização
+                </Txt>
+                <Txt s={12} lh={1.55} c={T.t2} style={{ marginTop: 4 }}>
+                  Essas escolhas não liberam dados. A pessoa acompanhada sempre confirma ou recusa cada permissão. Enquanto a configuração do módulo de cuidado não estiver ativa, painel, alertas, agenda e plano permanecem indisponíveis.
+                </Txt>
+              </View>
+              <View
+                style={{
+                  backgroundColor: T.surf,
+                  borderWidth: 1,
+                  borderColor: T.bd,
+                  borderRadius: 22,
+                  paddingHorizontal: 18,
+                  paddingVertical: 6,
+                }}
+              >
+                {CARE_SCOPES.map(([key, label, sub], i) => {
+                  const on = state.toggles[key] !== false;
+                  return (
+                    <ToggleRow
+                      key={key}
+                      label={label}
+                      sub={sub}
+                      on={on}
+                      divider={i > 0}
+                      onPress={() =>
+                        actions.set((s) => ({
+                          toggles: { ...s.toggles, [key]: s.toggles[key] === false },
+                        }))
+                      }
+                    />
+                  );
+                })}
+              </View>
             </View>
           ) : null}
 
@@ -195,7 +244,7 @@ export function CareSignupScreen() {
                   {inviteCode ?? (inviteError ? '· · · ·' : 'Gerando…')}
                 </Txt>
                 <Txt s={11.5} c={T.t2} style={{ marginTop: 8 }}>
-                  {inviteError ?? 'compartilhe este código com a pessoa'}
+                  {inviteError ?? 'compartilhe este código com a pessoa acompanhada'}
                 </Txt>
                 {inviteCode ? (
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, width: '100%' }}>
@@ -230,6 +279,15 @@ export function CareSignupScreen() {
                   </View>
                 ) : null}
               </View>
+              {inviteError && !inviteCode ? (
+                <Touchable
+                  disabled={inviteLoading}
+                  onPress={() => void generateInvite()}
+                  style={{ paddingVertical: 12, borderRadius: 14, alignItems: 'center', backgroundColor: T.surf, borderWidth: 1, borderColor: T.bd }}
+                >
+                  <Txt s={13} w={800} c={T.pri}>{inviteLoading ? 'Tentando…' : 'Gerar código novamente'}</Txt>
+                </Touchable>
+              ) : null}
               <Touchable
                 disabled={!inviteCode}
                 onPress={() => actions.set({ invited: true })}
@@ -254,8 +312,8 @@ export function CareSignupScreen() {
                 }}
               >
                 <Txt s={12} lh={1.55} c={T.t3}>
-                  Enquanto ela não aceitar, o painel fica vazio. Você nunca vê nada sem essa
-                  confirmação.
+                  O convite pode ser enviado agora. Enquanto ela não aceitar — e as permissões
+                  não estiverem configuradas — não há acesso a nenhum dado.
                 </Txt>
               </View>
             </View>
@@ -263,12 +321,13 @@ export function CareSignupScreen() {
         </ScrollView>
 
         <PrimaryButton
-          label={step === 2 ? 'Concluir' : 'Continuar'}
+          label={step === 2 && !inviteCode ? (inviteLoading ? 'Gerando convite…' : 'Gere um convite para concluir') : step === 2 ? 'Concluir' : 'Continuar'}
           onPress={() =>
             step === 2
               ? actions.setRole('care')
               : actions.set((s) => ({ careStep: s.careStep + 1 }))
           }
+          disabled={step === 2 && !inviteCode}
           style={{ marginTop: 18 }}
         />
       </View>

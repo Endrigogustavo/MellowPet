@@ -19,7 +19,22 @@ Estas tabelas já existem e estão em uso (verificado via REST):
 
 Funções: `bump_profile(fed_delta, played_delta, xp_delta)` e `accept_invite`.
 
-## O que falta aplicar
+## Migrations do módulo de cuidador
+
+As migrations `202608280001` a `202608280010` versionam consentimento granular,
+RLS dos artefatos de cuidado, alertas, agenda, plano, equipe, notas, auditoria,
+índices e a RPC agregada usada pelos dashboards do cuidador. Aplique-as em
+ordem. Veja também
+[`../docs/caregiver-module.md`](../docs/caregiver-module.md).
+
+## Segurança operacional
+
+No Dashboard do Supabase, em **Authentication → Providers → Email**, habilite
+**Leaked password protection** antes da publicação (recurso disponível no plano
+Pro ou superior). Essa configuração é global do Auth e não é alterada pelas
+migrations; ela impede o uso de senhas já expostas em vazamentos conhecidos.
+
+## Outros itens a aplicar
 
 [`playlists.sql`](playlists.sql) — playlists de momento criadas pelo usuário.
 **Sem isso, a tela "Criar playlist" falha ao salvar.**

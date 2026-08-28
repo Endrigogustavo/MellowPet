@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 
-import { acceptInvite, deleteLink, listLinks, type CaregiverLink } from '../care/careClient';
+import { acceptInvite, listLinks, revokeCareLink, revokeConsent, saveConsent, type CaregiverLink } from '../care/careClient';
+import { CareConfigurationInactiveError } from '../care/careErrors';
+import { CARE_SCOPES, DEFAULT_CARE_SCOPES, type CareScope, type CareScopeMap } from '../care/careTypes';
 import { Field } from '../components/Field';
 import { PetFace } from '../components/PetFace';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
@@ -51,6 +53,10 @@ export function SettingsScreen() {
   const [codeInput, setCodeInput] = useState('');
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
+  const [careScopes, setCareScopes] = useState<CareScopeMap>(DEFAULT_CARE_SCOPES);
+  const [consentMessage, setConsentMessage] = useState<string | null>(null);
+  const [connectionMessage, setConnectionMessage] = useState<{ text: string; tone: 'error' | 'success' } | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [contactName, setContactName] = useState('');
@@ -73,14 +79,20 @@ export function SettingsScreen() {
     if (state.userId) saveSettings(state.userId, { emergency_contacts: next }).catch(() => undefined);
   };
 
-  const refreshLinks = () => {
-    if (!state.userId) return;
-    listLinks(state.userId, 'user')
-      .then((res) => {
-        setLinks(res.links);
-        actions.set({ linked: res.links.length > 0 });
-      })
-      .catch(() => undefined);
+  const refreshLinks = async () => {
+    if (!state.userId) return false;
+    try {
+      const res = await listLinks(state.userId, 'user');
+      setLinks(res.links);
+      actions.set({ linked: res.links.length > 0 });
+      return true;
+    } catch (error) {
+      setConnectionMessage({
+        tone: 'error',
+        text: error instanceof Error ? error.message : 'Não foi possível carregar suas conexões de cuidado.',
+      });
+      return false;
+    }
   };
 
   // Carrega preferências e vínculos reais de cuidador ao entrar na tela.
@@ -127,6 +139,7 @@ export function SettingsScreen() {
     if (!code || !state.userId) return;
     setAccepting(true);
     setAcceptError(null);
+    setConnectionMessage(null);
     acceptInvite(code, state.userId)
       .then(() => {
         setCodeInput('');
@@ -141,6 +154,88 @@ export function SettingsScreen() {
   const linkColor = primaryLink ? OK : T.t3;
   const linkName =
     primaryLink?.caregiver_display_name || primaryLink?.caregiver_email || 'Cuidador';
+
+  useEffect(() => {
+    if (!primaryLink) return;
+    setCareScopes({ ...DEFAULT_CARE_SCOPES, ...primaryLink.requested_scopes, ...primaryLink.consent?.scopes });
+  }, [primaryLink?.id, primaryLink?.consent?.updated_at]);
+
+  const saveCareScopes = () => {
+    if (!state.userId || !primaryLink) return;
+    setConsentMessage(null);
+    if (primaryLink.consentConfigurationInactive) {
+      setConsentMessage('A conexão segue disponível. As permissões granulares aguardam a ativação da migration do Supabase.');
+      return;
+    }
+    saveConsent(state.userId, primaryLink.id, careScopes)
+      .then(() => {
+        setConsentMessage('Permissões salvas. O acesso do cuidador segue exatamente estas escolhas.');
+        refreshLinks();
+      })
+      .catch((error) =>
+        setConsentMessage(
+          error instanceof CareConfigurationInactiveError
+            ? 'A conexão segue disponível. As permissões granulares aguardam a ativação da migration do Supabase.'
+            : error instanceof Error
+              ? error.message
+              : 'Não foi possível salvar as permissões.'
+        )
+      );
+  };
+
+  const revokeCareAccess = () => {
+    if (!primaryLink) return;
+    if (primaryLink.consentConfigurationInactive) {
+      setConsentMessage('A conexão segue disponível. A revogação granular será habilitada quando a migration do Supabase for ativada.');
+      return;
+    }
+    revokeConsent(primaryLink.id)
+      .then(() => {
+        setConsentMessage('Acesso revogado. O painel do cuidador deixa de receber dados agora.');
+        refreshLinks();
+      })
+      .catch((error) =>
+        setConsentMessage(
+          error instanceof CareConfigurationInactiveError
+            ? 'A conexão segue disponível. A revogação granular será habilitada quando a migration do Supabase for ativada.'
+            : error instanceof Error
+              ? error.message
+              : 'Não foi possível revogar o acesso.'
+        )
+      );
+  };
+
+  const disconnectCaregiver = () => {
+    if (!primaryLink || disconnecting) return;
+    Alert.alert(
+      'Encerrar conexão?',
+      'O acesso do cuidador será interrompido agora. O registro operacional do vínculo será preservado.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Encerrar conexão',
+          style: 'destructive',
+          onPress: () => {
+            setDisconnecting(true);
+            setConnectionMessage(null);
+            revokeCareLink(primaryLink.id)
+              .then(async () => {
+                if (await refreshLinks()) {
+                  setConnectionMessage({ tone: 'success', text: 'Conexão encerrada. O cuidador não pode mais acessar seus dados.' });
+                }
+              })
+              .catch((error) => {
+                setConnectionMessage({
+                  tone: 'error',
+                  text: error instanceof Error ? error.message : 'Não foi possível encerrar a conexão.',
+                });
+              })
+              .finally(() => setDisconnecting(false));
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <ScreenScroll>
@@ -225,12 +320,11 @@ export function SettingsScreen() {
             </View>
             {primaryLink ? (
               <Touchable
-                onPress={() =>
-                  state.userId &&
-                  deleteLink(primaryLink.id, state.userId)
-                    .then(refreshLinks)
-                    .catch(() => undefined)
-                }
+                onPress={disconnectCaregiver}
+                disabled={disconnecting}
+                accessibilityRole="button"
+                accessibilityLabel="Encerrar conexão com cuidador"
+                accessibilityHint="Interrompe imediatamente o acesso do cuidador aos seus dados"
                 style={{
                   paddingVertical: 9,
                   paddingHorizontal: 14,
@@ -240,7 +334,7 @@ export function SettingsScreen() {
                 }}
               >
                 <Txt s={11.5} w={800} c={T.t2}>
-                  Desconectar
+                  {disconnecting ? 'Encerrando…' : 'Desconectar'}
                 </Txt>
               </Touchable>
             ) : null}
@@ -249,6 +343,18 @@ export function SettingsScreen() {
           <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>
             A conexão é sempre sua escolha. Ao desconectar, o painel dela fica vazio na hora.
           </Txt>
+          {connectionMessage ? (
+            <Txt
+              s={11.5}
+              lh={1.45}
+              c={connectionMessage.tone === 'error' ? DANGER : T.pri}
+              accessibilityRole={connectionMessage.tone === 'error' ? 'alert' : undefined}
+              accessibilityLiveRegion="polite"
+              style={{ marginTop: 8 }}
+            >
+              {connectionMessage.text}
+            </Txt>
+          ) : null}
 
           {!primaryLink ? (
             <View style={{ marginTop: 13, gap: 8 }}>
@@ -288,6 +394,34 @@ export function SettingsScreen() {
                 Ver painel de cuidador
               </Txt>
             </Touchable>
+          ) : null}
+
+          {primaryLink ? (
+            <View style={{ marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: T.bdL }}>
+              <Txt s={14.5} w={800} c={T.t1}>O que {linkName} pode acompanhar</Txt>
+              <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 4 }}>
+                Você confirma ou altera estas permissões. Conversas, imagens e eventos individuais não entram neste compartilhamento.
+              </Txt>
+              {CARE_SCOPES.map((key, index) => {
+                const copy: Record<CareScope, [string, string]> = {
+                  summary: ['Resumo de sinais', 'Visão agregada e última atualização'],
+                  trends: ['Tendências', 'Relatórios por período, sem eventos individuais'],
+                  alerts: ['Alertas', 'Padrões prolongados para acompanhar'],
+                  checkins: ['Check-ins', 'Convites de conversa combinados'],
+                  agenda: ['Agenda', 'Compromissos compartilhados'],
+                  care_plan: ['Plano de cuidado', 'Sinais, passos e rede de apoio'],
+                  support_actions: ['Ações de apoio', 'O que foi feito para ajudar'],
+                  audit: ['Histórico de acesso', 'Registro das alterações importantes'],
+                };
+                const [label, sub] = copy[key as CareScope];
+                return <ToggleRow key={key} label={label} sub={sub} on={careScopes[key as CareScope]} divider={index > 0} onPress={() => setCareScopes((current) => ({ ...current, [key]: !current[key as CareScope] }))} />;
+              })}
+              {consentMessage ? <Txt s={11.5} lh={1.45} c={consentMessage.includes('não foi') ? DANGER : T.pri} style={{ marginTop: 8 }}>{consentMessage}</Txt> : null}
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 13 }}>
+                <Touchable onPress={saveCareScopes} style={{ paddingVertical: 11, paddingHorizontal: 14, borderRadius: 13, backgroundColor: T.priL }}><Txt s={12.5} w={800} c={T.pri}>Salvar permissões</Txt></Touchable>
+                {primaryLink.consent?.status === 'active' ? <Touchable onPress={revokeCareAccess} style={{ paddingVertical: 11, paddingHorizontal: 8 }}><Txt s={12.5} w={800} c={DANGER}>Revogar acesso</Txt></Touchable> : null}
+              </View>
+            </View>
           ) : null}
         </Card>
       </Section>

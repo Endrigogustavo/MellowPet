@@ -6,6 +6,12 @@ import { Icon } from '../components/Icon';
 import { MellowMark } from '../components/PetFace';
 import { Touchable, Txt } from '../components/ui';
 import { ICONS, QUICK_PROMPTS } from '../data/content';
+import {
+  CARE_CHAT_EMPTY_MESSAGE,
+  CARE_CHAT_PLACEHOLDER,
+  CARE_CHAT_PROMPTS,
+  caregiverReply,
+} from '../data/caregiverContent';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useApp, useTheme } from '../state/AppContext';
 import { font } from '../theme/type';
@@ -52,6 +58,7 @@ export function ChatScreen() {
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollView>(null);
   const keyboard = useKeyboardHeight();
+  const isCare = state.role === 'care';
 
   // Rola para a última mensagem — e também quando o teclado abre, para a
   // conversa não ficar escondida atrás dele.
@@ -61,6 +68,23 @@ export function ChatScreen() {
   }, [state.messages.length, state.typing, keyboard]);
 
   const canSend = state.chatInput.trim().length > 0;
+  const prompts = isCare ? CARE_CHAT_PROMPTS : QUICK_PROMPTS;
+  const send = () => {
+    if (!isCare) {
+      actions.send();
+      return;
+    }
+    const text = state.chatInput.trim();
+    if (!text || state.typing) return;
+    actions.set({
+      chatInput: '',
+      messages: [
+        ...state.messages,
+        { role: 'user', content: text },
+        { role: 'bot', content: caregiverReply(text) },
+      ],
+    });
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -99,20 +123,20 @@ export function ChatScreen() {
             width: 38,
             height: 38,
             borderRadius: 999,
-            backgroundColor: emoLight,
+          backgroundColor: isCare ? T.priL : emoLight,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <MellowMark size={24} color={emoColor} faceColor={T.surf} smile={false} />
+          <MellowMark size={24} color={isCare ? T.pri : emoColor} faceColor={T.surf} smile={false} />
         </View>
 
         <View style={{ flex: 1 }}>
           <Txt s={15} w={800} c={T.t1}>
-            {state.petName}
+            {isCare ? 'Apoio ao cuidador' : state.petName}
           </Txt>
           <Txt s={11.5} c={T.t3}>
-            sabe que você está {emo.label.toLowerCase()}
+            {isCare ? 'Conversa para organizar apoio com respeito' : `sabe que você está ${emo.label.toLowerCase()}`}
           </Txt>
         </View>
 
@@ -145,10 +169,12 @@ export function ChatScreen() {
         {state.messages.length === 0 && !state.typing ? (
           <View style={{ alignItems: 'center', gap: 14, paddingVertical: 26, paddingHorizontal: 10 }}>
             <Txt s={14.5} lh={1.65} c={T.t2} center>
-              Estou aqui. Você pode escrever uma frase só — eu organizo o resto com você.
+              {isCare
+                ? CARE_CHAT_EMPTY_MESSAGE
+                : 'Estou aqui. Você pode escrever uma frase só — eu organizo o resto com você.'}
             </Txt>
             <View style={{ width: '100%', gap: 8, marginTop: 4 }}>
-              {QUICK_PROMPTS.map((text) => (
+              {prompts.map((text) => (
                 <Touchable
                   key={text}
                   onPress={() => actions.set({ chatInput: text })}
@@ -188,12 +214,12 @@ export function ChatScreen() {
                     width: 30,
                     height: 30,
                     borderRadius: 999,
-                    backgroundColor: emoLight,
+                    backgroundColor: isCare ? T.priL : emoLight,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <MellowMark size={19} color={emoColor} faceColor={T.surf} smile={false} />
+                  <MellowMark size={19} color={isCare ? T.pri : emoColor} faceColor={T.surf} smile={false} />
                 </View>
               ) : null}
               <View
@@ -230,7 +256,7 @@ export function ChatScreen() {
               <Dot delay={360} color={T.t3} />
             </View>
             <Txt s={12} c={T.t3}>
-              {state.petName} está escrevendo
+              {isCare ? 'Preparando uma sugestão' : `${state.petName} está escrevendo`}
             </Txt>
           </View>
         ) : null}
@@ -262,8 +288,8 @@ export function ChatScreen() {
           <TextInput
             value={state.chatInput}
             onChangeText={(chatInput) => actions.set({ chatInput })}
-            onSubmitEditing={actions.send}
-            placeholder="Como você está agora?"
+            onSubmitEditing={send}
+            placeholder={isCare ? CARE_CHAT_PLACEHOLDER : 'Como você está agora?'}
             placeholderTextColor={T.t3}
             returnKeyType="send"
             style={{
@@ -277,7 +303,7 @@ export function ChatScreen() {
             }}
           />
           <Touchable
-            onPress={actions.send}
+            onPress={send}
             disabled={!canSend}
             accessibilityLabel="Enviar"
             style={{

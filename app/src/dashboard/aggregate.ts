@@ -3,7 +3,8 @@ import { supabase } from '../supabase/client';
 
 export type EmotionRow = { emotion: string; created_at: string };
 
-const POSITIVE = new Set(['happy', 'surprised']);
+// Surpresa é ambígua: não representa melhora de bem-estar por si só.
+const POSITIVE = new Set(['happy']);
 const NEGATIVE = new Set(['sad', 'angry', 'disgusted', 'fearful']);
 
 export function isEmotionKey(key: string): key is EmotionKey {
@@ -14,7 +15,9 @@ export function isEmotionKey(key: string): key is EmotionKey {
  * Python pro cliente, já que sem backend privilegiado a agregação roda
  * sobre linhas cruas lidas via RLS. null = sem leituras nesse recorte. */
 export function wellbeingScore(rows: EmotionRow[]): number | null {
-  if (rows.length === 0) return null;
+  // Sem uma amostra mínima, exibir 50/100 daria uma aparência enganosa de
+  // neutralidade. A tela deve mostrar que ainda não há evidência suficiente.
+  if (rows.length < 3) return null;
   const counts: Record<string, number> = {};
   rows.forEach((r) => {
     counts[r.emotion] = (counts[r.emotion] ?? 0) + 1;
@@ -35,10 +38,10 @@ const MIN_TRIGGER_SAMPLES = 3;
  * distantes que isso provavelmente não têm relação causal. */
 const TRANSITION_WINDOW_MS = 2 * 3_600_000;
 
-/** Gatilhos frequentes: (1) qual emoção mais costuma vir logo antes de uma
+/** Padrões temporais: (1) qual emoção mais costuma vir logo antes de uma
  * emoção negativa, e (2) em que horário cada emoção negativa mais aparece.
  * Só sugere um padrão com pelo menos `MIN_TRIGGER_SAMPLES` ocorrências —
- * abaixo disso é ruído, não gatilho. */
+ * abaixo disso é ruído, não um padrão útil. Isto não demonstra causalidade. */
 export function triggerInsights(rows: EmotionRow[]): string[] {
   const transitions: Record<string, number> = {};
   for (let i = 1; i < rows.length; i++) {

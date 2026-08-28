@@ -53,6 +53,10 @@ export type Screen =
   | 'spotifyplayer'
   | 'dashboard'
   | 'care'
+  | 'carealerts'
+  | 'careaudit'
+  | 'careplan'
+  | 'careguide'
   | 'agenda'
   | 'caretools'
   | 'chat'
@@ -213,7 +217,9 @@ const INITIAL: State = {
 
   toggles: { music: true, alerts: true, voice: true, notif: true, haptics: false },
   noFaceMin: 10,
-  person: 'lia',
+  // Id do vínculo selecionado no painel do cuidador; começa vazio e a tela
+  // escolhe o primeiro vínculo real até a pessoa selecionar outro.
+  person: '',
   rules: { sad3: true, stuck: true, night: true, anger: false, happy: true },
 
   role: 'user',

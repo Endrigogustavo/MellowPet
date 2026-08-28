@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Share, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 
@@ -16,37 +16,103 @@ export function CareToolsScreen() {
   const cardWidth = useColumnWidth(2, 9);
 
   const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!state.userId) return;
-    getOrCreatePendingInvite(state.userId)
-      .then((link) => setInviteCode(link.invite_code))
-      .catch(() => undefined);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const loadInvite = useCallback(async () => {
+    if (!state.userId) {
+      setInviteCode(null);
+      setInviteError('Não foi possível identificar sua conta para criar o convite.');
+      return;
+    }
+
+    setInviteLoading(true);
+    setInviteError(null);
+    try {
+      const link = await getOrCreatePendingInvite(state.userId);
+      setInviteCode(link.invite_code);
+    } catch (error) {
+      setInviteCode(null);
+      setInviteError(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Não foi possível carregar seu código de convite. Tente novamente.'
+      );
+    } finally {
+      setInviteLoading(false);
+    }
   }, [state.userId]);
+
+  useEffect(() => {
+    void loadInvite();
+  }, [loadInvite]);
 
   const copyCode = async () => {
     if (!inviteCode) return;
-    await Clipboard.setStringAsync(inviteCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await Clipboard.setStringAsync(inviteCode);
+      setCopied(true);
+      setNotice(null);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setNotice('Não foi possível copiar o código. Você pode digitá-lo ou tentar novamente.');
+    }
   };
 
-  const shareCode = () => {
+  const shareCode = async () => {
     if (!inviteCode) return;
-    Share.share({ message: `Use o código ${inviteCode} para se conectar comigo no MellowPet.` }).catch(
-      () => undefined
-    );
+    try {
+      await Share.share({ message: `Use o código ${inviteCode} para se conectar comigo no MellowPet.` });
+      setNotice(null);
+    } catch {
+      setNotice('Não foi possível abrir o compartilhamento. Copie o código e envie pelo canal que preferir.');
+    }
+  };
+
+  const destinationFor = (title: string) => {
+    if (title === 'Guia do cuidador') return 'careguide' as const;
+    if (title === 'Relatório semanal' || title === 'Comparar semanas' || title === 'Exportar dados') return 'dashboard' as const;
+    if (title === 'Definir alertas') return 'carealerts' as const;
+    if (title === 'Histórico de cuidado') return 'careaudit' as const;
+    if (title === 'Check-in agendado' || title === 'Lembretes de rotina') return 'agenda' as const;
+    if (title === 'Rede de apoio' || title === 'Plano de crise' || title === 'Equipe de cuidado' || title === 'Notas privadas' || title === 'Combinar limites') return 'careplan' as const;
+    return null;
   };
 
   return (
     <ScreenScroll>
       <ScreenTitle label="RECURSOS" title={'Ferramentas\nde quem cuida'} />
 
-      <Section top={0} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
+      <Section top={0}>
+        <View
+          style={{
+            padding: 16,
+            borderRadius: 20,
+            backgroundColor: T.priL,
+            borderWidth: 1,
+            borderColor: T.bd,
+          }}
+        >
+          <Txt s={13} w={800} c={T.t1}>
+            Recursos de acompanhamento aguardam ativação
+          </Txt>
+          <Txt s={12} lh={1.55} c={T.t2} style={{ marginTop: 5 }}>
+            Você já pode enviar convites e combinar limites. Painel agregado, alertas, check-ins, agenda, plano de cuidado, equipe e notas dependem da configuração do módulo de cuidado no servidor. Até lá, nenhum dado é exibido.
+          </Txt>
+        </View>
+      </Section>
+
+      <Section top={12} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
         {CARE_TOOLS.map(([title, sub, icon]) => (
           <Touchable
             key={title}
-            onPress={() => actions.go('chat')}
+            onPress={() => {
+              const target = destinationFor(title);
+              if (target) actions.go(target);
+              else setNotice('O assistente para cuidadores está sendo preparado. Enquanto isso, use o guia para combinar limites e próximos passos respeitosos.');
+            }}
             style={{
               width: cardWidth,
               minHeight: 120,
@@ -82,14 +148,51 @@ export function CareToolsScreen() {
         ))}
       </Section>
 
+      <Section top={12}>
+        <Touchable
+          onPress={() => actions.go('careaudit')}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir histórico de cuidado"
+          accessibilityHint="Mostra apenas as ações importantes autorizadas, sem conteúdo sensível"
+          style={{ borderRadius: 20, padding: 15, backgroundColor: T.surf, borderWidth: 1, borderColor: T.bd, flexDirection: 'row', gap: 12, alignItems: 'center' }}
+        >
+          <Icon d="M6 4h10l4 4v12H6zM9 13h6M9 16h4" size={20} color={T.pri} />
+          <View style={{ flex: 1 }}>
+            <Txt s={14} w={800} c={T.t1}>Histórico de cuidado</Txt>
+            <Txt s={12} c={T.t2} style={{ marginTop: 3 }}>Alterações importantes, sem exibir conteúdo sensível.</Txt>
+          </View>
+        </Touchable>
+      </Section>
+
+      <Section top={12}>
+        <Touchable
+          onPress={() => actions.go('careguide')}
+          style={{ borderRadius: 20, padding: 15, backgroundColor: T.priL, flexDirection: 'row', gap: 12, alignItems: 'center' }}
+        >
+          <Icon d={ICONS.help} size={20} color={T.pri} />
+          <View style={{ flex: 1 }}>
+            <Txt s={14} w={800} c={T.t1}>Guia do cuidador</Txt>
+            <Txt s={12} c={T.t2} style={{ marginTop: 3 }}>Consentimento, limites e próximos passos respeitosos.</Txt>
+          </View>
+        </Touchable>
+      </Section>
+
+      {notice ? (
+        <Section top={0}>
+          <View style={{ padding: 14, borderRadius: 18, backgroundColor: T.priL }}>
+            <Txt s={12.5} lh={1.5} c={T.t2}>{notice}</Txt>
+          </View>
+        </Section>
+      ) : null}
+
       {/* código de convite */}
       <Section top={12}>
         <View style={{ padding: 16, borderRadius: 20, backgroundColor: T.priL }}>
           <Txt s={13} w={800} c={T.pri}>
-            Convidar alguém
+            Convidar uma pessoa acompanhada
           </Txt>
           <Txt s={13} lh={1.55} c={T.t2} style={{ marginTop: 7 }}>
-            Envie o código abaixo. A conexão só vale depois que a pessoa aceitar no aparelho dela.
+            Envie o código abaixo. A conexão só vale depois que a pessoa aceitar. Compartilhamento e recursos de acompanhamento continuam desativados até ela conceder permissões e o módulo de cuidado ser configurado.
           </Txt>
           <View
             style={{
@@ -101,7 +204,7 @@ export function CareToolsScreen() {
             }}
           >
             <Txt s={20} w={800} c={T.t1} ls={4}>
-              {inviteCode ?? '···· ····'}
+              {inviteCode ?? (inviteLoading ? 'Gerando…' : '···· ····')}
             </Txt>
           </View>
           {inviteCode ? (
@@ -133,6 +236,18 @@ export function CareToolsScreen() {
                 <Txt s={12.5} w={800} c={T.pri}>
                   Enviar
                 </Txt>
+              </Touchable>
+            </View>
+          ) : null}
+          {inviteError ? (
+            <View style={{ marginTop: 12, gap: 9 }}>
+              <Txt s={12} lh={1.5} c={DANGER}>{inviteError}</Txt>
+              <Touchable
+                disabled={inviteLoading}
+                onPress={() => void loadInvite()}
+                style={{ alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, backgroundColor: T.surf }}
+              >
+                <Txt s={12} w={800} c={T.pri}>{inviteLoading ? 'Tentando…' : 'Tentar novamente'}</Txt>
               </Touchable>
             </View>
           ) : null}
