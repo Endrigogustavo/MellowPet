@@ -8,7 +8,7 @@ export function auditActionLabel(action: string): string {
   const operation = normalized.split('.').at(-1);
   const verb = operation === 'insert' ? 'criado' : operation === 'delete' ? 'removido' : 'atualizado';
 
-  if (normalized.includes('caregiver_consents')) return `Permissões de acompanhamento ${verb}`;
+  if (normalized.includes('caregiver_consents')) return `Registro histórico de permissões ${verb}`;
   if (normalized.includes('care_alerts')) return `Alerta ${verb}`;
   if (normalized.includes('care_checkins')) return `Check-in ${verb}`;
   if (normalized.includes('care_appointments')) return `Compromisso ${verb}`;

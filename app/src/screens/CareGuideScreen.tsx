@@ -8,7 +8,7 @@ import { ICONS } from '../data/content';
 import { useApp, useTheme, type Screen } from '../state/AppContext';
 
 const STEPS: Array<[string, string, Screen, string]> = [
-  ['Combine o consentimento', 'A pessoa acompanhada escolhe o que pode ser compartilhado e pode mudar de ideia a qualquer momento.', 'settings', ICONS.shield],
+  ['Confirme a conexão', 'Depois que o convite é aceito, o cuidador tem acesso integral ao módulo de cuidado enquanto o vínculo estiver ativo.', 'settings', ICONS.shield],
   ['Use padrões, não conclusões', 'Os painéis mostram leituras agregadas. Eles não são diagnóstico e não explicam a causa de uma emoção.', 'dashboard', ICONS.book],
   ['Prefira um check-in respeitoso', 'Diante de um alerta ou mudança, pergunte como a pessoa está e combine o próximo passo.', 'agenda', ICONS.heart],
   ['Registre o plano combinado', 'Guarde sinais de atenção, ações e contatos que foram acordados em conjunto.', 'careplan', ICONS.heart],
@@ -26,7 +26,7 @@ export function CareGuideScreen() {
         <Card radius={22} padding={17} style={{ backgroundColor: T.priL }}>
           <Txt s={14.5} w={800} c={T.t1}>O cuidado é combinado, não vigiado.</Txt>
           <Txt s={12.5} lh={1.55} c={T.t2} style={{ marginTop: 7 }}>
-            Use as informações apenas dentro dos limites escolhidos pela pessoa. Em risco imediato, acione os serviços de emergência locais.
+            Use as informações para apoiar, nunca para diagnosticar ou substituir ajuda profissional. Em risco imediato, acione os serviços de emergência locais.
           </Txt>
         </Card>
       </Section>

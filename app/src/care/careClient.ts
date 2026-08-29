@@ -1,19 +1,16 @@
 import * as Crypto from 'expo-crypto';
 
 import { supabase } from '../supabase/client';
-import { isCareConfigurationMissing, isRequestedScopesMissing, toCareClientError } from './careErrors';
+import { toCareClientError } from './careErrors';
 import { isCareLinkActive, type CareLinkLifecycle } from './careLinkLifecycle';
 import {
-  DEFAULT_CARE_SCOPES,
   type CareAlert,
   type CareAlertStatus,
   type CareAuditEntry,
   type CareAppointment,
   type CareCheckin,
-  type CareConsent,
   type CareDashboardSummary,
   type CarePlan,
-  type CareScopeMap,
   type CareSupportAction,
   type CareTeamMember,
   type CaregiverNote,
@@ -29,10 +26,6 @@ export type CaregiverLink = {
   status: 'pending' | 'accepted';
   caregiver_email?: string | null;
   caregiver_display_name?: string | null;
-  consent?: CareConsent | null;
-  /** True only when the consent table itself is absent on this installation. */
-  consentConfigurationInactive?: boolean;
-  requested_scopes?: Partial<CareScopeMap>;
 };
 
 // Sem 0/O/1/I — evita confusão ao digitar o código à mão.
@@ -65,24 +58,14 @@ async function generateInviteCode(): Promise<string> {
 export async function createInvite(
   caregiverUserId: string,
   caredName: string,
-  relationship: string,
-  requestedScopes: Partial<CareScopeMap> = DEFAULT_CARE_SCOPES
+  relationship: string
 ): Promise<CaregiverLink> {
   // Colisão de código é praticamente impossível (33^6 combinações), mas
   // ainda assim tratada com uma nova tentativa, como o backend antigo fazia.
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const invite_code = await generateInviteCode();
     const invite = { invite_code, caregiver_user_id: caregiverUserId, cared_name: caredName || null, relationship: relationship || null };
-    let { data, error } = await supabase
-      .from('caregiver_links')
-      .insert({ ...invite, requested_scopes: { ...DEFAULT_CARE_SCOPES, ...requestedScopes } })
-      .select('*')
-      .single();
-    // Existing installations may still have the original caregiver_links
-    // table. Invites remain usable until the migration adds requested_scopes.
-    if (error && isRequestedScopesMissing(error)) {
-      ({ data, error } = await supabase.from('caregiver_links').insert(invite).select('*').single());
-    }
+    const { data, error } = await supabase.from('caregiver_links').insert(invite).select('*').single();
     if (!error && data) return data as CaregiverLink;
     if (error?.code !== '23505') throw toCareClientError(error, 'Não foi possível criar o convite.');
   }
@@ -172,71 +155,18 @@ export async function listLinks(userId: string, role: 'care' | 'user'): Promise<
     .filter((link) => isCareLinkActive(link)) as CaregiverLink[];
   if (base.length === 0) return { links: base };
 
-  const linkIds = base.map((link) => link.id);
-  const { data: consents, error: consentError } = await supabase
-    .from('caregiver_consents')
-    .select('id, caregiver_link_id, cared_user_id, scopes, status, granted_at, revoked_at, updated_at')
-    .in('caregiver_link_id', linkIds);
-  // Consent was introduced by the caregiver migration. Links themselves are
-  // still useful on older databases, so intentionally degrade to no consent.
-  const consentConfigurationInactive = !!consentError && isCareConfigurationMissing(consentError);
-  if (consentError && !consentConfigurationInactive) {
-    throw toCareClientError(consentError, 'Não foi possível carregar as permissões de acompanhamento.');
-  }
-  const availableConsents = consentConfigurationInactive ? [] : consents ?? [];
-  const consentByLink = new Map(availableConsents.map((consent) => [consent.caregiver_link_id, consent as CareConsent]));
-  const withConsent = base.map((link) => ({
-    ...link,
-    consent: consentByLink.get(link.id) ?? null,
-    consentConfigurationInactive,
-  }));
+  if (role !== 'user') return { links: base };
 
-  if (role !== 'user') return { links: withConsent };
-
-  const caregiverIds = [...new Set(withConsent.map((link) => link.caregiver_user_id))];
+  const caregiverIds = [...new Set(base.map((link) => link.caregiver_user_id))];
   const { data: profiles } = await supabase.from('profiles').select('id, email, display_name').in('id', caregiverIds);
   const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
   return {
-    links: withConsent.map((link) => ({
+    links: base.map((link) => ({
       ...link,
       caregiver_email: byId.get(link.caregiver_user_id)?.email ?? null,
       caregiver_display_name: byId.get(link.caregiver_user_id)?.display_name ?? null,
     })) as CaregiverLink[],
   };
-}
-
-export async function saveConsent(
-  caredUserId: string,
-  caregiverLinkId: string,
-  scopes: Partial<CareScopeMap>
-): Promise<CareConsent> {
-  const normalized = { ...DEFAULT_CARE_SCOPES, ...scopes };
-  const { data, error } = await supabase
-    .from('caregiver_consents')
-    .upsert(
-      {
-        caregiver_link_id: caregiverLinkId,
-        cared_user_id: caredUserId,
-        scopes: normalized,
-        status: 'active',
-        revoked_at: null,
-      },
-      { onConflict: 'caregiver_link_id' }
-    )
-    .select('id, caregiver_link_id, cared_user_id, scopes, status, granted_at, revoked_at, updated_at')
-    .single();
-  if (error || !data) throw toCareClientError(error, 'Não foi possível salvar as permissões de acompanhamento.');
-  return data as CareConsent;
-}
-
-export async function revokeConsent(caregiverLinkId: string): Promise<void> {
-  const { data, error } = await supabase
-    .from('caregiver_consents')
-    .update({ status: 'revoked', revoked_at: new Date().toISOString() })
-    .eq('caregiver_link_id', caregiverLinkId)
-    .select('id');
-  if (error) throw toCareClientError(error, 'Não foi possível revogar o acesso agora.');
-  if (!data?.length) throw new Error('Este acesso não está mais disponível para revogação. Atualize a tela.');
 }
 
 function asArray<T>(value: unknown): T[] {
@@ -248,7 +178,7 @@ export async function fetchCareDashboardSummary(caredUserId: string, hours = 168
     p_cared_user_id: caredUserId,
     p_hours: hours,
   });
-  if (error || !data) throw toCareClientError(error, error?.message || 'Não foi possível carregar o resumo consentido.');
+  if (error || !data) throw toCareClientError(error, error?.message || 'Não foi possível carregar o resumo de cuidado.');
   const raw = data as Record<string, unknown>;
   return {
     events: Number(raw.events) || 0,
@@ -431,7 +361,7 @@ export async function createSupportAction(
 }
 
 /**
- * A projection for the consented audit timeline. Do not add `metadata` here:
+ * A projection for the care audit timeline. Do not add `metadata` here:
  * it is internal operational data and the timeline purposefully shows no
  * contents from care artifacts.
  */
@@ -448,8 +378,8 @@ export async function listCareAuditEntries(caredUserId: string): Promise<CareAud
 
 /**
  * Ends a connection without deleting its operational trail. The database also
- * revokes the matching consent atomically, so the caregiver loses access at
- * the same instant the link is revoked.
+ * marks the historical consent record as revoked too, so audit history stays
+ * aligned with the link lifecycle.
  */
 export async function revokeCareLink(linkId: string): Promise<void> {
   const { error } = await supabase.rpc('revoke_care_link', { p_link_id: linkId });

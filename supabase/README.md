@@ -21,10 +21,11 @@ Funções: `bump_profile(fed_delta, played_delta, xp_delta)` e `accept_invite`.
 
 ## Migrations do módulo de cuidador
 
-As migrations `202608280001` a `202608280010` versionam consentimento granular,
-RLS dos artefatos de cuidado, alertas, agenda, plano, equipe, notas, auditoria,
-índices e a RPC agregada usada pelos dashboards do cuidador. Aplique-as em
-ordem. Veja também
+As migrations `202608280001` a `202608290011` versionam RLS dos artefatos de
+cuidado, alertas, agenda, plano, equipe, notas, auditoria, índices e a RPC
+agregada usada pelos dashboards do cuidador. A última migration torna o acesso
+integral e automático para todo vínculo de cuidador aceito; o consentimento
+granular anterior fica somente como histórico interno. Aplique-as em ordem. Veja também
 [`../docs/caregiver-module.md`](../docs/caregiver-module.md).
 
 ## Segurança operacional

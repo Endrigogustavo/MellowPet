@@ -10,7 +10,7 @@ test('audit labels map each supported artifact without exposing its contents', (
   assert.equal(auditActionLabel('public.care_plans.insert'), 'Plano de cuidado criado');
   assert.equal(auditActionLabel('public.care_team_members.update'), 'Equipe de cuidado atualizado');
   assert.equal(auditActionLabel('public.care_support_actions.delete'), 'Ação de apoio removido');
-  assert.equal(auditActionLabel('public.caregiver_consents.update'), 'Permissões de acompanhamento atualizado');
+  assert.equal(auditActionLabel('public.caregiver_consents.update'), 'Registro histórico de permissões atualizado');
   assert.equal(auditActionLabel('public.caregiver_links.update'), 'Vínculo de cuidado atualizado');
 });
 

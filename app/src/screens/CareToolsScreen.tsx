@@ -172,7 +172,7 @@ export function CareToolsScreen() {
           <Icon d={ICONS.help} size={20} color={T.pri} />
           <View style={{ flex: 1 }}>
             <Txt s={14} w={800} c={T.t1}>Guia do cuidador</Txt>
-            <Txt s={12} c={T.t2} style={{ marginTop: 3 }}>Consentimento, limites e próximos passos respeitosos.</Txt>
+            <Txt s={12} c={T.t2} style={{ marginTop: 3 }}>Conexão, limites do vínculo e próximos passos respeitosos.</Txt>
           </View>
         </Touchable>
       </Section>

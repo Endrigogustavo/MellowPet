@@ -6,16 +6,15 @@ import * as Clipboard from 'expo-clipboard';
 import { createInvite } from '../care/careClient';
 import { Field } from '../components/Field';
 import { Icon } from '../components/Icon';
-import { Chip, PrimaryButton, ToggleRow, Touchable, Txt } from '../components/ui';
-import { CARE_RELS, CARE_SCOPES, ICONS } from '../data/content';
-import type { CareScopeMap } from '../care/careTypes';
+import { Chip, PrimaryButton, Touchable, Txt } from '../components/ui';
+import { CARE_RELS, ICONS } from '../data/content';
 import { useApp, useTheme } from '../state/AppContext';
 
-const TITLES = ['Quem você cuida?', 'Combine o que você verá', 'Convide a pessoa'];
+const TITLES = ['Quem você cuida?', 'Acesso do cuidador', 'Convide a pessoa'];
 const SUBS = [
-  'O MellowPet do cuidador não usa sua câmera — ele acompanha somente sinais agregados e consentidos de quem você cuida.',
-  'Nada é ativado sem o consentimento dela. Você indica suas preferências agora; ela confirma no aparelho.',
-  'Envie o código. A conexão só existe depois que ela aceitar — e nenhum dado aparece antes disso.',
+  'O MellowPet do cuidador não usa sua câmera — ele acompanha o histórico e os recursos de cuidado da pessoa vinculada.',
+  'Quando o convite for aceito, o cuidador terá acesso integral ao módulo de cuidado deste vínculo.',
+  'Envie o código. A conexão e o acesso integral começam somente depois que ela aceitar.',
 ];
 
 export function CareSignupScreen() {
@@ -36,13 +35,10 @@ export function CareSignupScreen() {
       return;
     }
 
-    const requestedScopes = Object.fromEntries(
-      CARE_SCOPES.map(([key]) => [key, state.toggles[key] !== false])
-    ) as Partial<CareScopeMap>;
     setInviteLoading(true);
     setInviteError(null);
     try {
-      const link = await createInvite(state.userId, state.careName, state.careRel, requestedScopes);
+      const link = await createInvite(state.userId, state.careName, state.careRel);
       setInviteCode(link.invite_code);
     } catch (error) {
       setInviteError(
@@ -53,7 +49,7 @@ export function CareSignupScreen() {
     } finally {
       setInviteLoading(false);
     }
-  }, [state.careName, state.careRel, state.toggles, state.userId]);
+  }, [state.careName, state.careRel, state.userId]);
 
   useEffect(() => {
     if (step !== 2 || inviteCode || inviteLoading || inviteError) return;
@@ -190,39 +186,11 @@ export function CareSignupScreen() {
                 }}
               >
                 <Txt s={12.5} w={800} c={T.t1}>
-                  Preferências, não autorização
+                  Acesso integral após aceitar
                 </Txt>
                 <Txt s={12} lh={1.55} c={T.t2} style={{ marginTop: 4 }}>
-                  Essas escolhas não liberam dados. A pessoa acompanhada sempre confirma ou recusa cada permissão. Enquanto a configuração do módulo de cuidado não estiver ativa, painel, alertas, agenda e plano permanecem indisponíveis.
+                  Este vínculo não usa permissões por tela ou recurso. Depois que a pessoa aceitar o código, o cuidador poderá consultar e operar o painel, tendências, alertas, agenda, plano, equipe, ações e histórico.
                 </Txt>
-              </View>
-              <View
-                style={{
-                  backgroundColor: T.surf,
-                  borderWidth: 1,
-                  borderColor: T.bd,
-                  borderRadius: 22,
-                  paddingHorizontal: 18,
-                  paddingVertical: 6,
-                }}
-              >
-                {CARE_SCOPES.map(([key, label, sub], i) => {
-                  const on = state.toggles[key] !== false;
-                  return (
-                    <ToggleRow
-                      key={key}
-                      label={label}
-                      sub={sub}
-                      on={on}
-                      divider={i > 0}
-                      onPress={() =>
-                        actions.set((s) => ({
-                          toggles: { ...s.toggles, [key]: s.toggles[key] === false },
-                        }))
-                      }
-                    />
-                  );
-                })}
               </View>
             </View>
           ) : null}

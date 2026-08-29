@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
 
-import { acceptInvite, listLinks, revokeCareLink, revokeConsent, saveConsent, type CaregiverLink } from '../care/careClient';
-import { CareConfigurationInactiveError } from '../care/careErrors';
-import { CARE_SCOPES, DEFAULT_CARE_SCOPES, type CareScope, type CareScopeMap } from '../care/careTypes';
+import { acceptInvite, listLinks, revokeCareLink, type CaregiverLink } from '../care/careClient';
 import { Field } from '../components/Field';
 import { PetFace } from '../components/PetFace';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
@@ -53,8 +51,6 @@ export function SettingsScreen() {
   const [codeInput, setCodeInput] = useState('');
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
-  const [careScopes, setCareScopes] = useState<CareScopeMap>(DEFAULT_CARE_SCOPES);
-  const [consentMessage, setConsentMessage] = useState<string | null>(null);
   const [connectionMessage, setConnectionMessage] = useState<{ text: string; tone: 'error' | 'success' } | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
 
@@ -154,56 +150,6 @@ export function SettingsScreen() {
   const linkColor = primaryLink ? OK : T.t3;
   const linkName =
     primaryLink?.caregiver_display_name || primaryLink?.caregiver_email || 'Cuidador';
-
-  useEffect(() => {
-    if (!primaryLink) return;
-    setCareScopes({ ...DEFAULT_CARE_SCOPES, ...primaryLink.requested_scopes, ...primaryLink.consent?.scopes });
-  }, [primaryLink?.id, primaryLink?.consent?.updated_at]);
-
-  const saveCareScopes = () => {
-    if (!state.userId || !primaryLink) return;
-    setConsentMessage(null);
-    if (primaryLink.consentConfigurationInactive) {
-      setConsentMessage('A conexão segue disponível. As permissões granulares aguardam a ativação da migration do Supabase.');
-      return;
-    }
-    saveConsent(state.userId, primaryLink.id, careScopes)
-      .then(() => {
-        setConsentMessage('Permissões salvas. O acesso do cuidador segue exatamente estas escolhas.');
-        refreshLinks();
-      })
-      .catch((error) =>
-        setConsentMessage(
-          error instanceof CareConfigurationInactiveError
-            ? 'A conexão segue disponível. As permissões granulares aguardam a ativação da migration do Supabase.'
-            : error instanceof Error
-              ? error.message
-              : 'Não foi possível salvar as permissões.'
-        )
-      );
-  };
-
-  const revokeCareAccess = () => {
-    if (!primaryLink) return;
-    if (primaryLink.consentConfigurationInactive) {
-      setConsentMessage('A conexão segue disponível. A revogação granular será habilitada quando a migration do Supabase for ativada.');
-      return;
-    }
-    revokeConsent(primaryLink.id)
-      .then(() => {
-        setConsentMessage('Acesso revogado. O painel do cuidador deixa de receber dados agora.');
-        refreshLinks();
-      })
-      .catch((error) =>
-        setConsentMessage(
-          error instanceof CareConfigurationInactiveError
-            ? 'A conexão segue disponível. A revogação granular será habilitada quando a migration do Supabase for ativada.'
-            : error instanceof Error
-              ? error.message
-              : 'Não foi possível revogar o acesso.'
-        )
-      );
-  };
 
   const disconnectCaregiver = () => {
     if (!primaryLink || disconnecting) return;
@@ -396,33 +342,7 @@ export function SettingsScreen() {
             </Touchable>
           ) : null}
 
-          {primaryLink ? (
-            <View style={{ marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: T.bdL }}>
-              <Txt s={14.5} w={800} c={T.t1}>O que {linkName} pode acompanhar</Txt>
-              <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 4 }}>
-                Você confirma ou altera estas permissões. Conversas, imagens e eventos individuais não entram neste compartilhamento.
-              </Txt>
-              {CARE_SCOPES.map((key, index) => {
-                const copy: Record<CareScope, [string, string]> = {
-                  summary: ['Resumo de sinais', 'Visão agregada e última atualização'],
-                  trends: ['Tendências', 'Relatórios por período, sem eventos individuais'],
-                  alerts: ['Alertas', 'Padrões prolongados para acompanhar'],
-                  checkins: ['Check-ins', 'Convites de conversa combinados'],
-                  agenda: ['Agenda', 'Compromissos compartilhados'],
-                  care_plan: ['Plano de cuidado', 'Sinais, passos e rede de apoio'],
-                  support_actions: ['Ações de apoio', 'O que foi feito para ajudar'],
-                  audit: ['Histórico de acesso', 'Registro das alterações importantes'],
-                };
-                const [label, sub] = copy[key as CareScope];
-                return <ToggleRow key={key} label={label} sub={sub} on={careScopes[key as CareScope]} divider={index > 0} onPress={() => setCareScopes((current) => ({ ...current, [key]: !current[key as CareScope] }))} />;
-              })}
-              {consentMessage ? <Txt s={11.5} lh={1.45} c={consentMessage.includes('não foi') ? DANGER : T.pri} style={{ marginTop: 8 }}>{consentMessage}</Txt> : null}
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 13 }}>
-                <Touchable onPress={saveCareScopes} style={{ paddingVertical: 11, paddingHorizontal: 14, borderRadius: 13, backgroundColor: T.priL }}><Txt s={12.5} w={800} c={T.pri}>Salvar permissões</Txt></Touchable>
-                {primaryLink.consent?.status === 'active' ? <Touchable onPress={revokeCareAccess} style={{ paddingVertical: 11, paddingHorizontal: 8 }}><Txt s={12.5} w={800} c={DANGER}>Revogar acesso</Txt></Touchable> : null}
-              </View>
-            </View>
-          ) : null}
+          {primaryLink ? <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>Ao aceitar a conexão, {linkName} recebe acesso integral ao módulo de cuidado. Não há permissões separadas por recurso.</Txt> : null}
         </Card>
       </Section>
 

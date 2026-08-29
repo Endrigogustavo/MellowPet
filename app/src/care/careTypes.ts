@@ -1,39 +1,3 @@
-export const CARE_SCOPES = [
-  'summary',
-  'trends',
-  'alerts',
-  'checkins',
-  'agenda',
-  'care_plan',
-  'support_actions',
-  'audit',
-] as const;
-
-export type CareScope = (typeof CARE_SCOPES)[number];
-export type CareScopeMap = Record<CareScope, boolean>;
-
-export const DEFAULT_CARE_SCOPES: CareScopeMap = {
-  summary: true,
-  trends: true,
-  alerts: true,
-  checkins: true,
-  agenda: true,
-  care_plan: true,
-  support_actions: true,
-  audit: true,
-};
-
-export type CareConsent = {
-  id: string;
-  caregiver_link_id: string;
-  cared_user_id: string;
-  scopes: Partial<CareScopeMap>;
-  status: 'active' | 'revoked';
-  granted_at: string;
-  revoked_at: string | null;
-  updated_at: string;
-};
-
 export type CareDistributionRow = { emotion: string; count: number };
 export type CareBucket = { at: string; count: number; dominant: string | null };
 export type CareSource = { source: string; count: number };

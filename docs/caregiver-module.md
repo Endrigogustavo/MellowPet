@@ -1,104 +1,59 @@
 # Módulo de cuidador
 
-O cuidador acompanha sinais agregados e consentidos; não recebe imagens,
-conversas, eventos individuais ou diagnóstico. O produto deve apresentar uma
-ausência de dados como ausência de dados, nunca como estabilidade.
+Um vínculo de cuidador aceito libera integralmente o módulo de cuidado para
+esse cuidador. Não existem permissões separadas por tela, métrica ou ação.
+Imagens, conversas e eventos emocionais individuais continuam fora do painel:
+as tendências são fornecidas somente pela RPC agregada e não constituem um
+diagnóstico.
 
-## Estado sem a migration
+## Regra de acesso
 
-É possível continuar desenvolvendo, testando as telas e usando a navegação
-local sem aplicar a migration. Nesse modo, trate o módulo como uma prévia:
+O acesso é concedido automaticamente quando o convite é aceito e permanece
+ativo enquanto o vínculo estiver:
 
-- os estados visuais de carregamento, sem dados, falha e acesso indisponível
-  continuam disponíveis;
-- as métricas puras e a interface podem ser validadas com dados de teste;
-- os artefatos que dependem do banco (consentimento persistido, alertas,
-  agenda, plano, equipe, notas sincronizadas e auditoria) não devem ser
-  considerados ativos nem usados com dados reais;
-- qualquer leitura de dados de uma pessoa acompanhada só é segura quando a
-  proteção RLS e a RPC agregada abaixo estiverem aplicadas.
+- com status `accepted`;
+- não revogado;
+- não expirado.
 
-Não use uma build sem a migration para acompanhamento real de terceiros. A
-ausência da estrutura no banco não pode ser substituída por permissões apenas
-na interface.
+A pessoa acompanhada não configura escopos de acesso. Ela ainda pode encerrar
+o vínculo inteiro, e o cuidador também pode encerrar o próprio acompanhamento.
+Isso remove o acesso imediatamente e preserva a trilha de auditoria.
 
-## Aplicação obrigatória no Supabase
+## Banco de dados
 
-Antes de publicar a versão do app, aplique
-[`../supabase/migrations/202608280001_caregiver_foundation.sql`](../supabase/migrations/202608280001_caregiver_foundation.sql).
-Ela cria:
+As migrations `202608280001` a `202608290011` criam os artefatos de cuidado,
+RLS, alertas, agenda, plano, equipe, notas, ações e auditoria. A migration
+`202608290011_caregiver_full_link_access.sql` substitui o consentimento
+granular por autorização integral baseada no vínculo aceito. A tabela legada
+`caregiver_consents` permanece somente como histórico interno e não fica
+acessível pelo cliente.
 
-- consentimento granular por vínculo;
-- consulta RPC de série agregada para cuidador;
-- alertas de padrão persistente, sem classificação de emergência;
-- check-ins, agenda, plano, equipe, notas privadas, ações de apoio e auditoria;
-- políticas RLS para esses artefatos.
-
-As migrations complementares `202608280002` a `202608280010` removem um
-índice duplicado, cobrem as chaves estrangeiras do módulo e tornam a auditoria
-operacional. Os registros de auditoria contêm apenas ação, data, ator e ID do
-artefato; não armazenam conteúdo de notas, respostas, imagens ou evidências.
-
-Após a migration, revise as policies existentes de `emotion_events`: o
-cuidador não deve receber uma policy de leitura direta da tabela. As telas de
-cuidador usam `care_dashboard_summary`, que valida o escopo `trends` antes de
-devolver somente buckets agregados.
+As telas de cuidador usam `care_dashboard_summary`, que devolve somente dados
+agregados. Não deve ser criada policy de leitura direta de `emotion_events`
+para cuidadores.
 
 ## Atualização do painel
 
-O painel atualiza as consultas consentidas a cada 60 segundos e em ações
-explícitas da interface. Não há canal Realtime para artefatos de cuidado:
-as permissões de Broadcast da extensão do Supabase não podem ser restringidas
-com segurança neste projeto. Essa escolha evita transmitir linhas, IDs de
-artefatos ou conteúdo sensível após uma revogação.
-
-## Escopos
-
-`summary`, `trends`, `alerts`, `checkins`, `agenda`, `care_plan`,
-`support_actions` e `audit` são escolhidos pela pessoa acompanhada em Ajustes
-› Conexões. Ela pode alterá-los ou revogar o acesso a qualquer momento.
+O painel atualiza dados a cada 60 segundos e após ações explícitas. Não há
+canal Realtime para os artefatos de cuidado: o Broadcast privado não pôde ser
+restrito com segurança nesta configuração do Supabase.
 
 ## Telas entregues
 
-- Painel: carteira multipessoa, atualização, cobertura, alertas e ações.
+- Painel: pessoas acompanhadas, tendências, alertas e ações rápidas.
 - Alertas: novo, em acompanhamento e resolvido.
-- Dados: 24h, 7 dias e 30 dias; distribuição, cobertura e origem de sinais.
-- Agenda: check-ins e compromissos consentidos.
-- Plano: sinais combinados, passos, equipe e notas privadas do cuidador.
-- Histórico: ações operacionais do módulo, sem conteúdo sensível.
+- Dados: 24 h, 7 dias e 30 dias; distribuição, cobertura e origem de sinais.
+- Agenda: check-ins e compromissos.
+- Plano: sinais, passos, equipe e notas privadas do cuidador.
+- Histórico: ações operacionais, sem conteúdo sensível.
 
-O compartilhamento de relatório é textual e consentido neste momento. Não se
-declara exportação em PDF enquanto um artefato PDF verificável não for gerado.
+## Validação antes da publicação
 
-## Fluxo de validação
-
-Antes da migration, valide apenas a experiência local com dados simulados:
-
-1. Execute `npm run test:vision` dentro de `app` para validar as métricas puras.
-2. Confira que `menos de 3 leituras`, `zero leituras`, erro e carregamento são
-   apresentados como dados indisponíveis, e não como estabilidade.
-3. Navegue pelas telas sem inserir dados de outras pessoas em um ambiente que
-   não possua RLS validada.
-
-Depois da migration, valide o fluxo completo em um projeto Supabase de teste:
-
-1. Aplique a migration, crie uma pessoa acompanhada e um cuidador de teste.
-2. Aceite o vínculo, conceda somente `trends` e confirme que a RPC retorna
-   buckets agregados, sem eventos individuais.
-3. Remova `trends` e confirme que a RPC falha por escopo; conceda `alerts` e
-   valide o ciclo aberto → acompanhado → resolvido.
-4. Exercite check-ins, agenda, plano, equipe, ações de apoio e notas privadas
-   com os respectivos escopos.
-5. Revogue o consentimento e confirme que leituras, realtime e atualizações
-   do cuidador deixam de funcionar imediatamente.
-
-## Critérios de validação antes da publicação
-
-1. Exercitar RLS com conta cuidada, cuidador sem consentimento, cuidador com
-   consentimento parcial, vínculo revogado e vínculo pendente.
-2. Confirmar que revogação bloqueia RPC, alertas e realtime imediatamente.
-3. Validar que o dashboard não consulta `emotion_events` diretamente na role
+1. Aceite um convite e confirme acesso a todas as telas do módulo.
+2. Confirme que vínculo pendente, revogado ou expirado não acessa RPC, alertas
+   nem artefatos de cuidado.
+3. Confirme que o dashboard não consulta `emotion_events` diretamente na role
    cuidador.
-4. Testar vazio, carregamento, falha de rede e dados desatualizados.
-5. Revisar localmente os textos de crise e contatos de emergência para cada
-   país de distribuição.
+4. Teste vazio, carregamento, falha de rede e dados desatualizados.
+5. Revise textos de crise e contatos de emergência para cada país de
+   distribuição.
