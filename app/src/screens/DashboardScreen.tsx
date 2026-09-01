@@ -168,7 +168,7 @@ export function DashboardScreen() {
           <Section>
             <Card radius={24} padding={20}>
               <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 14 }}>
-                Linha do dia
+                Linha de sinais
               </Txt>
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 76 }}>
                 {dayTimeline.map(([hour, key], i) => (
@@ -198,10 +198,10 @@ export function DashboardScreen() {
           <Section>
             <Card radius={24} padding={20}>
               <Txt s={13.5} w={800} c={T.t1}>
-                Gatilhos frequentes
+                Padrões temporais
               </Txt>
               <Txt s={11.5} c={T.t3} style={{ marginTop: 4 }}>
-                O que costuma vir antes de uma emoção difícil
+                O que apareceu próximo a uma emoção difícil — não indica causa
               </Txt>
               {P.triggers.length > 0 ? (
                 <View style={{ marginTop: 13, gap: 10 }}>
@@ -224,7 +224,7 @@ export function DashboardScreen() {
                 </View>
               ) : (
                 <Txt s={12.5} c={T.t3} style={{ marginTop: 15 }}>
-                  Ainda não há gatilhos identificados com dados suficientes.
+                  Ainda não há padrões temporais com dados suficientes.
                 </Txt>
               )}
             </Card>
@@ -294,7 +294,7 @@ export function DashboardScreen() {
               <Section>
                 <Card radius={24} padding={20}>
                   <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 16 }}>
-                    Atividade por hora
+                    Leituras por hora
                   </Txt>
                   <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 7, height: 112 }}>
                     {P.bars.map(([hour, value]) => (

@@ -42,7 +42,7 @@ export async function fetchDashboardPeriod(targetUserId: string, periodIndex: nu
   const hours = HOURS_BY_PERIOD[periodIndex] ?? 24;
   const since = Date.now() - hours * BUCKET_MS;
   const rows = await fetchEmotionEvents(targetUserId, since);
-  if (rows.length === 0) return null;
+  if (rows.length < 3) return null;
 
   const counts: Record<string, number> = {};
   rows.forEach((row) => {

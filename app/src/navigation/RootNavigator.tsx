@@ -9,6 +9,11 @@ import { TabBar } from '../components/TabBar';
 import { COACH } from '../data/content';
 import { AgendaScreen } from '../screens/AgendaScreen';
 import { CareScreen } from '../screens/CareScreen';
+import { CareDataScreen } from '../screens/CareDataScreen';
+import { CareAlertsScreen } from '../screens/CareAlertsScreen';
+import { CareAuditScreen } from '../screens/CareAuditScreen';
+import { CarePlanScreen } from '../screens/CarePlanScreen';
+import { CareGuideScreen } from '../screens/CareGuideScreen';
 import { CareSignupScreen } from '../screens/CareSignupScreen';
 import { CareToolsScreen } from '../screens/CareToolsScreen';
 import { ChatScreen } from '../screens/ChatScreen';
@@ -44,8 +49,12 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   playlistdetail: PlaylistDetailScreen,
   spotifyimport: SpotifyImportScreen,
   spotifyplayer: SpotifyPlayerScreen,
-  dashboard: DashboardScreen,
+  dashboard: DashboardEntry,
   care: CareScreen,
+  carealerts: CareAlertsScreen,
+  careaudit: CareAuditScreen,
+  careplan: CarePlanScreen,
+  careguide: CareGuideScreen,
   agenda: AgendaScreen,
   caretools: CareToolsScreen,
   chat: ChatScreen,
@@ -54,6 +63,11 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   settings: SettingsScreen,
   vision: VisionScreen,
 };
+
+function DashboardEntry() {
+  const { state } = useApp();
+  return state.role === 'care' ? <CareDataScreen /> : <DashboardScreen />;
+}
 
 /** Telas em que a barra de abas fica escondida. */
 const NO_TABS: Screen[] = ['splash', 'onboarding', 'chat', 'login', 'caresignup', 'vision', 'spotifyplayer'];

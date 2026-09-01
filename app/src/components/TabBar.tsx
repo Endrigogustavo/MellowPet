@@ -18,10 +18,10 @@ const USER_TABS: [Screen, string][] = [
 
 const CARE_TABS: [Screen, string][] = [
   ['care', 'Painel'],
-  ['agenda', 'Agenda'],
+  ['carealerts', 'Alertas'],
   ['dashboard', 'Dados'],
-  ['caretools', 'Recursos'],
-  ['guide', 'Guia'],
+  ['agenda', 'Agenda'],
+  ['caretools', 'Mais'],
 ];
 
 export function TabBar() {

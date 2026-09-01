@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 
-import { acceptInvite, deleteLink, listLinks, type CaregiverLink } from '../care/careClient';
+import { acceptInvite, listLinks, revokeCareLink, type CaregiverLink } from '../care/careClient';
 import { Field } from '../components/Field';
 import { PetFace } from '../components/PetFace';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
@@ -51,6 +51,8 @@ export function SettingsScreen() {
   const [codeInput, setCodeInput] = useState('');
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
+  const [connectionMessage, setConnectionMessage] = useState<{ text: string; tone: 'error' | 'success' } | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [contactName, setContactName] = useState('');
@@ -73,14 +75,20 @@ export function SettingsScreen() {
     if (state.userId) saveSettings(state.userId, { emergency_contacts: next }).catch(() => undefined);
   };
 
-  const refreshLinks = () => {
-    if (!state.userId) return;
-    listLinks(state.userId, 'user')
-      .then((res) => {
-        setLinks(res.links);
-        actions.set({ linked: res.links.length > 0 });
-      })
-      .catch(() => undefined);
+  const refreshLinks = async () => {
+    if (!state.userId) return false;
+    try {
+      const res = await listLinks(state.userId, 'user');
+      setLinks(res.links);
+      actions.set({ linked: res.links.length > 0 });
+      return true;
+    } catch (error) {
+      setConnectionMessage({
+        tone: 'error',
+        text: error instanceof Error ? error.message : 'Não foi possível carregar suas conexões de cuidado.',
+      });
+      return false;
+    }
   };
 
   // Carrega preferências e vínculos reais de cuidador ao entrar na tela.
@@ -127,6 +135,7 @@ export function SettingsScreen() {
     if (!code || !state.userId) return;
     setAccepting(true);
     setAcceptError(null);
+    setConnectionMessage(null);
     acceptInvite(code, state.userId)
       .then(() => {
         setCodeInput('');
@@ -141,6 +150,38 @@ export function SettingsScreen() {
   const linkColor = primaryLink ? OK : T.t3;
   const linkName =
     primaryLink?.caregiver_display_name || primaryLink?.caregiver_email || 'Cuidador';
+
+  const disconnectCaregiver = () => {
+    if (!primaryLink || disconnecting) return;
+    Alert.alert(
+      'Encerrar conexão?',
+      'O acesso do cuidador será interrompido agora. O registro operacional do vínculo será preservado.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Encerrar conexão',
+          style: 'destructive',
+          onPress: () => {
+            setDisconnecting(true);
+            setConnectionMessage(null);
+            revokeCareLink(primaryLink.id)
+              .then(async () => {
+                if (await refreshLinks()) {
+                  setConnectionMessage({ tone: 'success', text: 'Conexão encerrada. O cuidador não pode mais acessar seus dados.' });
+                }
+              })
+              .catch((error) => {
+                setConnectionMessage({
+                  tone: 'error',
+                  text: error instanceof Error ? error.message : 'Não foi possível encerrar a conexão.',
+                });
+              })
+              .finally(() => setDisconnecting(false));
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <ScreenScroll>
@@ -225,12 +266,11 @@ export function SettingsScreen() {
             </View>
             {primaryLink ? (
               <Touchable
-                onPress={() =>
-                  state.userId &&
-                  deleteLink(primaryLink.id, state.userId)
-                    .then(refreshLinks)
-                    .catch(() => undefined)
-                }
+                onPress={disconnectCaregiver}
+                disabled={disconnecting}
+                accessibilityRole="button"
+                accessibilityLabel="Encerrar conexão com cuidador"
+                accessibilityHint="Interrompe imediatamente o acesso do cuidador aos seus dados"
                 style={{
                   paddingVertical: 9,
                   paddingHorizontal: 14,
@@ -240,7 +280,7 @@ export function SettingsScreen() {
                 }}
               >
                 <Txt s={11.5} w={800} c={T.t2}>
-                  Desconectar
+                  {disconnecting ? 'Encerrando…' : 'Desconectar'}
                 </Txt>
               </Touchable>
             ) : null}
@@ -249,6 +289,18 @@ export function SettingsScreen() {
           <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>
             A conexão é sempre sua escolha. Ao desconectar, o painel dela fica vazio na hora.
           </Txt>
+          {connectionMessage ? (
+            <Txt
+              s={11.5}
+              lh={1.45}
+              c={connectionMessage.tone === 'error' ? DANGER : T.pri}
+              accessibilityRole={connectionMessage.tone === 'error' ? 'alert' : undefined}
+              accessibilityLiveRegion="polite"
+              style={{ marginTop: 8 }}
+            >
+              {connectionMessage.text}
+            </Txt>
+          ) : null}
 
           {!primaryLink ? (
             <View style={{ marginTop: 13, gap: 8 }}>
@@ -289,6 +341,8 @@ export function SettingsScreen() {
               </Txt>
             </Touchable>
           ) : null}
+
+          {primaryLink ? <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>Ao aceitar a conexão, {linkName} recebe acesso integral ao módulo de cuidado. Não há permissões separadas por recurso.</Txt> : null}
         </Card>
       </Section>
 
