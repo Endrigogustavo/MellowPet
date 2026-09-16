@@ -180,6 +180,9 @@ adb reverse tcp:8000 tcp:8000
 > Se a tela ficar sem dados e o console mostrar `401`, a chave do app e a da API
 > estão diferentes.
 
+Para gerar o APK de release e instalar num celular físico, veja
+[docs/build-android.md](docs/build-android.md).
+
 ---
 
 ## Funcionalidades Implementadas

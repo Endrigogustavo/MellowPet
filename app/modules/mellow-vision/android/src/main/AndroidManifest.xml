@@ -1,3 +1,26 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!--
+    Declarado aqui, e nao em android/app/src/main/AndroidManifest.xml, porque a
+    pasta android/ e gerada pelo prebuild e esta no .gitignore: o que fica la se
+    perde na proxima regeneracao. O manifesto do modulo e versionado e o AGP faz
+    o merge dele no app.
+  -->
+
   <uses-permission android:name="android.permission.CAMERA" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+
+  <application>
+    <!--
+      Leitura de expressao com o app fechado: Camera2 headless (so ImageReader,
+      sem preview) alimentando o FaceLandmarker. Precisa ser foreground service
+      do tipo camera — a partir do Android 14 o sistema recusa abrir a camera em
+      segundo plano sem isso.
+    -->
+    <service
+      android:name="com.mellowpet.vision.VisionBackgroundService"
+      android:exported="false"
+      android:foregroundServiceType="camera" />
+  </application>
 </manifest>

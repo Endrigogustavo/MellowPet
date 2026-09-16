@@ -416,7 +416,7 @@ export const CARE_TOOLS: [string, string, string][] = [
   ['Notas privadas', 'Só você lê o que anotar aqui', 'M6 4h9l4 4v12H6zM15 4v4h4M9 12.5h6M9 16h4'],
   ['Comparar semanas', 'O que mudou entre um período e outro', 'M5 19V9M10 19V5M15 19v-7M20 19v-4M4 19h17'],
   ['Lembretes de rotina', 'Sono, remédio, terapia', 'M12 4a6 6 0 016 6v4l2 3H4l2-3v-4a6 6 0 016-6zM9 20h6M12 8v3'],
-  ['Exportar dados', 'Compartilhe um resumo consentido', 'M12 4v10M8 11l4 4-4M5 19h14'],
+  ['Exportar dados', 'Compartilhe um resumo consentido', 'M12 4v10M8 11l4 4 4-4M5 19h14'],
   [
     'Equipe de cuidado',
     'Terapeuta, escola e família',

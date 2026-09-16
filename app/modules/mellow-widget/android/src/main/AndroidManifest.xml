@@ -1,2 +1,229 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!--
+    Tudo isto mora aqui, e nao em android/app/src/main/AndroidManifest.xml, de
+    proposito: a pasta android/ e gerada pelo prebuild e esta no .gitignore, entao
+    o que for declarado la se perde a cada regeneracao. Ja aconteceu uma vez e
+    levou junto os 33 widgets e os servicos de segundo plano. O manifesto do
+    modulo e versionado e o AGP faz o merge dele no app.
+  -->
+
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!-- O watchdog reagenda o servico depois de reboot e de atualizacao do app. -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+  <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <!-- Sem isencao de bateria o Doze mata o servico; a tela de ajustes pede. -->
+  <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+  <!-- O botao de play/pause do widget despacha tecla de midia pro AudioManager. -->
+  <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+  <application>
+
+    <service
+      android:name="com.mellowpet.widget.MellowBackgroundService"
+      android:exported="false"
+      android:foregroundServiceType="specialUse">
+      <property
+        android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+        android:value="Mantem os widgets de bem-estar respondendo com o app fechado." />
+    </service>
+
+    <!-- directBootAware: precisa acordar antes do usuario desbloquear apos reboot. -->
+    <receiver
+      android:name="com.mellowpet.widget.ServiceWatchdogReceiver"
+      android:exported="false"
+      android:directBootAware="true">
+      <intent-filter>
+        <action android:name="com.mellowpet.widget.WATCHDOG_CHECK" />
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+        <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+      </intent-filter>
+    </receiver>
+
+    <receiver
+      android:name="com.mellowpet.widget.WidgetActionReceiver"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="com.mellowpet.widget.MEDIA" />
+        <action android:name="com.mellowpet.widget.WATER" />
+        <action android:name="com.mellowpet.widget.PET" />
+        <action android:name="com.mellowpet.widget.MOOD" />
+        <action android:name="com.mellowpet.widget.VISION_READING" />
+      </intent-filter>
+    </receiver>
+
+    <!-- Os 33 widgets. Cada provider aponta pro seu res/xml/*_info.xml. -->
+
+    <receiver android:name="com.mellowpet.widget.AgendaWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_agenda_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.BadgesWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_badges_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.BreatheWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_breathe_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.CapsuleWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_capsule_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.CareAlertWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_care_alert_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.CareWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_care_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.CaregiverWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_caregiver_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.CheckinWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_checkin_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.FocusWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_focus_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.GoalsWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_goals_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.GroundingWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_grounding_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.HelpWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_help_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.HeroWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_hero_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.HomeDevicesWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_home_devices_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.JournalWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_journal_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.LevelWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_level_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.MellowMoodWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_mood_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.MusicCompactWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_music_compact_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.NextStepWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_next_step_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.PetTapWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_pet_tap_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.PlanWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_plan_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.PlaylistsWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_playlists_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.QuickMoodWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_quick_mood_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.QuoteWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_quote_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.RoutineWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_routine_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.SleepWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_sleep_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.SpotifyNowPlayingWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_now_playing_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.StreakWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_streak_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.TimelineWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_timeline_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.ToolsWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_tools_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.TriggersWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_triggers_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.WaterWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_water_widget_info" />
+    </receiver>
+
+    <receiver android:name="com.mellowpet.widget.WellbeingWidgetProvider" android:exported="false">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/mellow_wellbeing_widget_info" />
+    </receiver>
+
+  </application>
 </manifest>
