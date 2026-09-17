@@ -15,6 +15,14 @@ public class MellowVisionModule: Module {
       ] as [String: Any]
     }
 
+    // iOS não expõe câmera em segundo plano neste módulo. A API existe para
+    // manter o contrato multiplataforma explícito: a tela de configurações
+    // recebe um estado seguro (desligado) em vez de falhar silenciosamente.
+    Function("setBackgroundVision") { (_: Bool, _: Int) in }
+    Function("getBackgroundVision") {
+      return ["enabled": false, "intervalMinutes": 15] as [String: Any]
+    }
+
     View(MellowVisionView.self) {
       Events("onVisionResult", "onVisionError")
 

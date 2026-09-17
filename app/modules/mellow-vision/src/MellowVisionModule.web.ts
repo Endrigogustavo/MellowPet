@@ -11,8 +11,14 @@ class MellowVisionModule extends NativeModule<MellowVisionModuleEvents> {
       faceLandmarker: false,
       localOnly: true,
       modelVersion: 'unavailable',
-      pipelineVersion: 'mellow-vision-v2',
+      pipelineVersion: 'mellow-vision-v3.1.0-native',
     };
+  }
+
+  setBackgroundVision(_enabled: boolean, _intervalMinutes: number) {}
+
+  getBackgroundVision() {
+    return { enabled: false, intervalMinutes: 15 };
   }
 }
 

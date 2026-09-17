@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { createCareTeamMember, createPrivateNote, fetchCarePlan, listCareTeam, listPrivateNotes, saveCarePlan } from '../care/careClient';
@@ -47,14 +47,14 @@ export function CarePlanScreen() {
   const [memberRole, setMemberRole] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const current = useMemo(() => links.find((link) => link.id === state.person) ?? links[0], [links, state.person]);
-  const refresh = () => {
+  const refresh = useCallback(() => {
     if (!state.userId || !current?.cared_user_id) return;
     Promise.all([fetchCarePlan(current.cared_user_id), listCareTeam(current.cared_user_id), listPrivateNotes(state.userId, current.cared_user_id)]).then(([nextPlan, nextTeam, nextNotes]) => {
       setPlan(nextPlan); setTeam(nextTeam); setNotes(nextNotes);
       if (nextPlan) { setTitle(nextPlan.title); setSigns(nextPlan.warning_signs.join('\n')); setSteps(nextPlan.steps.join('\n')); }
     }).catch((reason) => { setMessage(reason instanceof Error ? reason.message : 'Não foi possível carregar o plano.'); });
-  };
-  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [current?.id, current?.cared_user_id, state.userId]);
+  }, [current?.cared_user_id, state.userId]);
+  useEffect(() => { refresh(); }, [refresh]);
   const save = async () => {
     if (!state.userId || !current?.cared_user_id) return;
     const warningSigns = listFromLines(signs);

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { createSupportAction, listCareAlerts, updateCareAlert } from '../care/careClient';
@@ -24,12 +24,12 @@ export function CareAlertsScreen() {
   const [error, setError] = useState<Error | null>(null);
   const current = useMemo(() => links.find((link) => link.id === state.person) ?? links[0], [links, state.person]);
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     setAlerts(null); setError(null);
     if (!current?.cared_user_id) return;
     listCareAlerts(current.cared_user_id).then(setAlerts).catch((reason) => setError(reason instanceof Error ? reason : new Error('Não foi possível carregar os alertas.')));
-  };
-  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [current?.id, current?.cared_user_id]);
+  }, [current?.cared_user_id]);
+  useEffect(() => { refresh(); }, [refresh]);
 
   const change = async (alert: CareAlert, status: 'acknowledged' | 'resolved') => {
     if (!state.userId) return;
