@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { createCareAppointment, createCareCheckin, listCareAppointments, listCareCheckins } from '../care/careClient';
@@ -28,11 +28,11 @@ export function AgendaScreen() {
   const [appointmentDateError, setAppointmentDateError] = useState<string | null>(null);
   const current = useMemo(() => links.find((link) => link.id === state.person) ?? links[0], [links, state.person]);
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     if (!current?.cared_user_id) return;
     Promise.all([listCareCheckins(current.cared_user_id), listCareAppointments(current.cared_user_id)]).then(([nextCheckins, nextAppointments]) => { setCheckins(nextCheckins); setAppointments(nextAppointments); }).catch((reason) => { setMessage(reason instanceof Error ? reason.message : 'Não foi possível carregar a agenda.'); });
-  };
-  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [current?.id, current?.cared_user_id]);
+  }, [current?.cared_user_id]);
+  useEffect(() => { refresh(); }, [refresh]);
   const scheduleCheckin = async () => {
     const parsed = parseDeviceLocalDateTime(checkinAt);
     if (!parsed.iso) { const error = parsed.error ?? 'Informe uma data válida.'; setCheckinDateError(error); setMessage(error); return; }

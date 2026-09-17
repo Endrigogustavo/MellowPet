@@ -17,6 +17,7 @@ Nenhuma chave aparece no codigo: todas vem do ambiente, via config.
 from __future__ import annotations
 
 import os
+import asyncio
 from typing import Optional, Protocol
 
 from config import settings
@@ -201,6 +202,19 @@ class AIChatService:
                 logger.warning("Provedor %s falhou: %s", provider.name, exc)
         return None, "fallback"
 
+    async def _complete_async(
+        self, system: str, messages: list[dict], max_tokens: int
+    ) -> tuple[Optional[str], str]:
+        """Executa SDKs síncronos sem bloquear o event loop do FastAPI."""
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(self._complete, system, messages, max_tokens),
+                timeout=settings.ai_timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Provedores de IA excederam o timeout de %.1fs", settings.ai_timeout_seconds)
+            return None, "fallback"
+
     async def generate_response(
         self,
         user_message: str,
@@ -218,7 +232,7 @@ class AIChatService:
         ]
         messages.append({"role": "user", "content": user_message})
 
-        text, provider = self._complete(system, messages, max_tokens=256)
+        text, provider = await self._complete_async(system, messages, max_tokens=256)
         if text is None:
             return self._fallback_response(emotion), "fallback"
         return text, provider
@@ -234,7 +248,7 @@ class AIChatService:
             return "Análise de padrões emocionais disponível com IA configurada.", "fallback"
 
         prompt = INSIGHT_PROMPT.format(period=period, summary=emotion_summary)
-        text, provider = self._complete(
+        text, provider = await self._complete_async(
             system="Você é um analista empático de bem-estar emocional.",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200,

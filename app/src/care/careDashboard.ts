@@ -2,7 +2,6 @@ import { EMOTIONS, type EmotionKey } from '../data/emotions';
 import { DANGER, OK, WARN } from '../theme/palette';
 import type { CareDashboardSummary } from './careTypes';
 export { signalScore } from './careMetrics';
-import { signalScore } from './careMetrics';
 
 const NEGATIVE = new Set(['sad', 'angry', 'disgusted', 'fearful']);
 

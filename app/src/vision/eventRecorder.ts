@@ -84,6 +84,10 @@ export class VisionEventRecorder {
     return this.current?.eventId ?? null;
   }
 
+  get currentUserId() {
+    return this.userId ?? null;
+  }
+
   record(result: ExpressionEngineResult): VisionEventEnvelope[] {
     const nowMono = monotonicNow();
     const events: VisionEventEnvelope[] = [];

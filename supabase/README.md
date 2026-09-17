@@ -5,7 +5,8 @@ em Python só existe para o que exige chave secreta de provedor de IA.
 
 ## O que já está aplicado no projeto
 
-Estas tabelas já existem e estão em uso (verificado via REST):
+Estas tabelas fazem parte do contrato usado pelo app. As tabelas de telemetria
+também estão versionadas pela migration local deste repositório:
 
 | Tabela | Usada por |
 |---|---|
@@ -27,6 +28,16 @@ agregada usada pelos dashboards do cuidador. A última migration torna o acesso
 integral e automático para todo vínculo de cuidador aceito; o consentimento
 granular anterior fica somente como histórico interno. Aplique-as em ordem. Veja também
 [`../docs/caregiver-module.md`](../docs/caregiver-module.md).
+
+A migration `202609170001_vision_telemetry.sql` versiona `vision_intervals` e
+`vision_feedback`, com índices e RLS para o usuário autenticado. Foi aplicada
+ao projeto Supabase conectado em 17/09/2026, com versão de histórico
+`20260917143041` e nome `202609170001_vision_telemetry`. As tabelas já existiam;
+o DDL foi alinhado ao schema existente (`quality_reasons` em `jsonb` e chaves
+`id` identity). A verificação posterior confirmou 8.004 intervalos preservados,
+os índices novos e acesso `select`/`insert` para `authenticated` sob políticas
+de propriedade. O upload do app continua desligado por padrão até a validação
+com uma sessão autenticada real em um build de desenvolvimento.
 
 ## Segurança operacional
 

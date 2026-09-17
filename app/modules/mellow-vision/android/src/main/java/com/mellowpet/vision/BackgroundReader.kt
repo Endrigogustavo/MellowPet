@@ -49,7 +49,7 @@ internal class BackgroundReader(private val context: Context) {
   private val busy = AtomicBoolean(false)
 
   private var framesSeen = 0
-  private var best: Reading? = null
+  private val scoreSamples = mutableListOf<Map<String, Double>>()
   private var onDone: ((Reading?) -> Unit)? = null
   private var sensorOrientation = 270
 
@@ -72,7 +72,7 @@ internal class BackgroundReader(private val context: Context) {
     }
     onDone = callback
     framesSeen = 0
-    best = null
+    scoreSamples.clear()
 
     try {
       val thread = HandlerThread("mellow-bg-vision").also { it.start() }
@@ -162,6 +162,8 @@ internal class BackgroundReader(private val context: Context) {
           val request = device.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
             addTarget(imageReader.surface)
             set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+            set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+            set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
           }
           configured.setRepeatingRequest(request.build(), null, handler)
         }
@@ -183,29 +185,38 @@ internal class BackgroundReader(private val context: Context) {
     val matrix = Matrix().apply { postRotate(sensorOrientation.toFloat()) }
     val rotated = android.graphics.Bitmap
       .createBitmap(bitmap, 0, 0, width, height, matrix, true)
-    val mp: MPImage = BitmapImageBuilder(rotated).build()
+    try {
+      val mp: MPImage = BitmapImageBuilder(rotated).build()
+      val result: FaceLandmarkerResult = landmarker?.detect(mp) ?: return
+      if (result.faceLandmarks().isEmpty()) return
 
-    val result: FaceLandmarkerResult = landmarker?.detect(mp) ?: return
-    if (result.faceLandmarks().isEmpty()) return
+      val blendshapes = result.faceBlendshapes().orElse(emptyList())
+        .firstOrNull()
+        ?.associate { it.categoryName() to it.score().toDouble().coerceIn(0.0, 1.0) }
+        ?: return
 
-    val blendshapes = result.faceBlendshapes().orElse(emptyList())
-      .firstOrNull()
-      ?.associate { it.categoryName() to it.score().toDouble().coerceIn(0.0, 1.0) }
-      ?: return
-
-    val scores = BlendshapeScorer.score(blendshapes)
-    val (emotion, confidence) = BlendshapeScorer.top(scores)
-    // Guarda só a amostra mais confiante da rodada.
-    if (confidence > (best?.confidence ?: 0.0)) {
-      best = Reading(emotion, confidence, scores)
+      scoreSamples += BlendshapeScorer.score(blendshapes)
+    } finally {
+      if (rotated !== bitmap && !rotated.isRecycled) rotated.recycle()
+      if (!bitmap.isRecycled) bitmap.recycle()
     }
   }
 
   private fun deliver() {
-    val reading = best
+    val reading = aggregateReading()
     val callback = onDone
     finish(reading)
     callback?.invoke(reading)
+  }
+
+  private fun aggregateReading(): Reading? {
+    if (scoreSamples.size < MIN_VALID_SAMPLES) return null
+    val averaged = BlendshapeScorer.EXPRESSIONS.associateWith { expression ->
+      scoreSamples.sumOf { it[expression] ?: 0.0 } / scoreSamples.size
+    }
+    val (emotion, confidence) = BlendshapeScorer.top(averaged)
+    if (confidence < MIN_CONFIDENCE) return null
+    return Reading(emotion, confidence, averaged)
   }
 
   private fun finish(@Suppress("UNUSED_PARAMETER") reading: Reading?) {
@@ -240,6 +251,8 @@ internal class BackgroundReader(private val context: Context) {
     const val WIDTH = 640
     const val HEIGHT = 480
     const val MAX_FRAMES = 6
+    const val MIN_VALID_SAMPLES = 2
+    const val MIN_CONFIDENCE = 0.30
     const val TIMEOUT_MS = 6_000L
   }
 }

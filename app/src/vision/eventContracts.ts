@@ -36,6 +36,7 @@ export type VisionEventEnvelope = {
 export type VisionFeedback = {
   feedback_id: string;
   event_id: string;
+  user_id?: string;
   agreement: 'yes' | 'no' | 'unsure';
   self_reported_state?: string;
   corrected_observed_expression?: KnownVisualExpression;

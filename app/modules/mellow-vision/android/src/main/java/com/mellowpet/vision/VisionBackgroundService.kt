@@ -13,6 +13,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import android.content.pm.ServiceInfo
 
 /**
  * Leitura facial com o app fechado.
@@ -56,14 +57,22 @@ class VisionBackgroundService : Service() {
       ?.coerceIn(MIN_INTERVAL_MIN, MAX_INTERVAL_MIN)
       ?: DEFAULT_INTERVAL_MIN
 
-    startForeground(NOTIFICATION_ID, buildNotification(null))
+    val notification = buildNotification(null)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
+    } else {
+      startForeground(NOTIFICATION_ID, notification)
+    }
     reader = reader ?: BackgroundReader(this)
     handler.removeCallbacks(tick)
     // Primeira leitura com folga: deixa a notificação aparecer antes de
     // acender a câmera, para a pessoa ver o que começou.
     handler.postDelayed(tick, FIRST_DELAY_MS)
     scheduleWatchdog()
-    return START_STICKY
+    // A leitura em segundo plano é opt-in. Não ressuscitar o serviço depois de
+    // o processo ser morto evita câmera/bateria ativas sem uma nova ação do
+    // usuário e também evita perder o vínculo com a conta autenticada.
+    return START_NOT_STICKY
   }
 
   /** Fechar o app pelos recentes é onde a MIUI mais derruba serviço. */
@@ -149,6 +158,12 @@ class VisionBackgroundService : Service() {
     handler.removeCallbacks(tick)
     reader?.release()
     reader = null
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+      stopForeground(STOP_FOREGROUND_REMOVE)
+    } else {
+      @Suppress("DEPRECATION")
+      stopForeground(true)
+    }
     super.onDestroy()
   }
 

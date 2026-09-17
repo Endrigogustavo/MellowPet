@@ -61,6 +61,10 @@ const ENTRY_UPDATES = 2;
 const WARMUP_UPDATES = 1;
 const MIN_DISPLAY_CONFIDENCE = 0.25;
 const ABSTAIN_UPDATES = 2;
+const CALIBRATION_MIN_NEUTRAL = 0.6;
+const CALIBRATION_MAX_YAW = 0.3;
+const CALIBRATION_MAX_PITCH = 0.35;
+const CALIBRATION_MAX_ROLL = 0.3;
 // "Neutro" carrega um residual (1 - evidencia de outra classe) em vez de
 // evidencia direta propria, entao vence o ranking bruto com facilidade
 // mesmo havendo sinal real espalhado entre 2-3 emocoes. Precisa de uma
@@ -69,7 +73,7 @@ const ABSTAIN_UPDATES = 2;
 const NEUTRAL_ENTRY_SCORE = 0.8;
 const NEUTRAL_ENTRY_MARGIN = 0.15;
 
-export const EXPRESSION_CLASSIFIER_VERSION = 'expression-v3.3.0-instant-warmup';
+export const EXPRESSION_CLASSIFIER_VERSION = 'expression-v3.5.0-absolute-evidence';
 
 const average = (values: number[]) =>
   values.length ? values.reduce((sum, item) => sum + item, 0) / values.length : 0;
@@ -115,7 +119,7 @@ function bilateral(
  * Isso evita que um único coeficiente ruidoso (por exemplo mouthSmile) force
  * uma emoção e reduz as trocas entre classes visualmente parecidas.
  */
-export function scoreBlendshapes(source: Blendshapes): Scores {
+function scoreBlendshapeDetails(source: Blendshapes): { scores: Scores; evidence: Scores } {
   // Onset/saturation mais baixos nos AUs centrais de raiva/tristeza: uma
   // expressao genuina raramente ativa um blendshape acima de ~0.5-0.6, entao
   // saturar por volta desse ponto (em vez de ~0.68-0.7) evita descontar
@@ -230,7 +234,12 @@ export function scoreBlendshapes(source: Blendshapes): Scores {
     0.1 + 0.58 * Math.pow(1 - combinedEvidence, 1.9) * Math.max(0.25, 1 - 0.6 * activity) +
       0.2 * modelNeutral
   );
-  return normalize({ ...evidence, neutral });
+  const absolute = { ...evidence, neutral };
+  return { scores: normalize(absolute), evidence: absolute };
+}
+
+export function scoreBlendshapes(source: Blendshapes): Scores {
+  return scoreBlendshapeDetails(source).scores;
 }
 
 export function computeTensionSignal(source: Blendshapes) {
@@ -254,6 +263,7 @@ export class ExpressionEngine {
   private baseline: Blendshapes | null = null;
   private votes: Scores[] = [];
   private ema: Scores | null = null;
+  private evidenceEma: Scores | null = null;
   private current: ObservedExpression | null = null;
   private pending: ObservedExpression | null = null;
   private pendingCount = 0;
@@ -300,14 +310,27 @@ export class ExpressionEngine {
 
   process(frame: VisionFramePayload): ExpressionEngineResult {
     if (frame.status !== 'ready') {
-      this.pending = null;
-      this.pendingCount = 0;
-      this.warmupCount = 0;
+      this.resetTemporal();
       return this.result(frame, 'unknown', frame.status, 0, { ...ZERO_SCORES }, null);
     }
 
     if (this.calibrationActive) {
-      this.calibrationBuffer.push({ ...frame.blendshapes });
+      const neutralScores = scoreBlendshapes(frame.blendshapes);
+      const stablePose =
+        Math.abs(frame.yaw) <= CALIBRATION_MAX_YAW &&
+        Math.abs(frame.pitch) <= CALIBRATION_MAX_PITCH &&
+        Math.abs(frame.roll) <= CALIBRATION_MAX_ROLL;
+      // Uma linha de base gravada enquanto o rosto está sorrindo, virado ou
+      // piscando remove exatamente o sinal que o classificador precisa. Só
+      // aceita frames de boa qualidade, pose estável e expressão realmente
+      // neutra; os demais não contam para completar a sessão.
+      if (
+        frame.qualityScore >= 0.65 &&
+        stablePose &&
+        neutralScores.neutral >= CALIBRATION_MIN_NEUTRAL
+      ) {
+        this.calibrationBuffer.push({ ...frame.blendshapes });
+      }
       if (this.calibrationBuffer.length >= CALIBRATION_FRAMES) {
         const keys = new Set(this.calibrationBuffer.flatMap((snapshot) => Object.keys(snapshot)));
         this.baseline = Object.fromEntries(
@@ -321,10 +344,18 @@ export class ExpressionEngine {
     }
 
     const corrected = this.subtractBaseline(frame.blendshapes);
-    const rawScores = scoreBlendshapes(corrected);
+    const { scores: rawScores, evidence: rawEvidence } = scoreBlendshapeDetails(corrected);
     const voted = this.vote(rawScores);
     const topRaw = Math.max(...EXPRESSIONS.map((expression) => voted[expression]));
     const alpha = clip(0.38 + 0.34 * frame.qualityScore + 0.2 * topRaw);
+    this.evidenceEma = this.evidenceEma
+      ? Object.fromEntries(
+          EXPRESSIONS.map((expression) => [
+            expression,
+            (1 - alpha) * this.evidenceEma![expression] + alpha * rawEvidence[expression],
+          ])
+        ) as Scores
+      : rawEvidence;
     this.ema = this.ema
       ? normalize(
           Object.fromEntries(
@@ -406,7 +437,16 @@ export class ExpressionEngine {
       this.ambiguityCount += 1;
     }
 
-    const confidence = clip(this.ema[this.current]);
+    const rankingConfidence = clip(this.ema[this.current]);
+    const evidenceConfidence = clip(this.evidenceEma[this.current]);
+    const currentRank = ranking.indexOf(this.current);
+    const currentRunnerUp = ranking[currentRank === 0 ? 1 : 0];
+    const currentMargin = this.ema[this.current] - this.ema[currentRunnerUp];
+    const marginConfidence = clip(currentMargin / 0.4);
+    // Ranking sozinho não mede força do sinal; mistura-o com evidência pré-
+    // normalização e separação da segunda classe. Ainda não é probabilidade
+    // calibrada, o que exige validação contra exemplos humanos rotulados.
+    const confidence = clip(0.55 * rankingConfidence + 0.25 * marginConfidence + 0.2 * evidenceConfidence);
     const uncertain =
       confidence < MIN_DISPLAY_CONFIDENCE ||
       this.ambiguityCount >= ABSTAIN_UPDATES;
@@ -453,6 +493,7 @@ export class ExpressionEngine {
   private resetTemporal() {
     this.votes = [];
     this.ema = null;
+    this.evidenceEma = null;
     this.current = null;
     this.pending = null;
     this.pendingCount = 0;

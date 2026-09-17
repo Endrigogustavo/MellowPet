@@ -85,14 +85,21 @@ export function triggerInsights(rows: EmotionRow[]): string[] {
 }
 
 export async function fetchEmotionEvents(targetUserId: string, sinceMs: number): Promise<EmotionRow[]> {
-  const { data, error } = await supabase
-    .from('emotion_events')
-    .select('emotion, created_at')
-    .eq('user_id', targetUserId)
-    .gte('created_at', new Date(sinceMs).toISOString())
-    .order('created_at', { ascending: true });
-  if (error || !data) return [];
-  return data;
+  const pageSize = 500;
+  const rows: EmotionRow[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('emotion_events')
+      .select('emotion, created_at')
+      .eq('user_id', targetUserId)
+      .gte('created_at', new Date(sinceMs).toISOString())
+      .order('created_at', { ascending: true })
+      .order('event_id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error || !data) throw error ?? new Error('Não foi possível carregar o histórico emocional.');
+    rows.push(...data);
+    if (data.length < pageSize) return rows;
+  }
 }
 
 /** Assina inserções novas em emotion_events para o usuário-alvo — é o que

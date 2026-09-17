@@ -1,7 +1,7 @@
 """Testes dos middlewares de seguranca, com requisicoes reais.
 
-Monta um app minimo em vez de importar o main.py: assim os testes rodam sem
-TensorFlow/DeepFace instalados e continuam exercitando o codigo de verdade.
+Monta um app mínimo em vez de importar o main.py: assim os testes exercitam
+os middlewares sem depender de provedores externos ou chaves de IA.
 """
 import pytest
 from fastapi import FastAPI

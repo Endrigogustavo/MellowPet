@@ -7,7 +7,7 @@ import { Card, ScreenTitle, Touchable, Txt } from '../components/ui';
 import { ICONS } from '../data/content';
 import { useApp, useTheme, type Screen } from '../state/AppContext';
 
-const STEPS: Array<[string, string, Screen, string]> = [
+const STEPS: [string, string, Screen, string][] = [
   ['Confirme a conexão', 'Depois que o convite é aceito, o cuidador tem acesso integral ao módulo de cuidado enquanto o vínculo estiver ativo.', 'settings', ICONS.shield],
   ['Use padrões, não conclusões', 'Os painéis mostram leituras agregadas. Eles não são diagnóstico e não explicam a causa de uma emoção.', 'dashboard', ICONS.book],
   ['Prefira um check-in respeitoso', 'Diante de um alerta ou mudança, pergunte como a pessoa está e combine o próximo passo.', 'agenda', ICONS.heart],

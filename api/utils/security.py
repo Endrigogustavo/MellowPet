@@ -21,6 +21,7 @@ from collections import defaultdict, deque
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from config import settings
 from utils.logger import setup_logger
@@ -41,26 +42,74 @@ def _is_public(path: str) -> bool:
     return path in settings.public_paths
 
 
-class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
-    """Corta corpos acima do limite antes que cheguem ao handler."""
+class RequestSizeLimitMiddleware:
+    """Corta corpos grandes antes do handler, inclusive requests chunked.
 
-    async def dispatch(self, request: Request, call_next):
-        content_length = request.headers.get("content-length")
-        if content_length:
+    Content-Length é só uma otimização: clientes podem omiti-lo e enviar o
+    corpo em chunks. Nessa situação o middleware acumula no máximo um corpo
+    permitido mais o chunk que ultrapassou o limite e só então entrega o
+    request ao app, evitando bypass sem introduzir leitura ilimitada.
+    """
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    @staticmethod
+    async def _reject(send: Send, status_code: int, message: str) -> None:
+        body = (message + "\n").encode("utf-8")
+        await send({
+            "type": "http.response.start",
+            "status": status_code,
+            "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())],
+        })
+        await send({"type": "http.response.body", "body": body})
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = dict(scope.get("headers", []))
+        raw_length = headers.get(b"content-length")
+        if raw_length is not None:
             try:
-                if int(content_length) > settings.max_request_bytes:
-                    # 413 literal: o nome da constante mudou entre versoes do
-                    # Starlette (REQUEST_ENTITY_TOO_LARGE -> CONTENT_TOO_LARGE).
-                    return JSONResponse(
-                        status_code=413,
-                        content={"error": "Request body too large"},
-                    )
+                if int(raw_length) > settings.max_request_bytes:
+                    await self._reject(send, 413, '{"error":"Request body too large"}')
+                    return
             except ValueError:
-                return JSONResponse(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    content={"error": "Invalid Content-Length header"},
-                )
-        return await call_next(request)
+                await self._reject(send, 400, '{"error":"Invalid Content-Length header"}')
+                return
+            await self.app(scope, receive, send)
+            return
+
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            message: Message = await receive()
+            if message["type"] == "http.disconnect":
+                return
+            if message["type"] != "http.request":
+                continue
+            chunk = message.get("body", b"")
+            total += len(chunk)
+            if total > settings.max_request_bytes:
+                await self._reject(send, 413, '{"error":"Request body too large"}')
+                return
+            chunks.append(chunk)
+            if not message.get("more_body", False):
+                break
+
+        body = b"".join(chunks)
+        delivered = False
+
+        async def replay_receive() -> Message:
+            nonlocal delivered
+            if delivered:
+                return {"type": "http.disconnect"}
+            delivered = True
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        await self.app(scope, replay_receive, send)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

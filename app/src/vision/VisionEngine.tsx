@@ -20,6 +20,7 @@ import {
 import { ExpressionEngine } from './expressionEngine';
 import { VISION_FLAGS } from './featureFlags';
 import { qualityGuidance, VisionTelemetry } from './telemetry';
+import { setBackgroundVision } from './backgroundVision';
 
 const APP_STATE_INTERVAL_MS = 250;
 const TELEMETRY_INTERVAL_MS = 500;
@@ -33,20 +34,22 @@ export const NATIVE_PIPELINE_AVAILABLE = isMellowVisionAvailable && VISION_FLAGS
 // contexto global.
 let engineSingleton: ExpressionEngine | null = null;
 let eventRecorderSingleton: VisionEventRecorder | null = null;
-let baselineSaved = false;
+let baselineSavedForUser: string | null = null;
 
 export function beginCalibration() {
   if (!engineSingleton) return;
   engineSingleton.beginCalibration();
-  baselineSaved = false;
+  baselineSavedForUser = null;
 }
 
 export function submitVisionFeedback(agreement: 'yes' | 'no' | 'unsure'): boolean {
   const eventId = eventRecorderSingleton?.currentEventId;
-  if (!eventId || !VISION_FLAGS.feedbackEnabled || !VISION_EVENT_UPLOAD_ENABLED) return false;
+  const userId = eventRecorderSingleton?.currentUserId;
+  if (!eventId || !userId || !VISION_FLAGS.feedbackEnabled || !VISION_EVENT_UPLOAD_ENABLED) return false;
   enqueueVisionFeedback({
     feedback_id: createVisionId('feedback'),
     event_id: eventId,
+    user_id: userId,
     agreement,
     created_at: new Date().toISOString(),
   })
@@ -76,7 +79,10 @@ export function VisionEngine() {
       )
   );
   const [appForeground, setAppForeground] = useState(() => AppState.currentState === 'active');
-  const baselineLoadedRef = useRef(false);
+  const baselineLoadedRef = useRef<string | null>(null);
+  const baselineSaveInFlightRef = useRef<Promise<void> | null>(null);
+  const currentUserIdRef = useRef(state.userId);
+  currentUserIdRef.current = state.userId;
   const lastSignalCommitRef = useRef({
     expression: 'unknown',
     status: 'warming_up',
@@ -86,9 +92,18 @@ export function VisionEngine() {
   });
   const lastTelemetryCommitAtRef = useRef(0);
 
+  const finishRecorder = useCallback(() => {
+    const event = eventRecorder.finish();
+    if (!event) return;
+    enqueueVisionEvent(event)
+      .then(() => flushVisionQueue())
+      .catch(() => undefined);
+  }, [eventRecorder]);
+
   useEffect(() => {
     eventRecorder.setUserId(state.userId ?? undefined);
-  }, [eventRecorder, state.userId]);
+    return finishRecorder;
+  }, [eventRecorder, finishRecorder, state.userId]);
 
   useEffect(() => {
     // O Android pode revogar o acesso à câmera quando o app vai pra segundo
@@ -100,10 +115,14 @@ export function VisionEngine() {
     // nativo a fechar e reconstruir a sessão do zero (mesmo caminho de
     // `updateActive`), o que resolve sozinho.
     const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') finishRecorder();
       setAppForeground(nextState === 'active');
     });
-    return () => subscription.remove();
-  }, []);
+    return () => {
+      subscription.remove();
+      finishRecorder();
+    };
+  }, [finishRecorder]);
 
   useEffect(() => {
     engineSingleton = engine;
@@ -118,24 +137,46 @@ export function VisionEngine() {
     // Uma conta puramente cuidadora nunca rastreia a própria expressão —
     // não faz sentido pedir permissão de câmera nem rodar o pipeline até a
     // pessoa entrar no "modo pessoal" (ver actions.setRole em AppContext).
-    if (!NATIVE_PIPELINE_AVAILABLE || state.role !== 'user') return;
+    if (!NATIVE_PIPELINE_AVAILABLE || !state.userId || state.role !== 'user') return;
     if (!permission?.granted && permission?.canAskAgain !== false) {
       requestPermission().catch(() => undefined);
     }
-  }, [permission, requestPermission, state.role]);
+  }, [permission, requestPermission, state.role, state.userId]);
 
   useEffect(() => {
-    if (baselineLoadedRef.current) return;
-    baselineLoadedRef.current = true;
-    loadCalibrationBaseline()
+    const userId = state.userId;
+    if (!userId) {
+      baselineLoadedRef.current = null;
+      baselineSavedForUser = null;
+      engine.clearCalibration();
+      actions.set({ calibration: engine.getCalibrationState() });
+      return;
+    }
+    if (baselineLoadedRef.current === userId) return;
+    baselineLoadedRef.current = userId;
+    baselineSavedForUser = null;
+    engine.clearCalibration();
+    loadCalibrationBaseline(userId)
       .then((baseline) => {
+        if (currentUserIdRef.current !== userId) return;
         if (!baseline) return;
         engine.importBaseline(baseline);
-        baselineSaved = true;
+        baselineSavedForUser = userId;
         actions.set({ calibration: engine.getCalibrationState() });
       })
       .catch(() => undefined);
-  }, [actions, engine]);
+  }, [actions, engine, state.userId]);
+
+  useEffect(() => {
+    // Não apague o opt-in persistido antes de restaurar a sessão.
+    if (!state.authRestored) return;
+    if (state.userId && state.role === 'user') return;
+    setBackgroundVision(false);
+  }, [state.authRestored, state.role, state.userId]);
+
+  useEffect(() => {
+    if (state.role !== 'user') finishRecorder();
+  }, [finishRecorder, state.role]);
 
   useEffect(() => {
     if (!VISION_EVENT_UPLOAD_ENABLED) return;
@@ -149,11 +190,11 @@ export function VisionEngine() {
       const result = engine.process(nativeEvent);
       telemetry.record(nativeEvent, result);
       const intervalEvents = eventRecorder.record(result);
-      intervalEvents.forEach((event) => {
-        enqueueVisionEvent(event)
+      if (intervalEvents.length > 0) {
+        Promise.all(intervalEvents.map((event) => enqueueVisionEvent(event)))
           .then(() => flushVisionQueue())
           .catch(() => undefined);
-      });
+      }
 
       const now = Date.now();
       const previous = lastSignalCommitRef.current;
@@ -210,17 +251,28 @@ export function VisionEngine() {
       });
       actions.set((s) => (s.visionNativeError === null ? {} : { visionNativeError: null }));
 
-      if (result.calibration.complete && !baselineSaved) {
+      if (
+        result.calibration.complete &&
+        state.userId &&
+        baselineSavedForUser !== state.userId &&
+        !baselineSaveInFlightRef.current
+      ) {
         const baseline = engine.exportBaseline();
         if (baseline) {
-          baselineSaved = true;
-          saveCalibrationBaseline(baseline).catch(() => {
-            baselineSaved = false;
-          });
+          const userId = state.userId;
+          const save = saveCalibrationBaseline(userId, baseline)
+            .then(() => {
+              if (currentUserIdRef.current === userId) baselineSavedForUser = userId;
+            })
+            .catch(() => undefined)
+            .finally(() => {
+              baselineSaveInFlightRef.current = null;
+            });
+          baselineSaveInFlightRef.current = save;
         }
       }
     },
-    [actions, engine, eventRecorder, telemetry]
+    [actions, engine, eventRecorder, state.userId, telemetry]
   );
 
   const onVisionError = useCallback(
@@ -243,7 +295,7 @@ export function VisionEngine() {
     [actions]
   );
 
-  if (!NATIVE_PIPELINE_AVAILABLE || !permission?.granted || state.role !== 'user') return null;
+  if (!NATIVE_PIPELINE_AVAILABLE || !permission?.granted || !state.userId || state.role !== 'user') return null;
 
   // Em qualquer tela fora da de câmera, fica minúsculo e fora da área
   // visível — o pipeline continua rodando (é isso que faz o bichinho reagir
@@ -258,7 +310,7 @@ export function VisionEngine() {
     >
       <MellowVisionView
         active={appForeground}
-        maxFps={10}
+        maxFps={onVisionScreen ? 10 : 5}
         mirror
         showPreview={onVisionScreen}
         onVisionResult={onVisionResult}

@@ -4,8 +4,8 @@ Bem-vindo ao MellowPet! Um sistema completo de identificação emocional em temp
 
 ## O que é MellowPet?
 
-MellowPet é uma plataforma integrada de detecção contínua de expressões faciais que combina:
-- **Análise emocional em tempo real** com modelos de Deep Learning
+MellowPet é uma plataforma integrada de leitura local de expressões faciais que combina:
+- **Análise visual em tempo real** com MediaPipe Face Landmarker e classificador temporal no dispositivo
 - **Pet virtual interativo** que reage às suas emoções
 - **Insights comportamentais** gerados por IA
 - **Alertas inteligentes** para emoções negativas prolongadas
@@ -28,7 +28,7 @@ A ideia do MellowPet nasceu da necessidade de criar ferramentas acessíveis para
 ## Modelo
 
 MellowPet segue um modelo **modular e extensível**:
-- **API Backend**: serviço centralizado de análise emocional
+- **API Backend**: chat e insights que exigem chaves secretas de IA
 - **App Mobile**: interface intuitiva com pet virtual
 - **Dispositivos IoT**: suporte para Raspberry Pi e outros dispositivos
 - **Integração com IA**: Claude API para insights contextualizados
@@ -72,7 +72,6 @@ mellowpet/
 │   ├── routers/          # Endpoints da API
 │   ├── services/         # Lógica de negócio
 │   └── utils/
-│       ├── database.py   # SQLite + tabelas
 │       ├── logger.py     # Logging
 │       └── security.py   # API key, rate limit, limite de corpo
 ├── app/                  # App React Native (Expo)
@@ -185,20 +184,15 @@ adb reverse tcp:8000 tcp:8000
 ## Funcionalidades Implementadas
 
 ### API
-- `POST /api/v1/emotion/analyze` — Análise de frames em tempo real
-- `GET /api/v1/history/` — Histórico de eventos emocionais
-- `GET /api/v1/history/summary` — Resumo por período
-- `GET /api/v1/dashboard/overview` — Dashboard completo com IA
+- `POST /api/v1/dashboard/insight` — Insight sobre métricas calculadas no app
 - `POST /api/v1/chat/` — Chat empático contextualizado
-- `POST /api/v1/alerts/emotion` — Alertas de emoção negativa
-- `POST /api/v1/alerts/no-face` — Alerta sem rosto detectado (10min)
-- Banco SQLite com persistência de eventos
+- `GET /api/v1/tools/*` — Conteúdo estático de apoio
 - Logs estruturados, tratamento de erros
 - Documentação Swagger automática
 
 ### App Mobile
-- Câmera rodando em background (invisível)
-- Análise a cada 700ms sem interação do usuário
+- Câmera e Face Landmarker rodando localmente no dispositivo, sem envio de pixels
+- Classificação temporal com qualidade, calibração e abstinência
 - Pet virtual animado (cachorro e gato) em SVG
 - Animações por emoção: bounce, shake, pulse, float
 - Badge com emoção + confiança + mensagem empática
@@ -207,7 +201,7 @@ adb reverse tcp:8000 tcp:8000
 - Insight gerado por IA
 - Chat empático (integrado com API)
 - Configurações: nome/tipo do pet, contatos de emergência, alertas
-- Estado global com Zustand
+- Estado global com React Context e reducer com bailout de atualizações iguais
 - Design system completo (branco gelo, tipografia, espaçamentos)
 
 ### IoT
@@ -221,18 +215,16 @@ adb reverse tcp:8000 tcp:8000
 ## Arquitetura
 
 ```
-┌──────────────┐     frame (base64)     ┌──────────────┐
-│  App Mobile  │ ──────────────────────▶│  FastAPI     │
-│  React Native│ ◀─────────────────────│  (Python)    │
-└──────────────┘   emotion + message    │              │
-                                        │  DeepFace /  │
-┌──────────────┐     frame (base64)     │  OpenCV      │
-│  IoT Device  │ ──────────────────────▶│              │
-│  Raspberry Pi│ ◀─────────────────────│  Anthropic   │
-└──────────────┘   emotion + LEDs       │  Claude API  │
-                                        └──────────────┘
-                                               │
-                                         SQLite DB
+┌──────────────┐  landmarks/blendshapes  ┌────────────────────┐
+│  App Mobile  │ ──────────────────────▶ │ Classificador local │
+│ React Native │ ◀────────────────────── │ temporal + qualidade│
+└──────┬───────┘                         └─────────┬──────────┘
+       │ eventos agregados sob RLS                  │ chat/insight
+       ▼                                             ▼
+┌──────────────┐                             ┌──────────────┐
+│   Supabase   │                             │   FastAPI    │
+│ dados + auth │                             │ provedores IA│
+└──────────────┘                             └──────────────┘
 ```
 
 ---
@@ -251,9 +243,9 @@ O sistema funciona sem IA configurada (modo fallback), mas para:
 
 | Camada | Stack |
 |--------|-------|
-| API | Python 3.11+, FastAPI, DeepFace, OpenCV, SQLite |
-| App | React Native 0.81, TypeScript, Zustand, React Navigation, Expo |
-| IA | Anthropic Claude API, OpenAI API |
+| API | Python 3.11+, FastAPI, Pydantic, SDKs de IA |
+| App | React Native 0.81, TypeScript, React Context, React Navigation, Expo |
+| IA | Gemini, Anthropic e OpenAI opcionais |
 | IoT | Raspberry Pi 5, Python, rpi_ws281x, pygame |
 
 ### Topologia de Componentes
@@ -293,9 +285,9 @@ O sistema funciona sem IA configurada (modo fallback), mas para:
 |---------|---------------|
 | FastAPI | Performance, async nativo, documentação automática |
 | React Native + Expo | Cross-platform, desenvolvimento rápido, hot reload |
-| SQLite | Leve, sem dependências externas, ideal para MVP |
-| DeepFace | Modelos pré-treinados, alta precisão em detecção emocional |
-| Zustand | State management simples e eficiente |
+| MediaPipe local | Pixels não precisam sair do dispositivo |
+| Supabase RLS | Dados por usuário e sincronização controlada |
+| FastAPI | Interface pequena para operações que exigem segredo |
 | Claude API | IA empática e contextualizada para insights |
 
 ### Roadmap
@@ -349,8 +341,8 @@ Controles implementados e verificáveis no código:
 - **Não há autenticação de usuário.** Quem tiver a API key e um `session_id`
   válido lê o histórico daquela sessão. A key vai embutida no app e é extraível
   de um APK, então ela barra terceiros, não usuários do próprio app.
-- **Dados não são criptografados em repouso.** O SQLite guarda histórico
-  emocional em texto claro; proteja o volume.
+- **Dados agregados dependem das políticas RLS do Supabase.** Revise migrations,
+  índices e políticas antes de usar dados reais.
 - **O rate limit é por processo.** Com várias réplicas, use o gateway ou Redis.
 
 Antes de tratar dados de pessoas reais, implemente login e isolamento por conta.
