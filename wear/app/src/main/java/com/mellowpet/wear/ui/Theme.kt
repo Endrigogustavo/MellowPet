@@ -33,11 +33,13 @@ object Mellow {
   val TextMid = Color(0xFFC7B4D0)
   val TextLow = Color(0xFF9B8AA6)
 
-  /** Foca no tema escuro: creme com traco roxo, nao a cinza do tema claro. */
-  val SealBody = Color(0xFFF6EAE0)
-  val SealBelly = Color(0xFFE7C9B6)
-  val SealLine = Color(0xFF4A3550)
-  val SealWhisker = Color(0xFFA98FA6)
+  /** Cores originais do bichinho, como no arquivo de design: a foca cinza
+   * (#A8B0B4) com traco quase preto. Nao e o tom creme do tema escuro do
+   * celular — o design do relogio mantem o pet na cor dele. */
+  val SealBody = Color(0xFFA8B0B4)
+  val SealBelly = Color(0xFF99A0A4)
+  val SealLine = Color(0xFF2E2A33)
+  val SealWhisker = Color(0xFF6B6470)
   val Blush = Color(0xFFF0A0AC)
 }
 

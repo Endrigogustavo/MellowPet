@@ -17,14 +17,66 @@ export function pushStateToWatch(
   emotion: EmotionKey,
   level: number,
   streak: number,
-  checkedInToday: boolean
+  checkedInToday: boolean,
+  hoursSinceReading = -1,
+  caregiver: { name: string; phone: string | null } | null = null
 ): void {
   if (!MellowWear) return;
   try {
-    MellowWear.pushState(emotion, level, streak, checkedInToday);
+    MellowWear.pushState(
+      emotion,
+      level,
+      streak,
+      checkedInToday,
+      hoursSinceReading,
+      caregiver?.name ?? null,
+      caregiver?.phone ?? null
+    );
   } catch {
     // Sem relógio pareado o Data Layer rejeita; não é erro para o usuário.
   }
+}
+
+/** Alimenta a tela de música do relógio. */
+export function pushNowPlayingToWatch(
+  track: string | null,
+  playlist: string | null,
+  playing: boolean
+): void {
+  if (!MellowWear) return;
+  try {
+    MellowWear.pushNowPlaying(track, playlist, playing);
+  } catch {
+    // idem
+  }
+}
+
+/** Comandos de mídia do relógio consideram-se velhos depois disto. Pausar
+ * meio minuto atrasado é pior do que não pausar. */
+const MEDIA_COMMAND_MAX_AGE_MS = 30_000;
+
+export type WatchMediaCommand = 'toggle' | 'next' | 'prev';
+
+/**
+ * Lê o último comando de mídia que o relógio mandou, se ainda for recente.
+ *
+ * Só funciona com o app do celular rodando: quem fala com o Spotify é o App
+ * Remote, que vive neste processo. Com o app fechado o comando se perde — e é
+ * o comportamento certo para controle de mídia.
+ */
+export function takeWatchMediaCommand(): WatchMediaCommand | null {
+  if (!MellowWear) return null;
+  let raw: string;
+  try {
+    raw = MellowWear.takeWatchMediaCommand();
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  const [command, ageRaw] = raw.split(':');
+  const age = Number(ageRaw);
+  if (!Number.isFinite(age) || age > MEDIA_COMMAND_MAX_AGE_MS) return null;
+  return command === 'toggle' || command === 'next' || command === 'prev' ? command : null;
 }
 
 function isValid(raw: unknown): raw is WatchCheckin {
@@ -61,10 +113,15 @@ export async function syncWatchCheckins(userId: string): Promise<number> {
   let saved = 0;
   for (const c of valid) {
     try {
+      // Nota ditada tem prioridade sobre o batimento: é o que a pessoa disse.
+      const note = c.note?.trim()
+        ? c.note.trim()
+        : c.heartRate
+          ? `${c.heartRate} bpm no relógio`
+          : '';
       await createCheckin(userId, {
         emotion: c.emotion as EmotionKey,
-        // O relógio não tem teclado; a nota fica para o celular.
-        note: c.heartRate ? `${c.heartRate} bpm no relógio` : '',
+        note,
         tags: [],
         sleepQuality: null,
         // A câmera não existe no relógio — não há leitura para comparar, e

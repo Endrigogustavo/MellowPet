@@ -8,13 +8,26 @@ export type WatchCheckin = {
   source: 'watch';
   /** Batimentos no instante do check-in, quando o sensor deu leitura. */
   heartRate?: number;
+  /** Frase ditada no relógio, quando veio do diário por voz. */
+  note?: string;
   tags?: string[];
 };
 
 export declare class MellowWearModule extends NativeModule<Record<string, never>> {
   /** JSON com os check-ins recebidos do relógio. Esvazia a fila nativa. */
   drainWatchCheckins(): string;
-  pushState(emotion: string, level: number, streak: number, checkedInToday: boolean): boolean;
+  pushState(
+    emotion: string,
+    level: number,
+    streak: number,
+    checkedInToday: boolean,
+    hoursSinceReading: number,
+    caregiverName: string | null,
+    caregiverPhone: string | null
+  ): boolean;
+  pushNowPlaying(trackName: string | null, playlistName: string | null, playing: boolean): boolean;
+  /** `"comando:idadeEmMs"`, ou `""` se o relógio não mandou nada. */
+  takeWatchMediaCommand(): string;
   connectedWatches(): Promise<number>;
 }
 

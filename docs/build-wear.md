@@ -7,32 +7,44 @@ React Native não roda em Wear OS, e desde o Wear OS 2 o Google descontinuou o
 
 ## O que ele faz
 
-Implementa o arquivo `MellowPet Watch.dc.html` do projeto de design. As telas
-ficam lado a lado — deslize na horizontal:
+Implementa o arquivo `MellowPet Watch.dc.html` do projeto de design — as doze
+telas. Onze ficam lado a lado no app (deslize na horizontal); a décima segunda
+é o Tile, que por definição vive fora dele.
 
 | # | Tela | O que faz |
 |---|---|---|
 | 1 | **Mostrador** | hora, data, batimento, emoção e o Mellow; anel = sequência |
-| 2 | **Humor** | o Mellow grande; anel = precisão da leitura; toque faz carinho |
+| 2 | **Humor** | o Mellow em tela cheia; anel = precisão; toque faz carinho |
 | 3 | **Check-in** | as carinhas em volta do círculo; toque registra |
 | 4 | **Respiração** | 4-4-4, cinco ciclos, **vibrando a cada fase** |
-| 5 | **Batimento** | bpm grande, gráfico das últimas leituras, faixa |
-| 6 | **Foco** | 25 min; anel grosso, como o design pede |
+| 5 | **Música** | faixa do Spotify, equalizador e controles |
+| 6 | **Batimento** | bpm grande, gráfico das últimas leituras, faixa |
+| 7 | **Foco** | 25 min; anel grosso, como o design pede |
+| 8 | **Diário por voz** | dita uma frase; vira nota do check-in |
+| 9 | **Lembrete do pet** | quando passa muito tempo sem leitura |
+| 10 | **Alerta do cuidador** | no pulso de quem acompanha |
+| 11 | **Ajuda agora** | disca o CVV 188 e o cuidador |
+| — | **Bloco de atalhos** | o **Tile**, a um deslize do mostrador |
 
 Mais um **Tile** com o estado, e fila local: o check-in feito longe do celular
 sobe quando reconectar.
 
-### Telas do design que ainda não existem
+### Diferenças deliberadas
 
-Cada uma depende de algo que o app ainda não tem, e nenhuma é só desenho:
+- O **diário por voz** usa o reconhecedor do próprio sistema, não gravação
+  nossa: o que volta é só o texto, nenhum áudio sai do relógio. Num app de dado
+  emocional, isso é a diferença entre guardar uma frase e guardar a voz de
+  alguém.
+- O **Foco** é só o cronômetro. Silenciar notificações de verdade exige a
+  permissão de Não Perturbe, um pedido grande para o que entrega.
+- O **Ajuda agora** é uma tela sempre acessível; o atalho de cinco toques no
+  botão que o design menciona é o SOS do próprio Wear OS, fora do alcance de
+  um app.
+- A **música** depende do app do celular estar aberto: quem fala com o Spotify
+  é o App Remote, que vive naquele processo. Com ele fechado o comando se
+  perde — e é o certo para controle de mídia.
 
-- **Música** — precisa controlar o Spotify do celular a partir do relógio.
-- **Diário por voz** — precisa de reconhecimento de fala.
-- **Lembrete do pet** e **Alerta do cuidador** — são notificações disparadas
-  pelo celular, não telas que o relógio abre sozinho.
-- **Ajuda agora** — o atalho de 5 toques no botão é configuração do sistema.
-
-E uma diferença deliberada: o design mostra **seis** emoções no check-in; aqui
+E: o design mostra **seis** emoções no check-in; aqui
 são as **sete** que o app registra. Tirar uma para o círculo fechar em 60°
 deixaria o relógio incapaz de anotar algo que o celular anota, e furaria a
 estatística do mapa emocional.
@@ -186,8 +198,8 @@ No mostrador, deslize para a esquerda até o fim → **+** → escolha **Mellow*
   bichinho desenha, o seletor de emoções funciona e os batimentos medem. O que
   **não** foi validado é a entrega ao celular: o Data Layer precisa dos dois
   aparelhos conectados ao mesmo tempo, e o celular não estava disponível.
-- O bichinho é sempre a **foca**. O celular ainda não envia qual pet o dono
-  escolheu.
+- O bichinho é sempre a **foca**, na cor original do design (#A8B0B4). O
+  celular ainda não envia qual pet o dono escolheu.
 - O anel do mostrador mostra a **sequência de dias**, não o índice de bem-estar
   que o design pede: esse número é calculado no celular e ainda não é enviado.
 - A faixa da tela de batimento vem do **bpm medido**, não da tabela de

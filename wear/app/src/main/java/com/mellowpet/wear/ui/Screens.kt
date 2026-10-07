@@ -48,7 +48,7 @@ import kotlin.math.sin
  * O indicador de pagina do Scaffold ocupa a base da tela. Sem reservar esse
  * espaco o conteudo encosta nele — foi o que cortou o bichinho do mostrador.
  */
-private val INDICATOR_SPACE = 16.dp
+val INDICATOR_SPACE = 16.dp
 
 /* ── mostrador ──────────────────────────────────────────────────────────── */
 
@@ -106,8 +106,9 @@ fun DialScreen(
 fun MoodScreen(emotion: Emotion, confidence: Float, pets: Int, onPet: () -> Unit) {
   WatchScreen(ringProgress = confidence, ringColor = emotion.color) {
     Column(
-      modifier = Modifier.padding(bottom = INDICATOR_SPACE),
+      modifier = Modifier.fillMaxSize().padding(bottom = INDICATOR_SPACE),
       horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.Center,
     ) {
       Text(
         text = "O MELLOW SENTE",
@@ -115,8 +116,10 @@ fun MoodScreen(emotion: Emotion, confidence: Float, pets: Int, onPet: () -> Unit
         fontWeight = FontWeight.Bold,
         color = Mellow.TextMid,
       )
+      // Tela cheia: o bichinho ocupa a largura do circulo, nao um medalhao
+      // no meio dela.
       Box(modifier = Modifier.clickable(onClick = onPet)) {
-        PetFace(emotion = emotion, size = d(112f))
+        PetFace(emotion = emotion, size = d(172f))
       }
       Text(
         text = emotion.label,

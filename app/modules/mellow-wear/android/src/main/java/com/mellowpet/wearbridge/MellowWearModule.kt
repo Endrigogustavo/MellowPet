@@ -32,13 +32,17 @@ class MellowWearModule : Module() {
      * valor util se chegar agora; sem isso o sistema pode segurar a entrega por
      * minutos para poupar bateria.
      */
-    Function("pushState") { emotion: String, level: Int, streak: Int, checkedInToday: Boolean ->
+    Function("pushState") { emotion: String, level: Int, streak: Int, checkedInToday: Boolean,
+                            hoursSinceReading: Int, caregiverName: String?, caregiverPhone: String? ->
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
       val request = PutDataMapRequest.create(PATH_STATE).apply {
         dataMap.putString("emotion", emotion)
         dataMap.putInt("level", level)
         dataMap.putInt("streak", streak)
         dataMap.putBoolean("checkedInToday", checkedInToday)
+        dataMap.putInt("hoursSinceReading", hoursSinceReading)
+        dataMap.putString("caregiverName", caregiverName ?: "")
+        dataMap.putString("caregiverPhone", caregiverPhone ?: "")
         // O Data Layer descarta um put identico ao anterior; sem um campo que
         // sempre muda, reenviar o mesmo humor nao acordaria o relogio.
         dataMap.putLong("updatedAt", System.currentTimeMillis())
@@ -46,6 +50,29 @@ class MellowWearModule : Module() {
 
       Wearable.getDataClient(context).putDataItem(request)
       true
+    }
+
+    /**
+     * Tocando agora, para a tela de musica do relogio. Chamada separada da
+     * `pushState` porque muda numa cadencia propria — faixa troca sozinha, o
+     * nivel e a sequencia nao.
+     */
+    Function("pushNowPlaying") { trackName: String?, playlistName: String?, playing: Boolean ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      val request = PutDataMapRequest.create(PATH_NOW_PLAYING).apply {
+        dataMap.putString("trackName", trackName ?: "")
+        dataMap.putString("playlistName", playlistName ?: "")
+        dataMap.putBoolean("musicPlaying", playing)
+        dataMap.putLong("updatedAt", System.currentTimeMillis())
+      }.asPutDataRequest().setUrgent()
+      Wearable.getDataClient(context).putDataItem(request)
+      true
+    }
+
+    /** Comando de midia que o relogio mandou, ou "" se nao houve. */
+    Function("takeWatchMediaCommand") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      MediaCommand.take(context)
     }
 
     /** Quantos relogios estao pareados e alcancaveis agora. */
@@ -59,5 +86,6 @@ class MellowWearModule : Module() {
 
   companion object {
     const val PATH_STATE = "/mellow/state"
+    const val PATH_NOW_PLAYING = "/mellow/nowplaying"
   }
 }
