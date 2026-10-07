@@ -17,8 +17,10 @@ import { CareGuideScreen } from '../screens/CareGuideScreen';
 import { CareSignupScreen } from '../screens/CareSignupScreen';
 import { CareToolsScreen } from '../screens/CareToolsScreen';
 import { ChatScreen } from '../screens/ChatScreen';
+import { CheckinScreen } from '../screens/CheckinScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { GuideScreen } from '../screens/GuideScreen';
+import { HeatmapScreen } from '../screens/HeatmapScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MusicScreen } from '../screens/MusicScreen';
@@ -50,6 +52,8 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   spotifyimport: SpotifyImportScreen,
   spotifyplayer: SpotifyPlayerScreen,
   dashboard: DashboardEntry,
+  checkin: CheckinScreen,
+  heatmap: HeatmapScreen,
   care: CareScreen,
   carealerts: CareAlertsScreen,
   careaudit: CareAuditScreen,

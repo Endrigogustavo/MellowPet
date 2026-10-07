@@ -52,6 +52,8 @@ export type Screen =
   | 'spotifyimport'
   | 'spotifyplayer'
   | 'dashboard'
+  | 'checkin'
+  | 'heatmap'
   | 'care'
   | 'carealerts'
   | 'careaudit'
@@ -427,7 +429,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const params = new URLSearchParams(query ?? '');
         if (url.includes('/widget/open')) {
           const target = params.get('screen');
-          const allowed: Screen[] = ['home', 'music', 'routine', 'spotifyplayer'];
+          const allowed: Screen[] = ['home', 'music', 'routine', 'spotifyplayer', 'checkin', 'heatmap', 'dashboard'];
           if (target && (allowed as string[]).includes(target)) {
             dispatch((s) => ({ screen: target as Screen, navSeq: s.navSeq + 1 }));
           }

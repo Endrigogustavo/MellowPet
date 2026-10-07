@@ -4,12 +4,12 @@ import type { EmotionKey } from '../data/emotions';
 /**
  * Registro de sentimento vindo de fora do pipeline de visão da tela.
  *
- * Duas origens usam isto: o widget "Como você está?" (a pessoa diz o que
- * sente) e a leitura em segundo plano (a câmera lê com o app fechado).
- * Mais simples que `eventQueue.ts` de propósito — não há sessão de vídeo,
- * qualidade de frame nem distribuição completa para reportar.
+ * Três origens usam isto: o widget "Como você está?" e o check-in do diário
+ * (a pessoa diz o que sente) e a leitura em segundo plano (a câmera lê com o
+ * app fechado). Mais simples que `eventQueue.ts` de propósito — não há
+ * sessão de vídeo, qualidade de frame nem distribuição completa para reportar.
  */
-export type ManualEmotionSource = 'widget_manual' | 'background_vision';
+export type ManualEmotionSource = 'widget_manual' | 'background_vision' | 'checkin';
 
 export async function logManualEmotion(
   userId: string,

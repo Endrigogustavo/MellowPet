@@ -445,6 +445,47 @@ export function HomeScreen() {
         </View>
       </Section>
 
+      {/* check-in: o que você sente, não o que o rosto mostra */}
+      <Section>
+        <Touchable
+          onPress={() => actions.go('checkin')}
+          accessibilityLabel="Fazer check-in de como você está"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            padding: 14,
+            paddingHorizontal: 16,
+            borderRadius: 20,
+            backgroundColor: T.surf,
+            borderWidth: 1,
+            borderColor: T.bd,
+          }}
+        >
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 14,
+              backgroundColor: T.priL,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon d={ICONS.smile} size={20} color={T.pri} sw={1.9} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Txt s={13.5} w={800} c={T.t1}>
+              E por dentro, como você está?
+            </Txt>
+            <Txt s={11.5} lh={1.4} c={T.t3} style={{ marginTop: 2 }}>
+              Registre em segundos e compare com o que o Mellow leu.
+            </Txt>
+          </View>
+          <Icon d={ICONS.chevron} size={16} color={T.t3} sw={2} />
+        </Touchable>
+      </Section>
+
       <Section style={{ flexDirection: 'row', gap: 8 }}>
         <Stat label="Intensidade visual" value={intLabel} sub="expressão observada" color={intColor} />
         <Stat label="Duração" value={streakLabel} sub="mesma leitura" color={emoColor} />

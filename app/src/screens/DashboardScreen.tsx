@@ -4,7 +4,7 @@ import Svg, { Circle, G } from 'react-native-svg';
 
 import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Card, ScreenTitle, Segmented, Txt } from '../components/ui';
+import { Card, ScreenTitle, Segmented, Touchable, Txt } from '../components/ui';
 import { ICONS, PERIOD_LABELS, type Period } from '../data/content';
 import { fetchDashboardPeriod } from '../dashboard/dashboardClient';
 import { subscribeToEmotionEvents } from '../dashboard/aggregate';
@@ -91,6 +91,43 @@ export function DashboardScreen() {
           index={state.period}
           onChange={(period) => actions.set({ period })}
         />
+      </Section>
+
+      {/* mapa do mês: check-ins e leituras, dia a dia */}
+      <Section top={0} style={{ marginBottom: 12 }}>
+        <Touchable
+          onPress={() => actions.go('heatmap')}
+          accessibilityLabel="Abrir mapa emocional do mês"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            padding: 14,
+            paddingHorizontal: 16,
+            borderRadius: 20,
+            backgroundColor: T.surf,
+            borderWidth: 1,
+            borderColor: T.bd,
+          }}
+        >
+          <View style={{ flexDirection: 'row', gap: 3 }}>
+            {(['happy', 'neutral', 'sad', 'happy'] as const).map((k, i) => (
+              <View
+                key={i}
+                style={{ width: 9, height: 22, borderRadius: 3, backgroundColor: EMOTIONS[k].c, opacity: 0.85 }}
+              />
+            ))}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Txt s={13.5} w={800} c={T.t1}>
+              Mapa emocional
+            </Txt>
+            <Txt s={11.5} lh={1.4} c={T.t3} style={{ marginTop: 2 }}>
+              O mês em cores, você × a câmera, contextos e sono.
+            </Txt>
+          </View>
+          <Icon d={ICONS.chevron} size={16} color={T.t3} sw={2} />
+        </Touchable>
       </Section>
 
       {!P ? (

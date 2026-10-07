@@ -38,6 +38,11 @@ migrations; ela impede o uso de senhas já expostas em vazamentos conhecidos.
 ## Outros itens a aplicar
 
 [`playlists.sql`](playlists.sql) — playlists de momento criadas pelo usuário.
+
+`migrations/202609160001_checkins.sql` — check-in emocional manual (emoção,
+texto, tags, sono, leitura da câmera no momento). Alimenta o mapa emocional,
+a comparação autopercepção × detecção e as correlações por gatilho. Só o dono
+lê; o cuidador continua vendo apenas os agregados da RPC.
 **Sem isso, a tela "Criar playlist" falha ao salvar.**
 
 Como aplicar: painel do Supabase → SQL Editor → cole o conteúdo do arquivo →

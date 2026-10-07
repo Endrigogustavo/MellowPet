@@ -1,11 +1,8 @@
 import { EMOTIONS, type EmotionKey } from '../data/emotions';
 import { supabase } from '../supabase/client';
+import { NEGATIVE, POSITIVE } from './valence';
 
 export type EmotionRow = { emotion: string; created_at: string };
-
-// Surpresa é ambígua: não representa melhora de bem-estar por si só.
-const POSITIVE = new Set(['happy']);
-const NEGATIVE = new Set(['sad', 'angry', 'disgusted', 'fearful']);
 
 export function isEmotionKey(key: string): key is EmotionKey {
   return Object.prototype.hasOwnProperty.call(EMOTIONS, key);
