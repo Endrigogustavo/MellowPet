@@ -19,8 +19,15 @@ import androidx.wear.compose.material.MaterialTheme
 object Mellow {
   val Primary = Color(0xFFC6A9F0)
   val PrimaryDim = Color(0xFF4A3550)
-  val Surface = Color(0xFF33213D)
+  /** `surf` do design do relogio (#1C1420) — mais fundo que o do celular,
+   * para o cartao nao brilhar sobre o preto do AMOLED. */
+  val Surface = Color(0xFF1C1420)
   val Background = Color(0xFF000000)
+
+  /** Faixas de estresse do design. */
+  val StressHigh = Color(0xFFFF7675)
+  val StressMid = Color(0xFFF59E0B)
+  val StressLow = Color(0xFF10B981)
 
   val TextHigh = Color(0xFFFAF6F2)
   val TextMid = Color(0xFFC7B4D0)

@@ -7,12 +7,35 @@ React Native não roda em Wear OS, e desde o Wear OS 2 o Google descontinuou o
 
 ## O que ele faz
 
-- Mostra o **Mellow** no pulso, com a emoção atual, nível e sequência.
-- **Check-in em dois toques**: escolhe a emoção, salva. Sem teclado.
-- Lê os **batimentos** no momento do check-in (sensor do Watch 4).
-- Um **Tile**, a um deslize do mostrador, com o estado e atalho para registrar.
-- Funciona **longe do celular**: o check-in entra numa fila e sobe quando
-  reconectar.
+Implementa o arquivo `MellowPet Watch.dc.html` do projeto de design. As telas
+ficam lado a lado — deslize na horizontal:
+
+| # | Tela | O que faz |
+|---|---|---|
+| 1 | **Mostrador** | hora, data, batimento, emoção e o Mellow; anel = sequência |
+| 2 | **Humor** | o Mellow grande; anel = precisão da leitura; toque faz carinho |
+| 3 | **Check-in** | as carinhas em volta do círculo; toque registra |
+| 4 | **Respiração** | 4-4-4, cinco ciclos, **vibrando a cada fase** |
+| 5 | **Batimento** | bpm grande, gráfico das últimas leituras, faixa |
+| 6 | **Foco** | 25 min; anel grosso, como o design pede |
+
+Mais um **Tile** com o estado, e fila local: o check-in feito longe do celular
+sobe quando reconectar.
+
+### Telas do design que ainda não existem
+
+Cada uma depende de algo que o app ainda não tem, e nenhuma é só desenho:
+
+- **Música** — precisa controlar o Spotify do celular a partir do relógio.
+- **Diário por voz** — precisa de reconhecimento de fala.
+- **Lembrete do pet** e **Alerta do cuidador** — são notificações disparadas
+  pelo celular, não telas que o relógio abre sozinho.
+- **Ajuda agora** — o atalho de 5 toques no botão é configuração do sistema.
+
+E uma diferença deliberada: o design mostra **seis** emoções no check-in; aqui
+são as **sete** que o app registra. Tirar uma para o círculo fechar em 60°
+deixaria o relógio incapaz de anotar algo que o celular anota, e furaria a
+estatística do mapa emocional.
 
 O que ele **não** faz: detecção por câmera. O Watch 4 não tem câmera frontal.
 No relógio o sinal é o que você declara, mais os batimentos.
@@ -165,6 +188,11 @@ No mostrador, deslize para a esquerda até o fim → **+** → escolha **Mellow*
   aparelhos conectados ao mesmo tempo, e o celular não estava disponível.
 - O bichinho é sempre a **foca**. O celular ainda não envia qual pet o dono
   escolheu.
+- O anel do mostrador mostra a **sequência de dias**, não o índice de bem-estar
+  que o design pede: esse número é calculado no celular e ainda não é enviado.
+- A faixa da tela de batimento vem do **bpm medido**, não da tabela de
+  "estresse por emoção" do design. Derivar um índice de estresse da emoção
+  declarada seria apresentar palpite como medição.
 - O **Tile não desenha o bichinho** — Tile usa ProtoLayout, não Compose, e o
   desenho depende do Canvas do Compose. Mostra emoção e nível em texto.
 - **Sem tags e sem nota** no check-in do relógio: não há teclado. Essas entram

@@ -6,6 +6,10 @@
   <!-- Batimentos: sensor corporal, pedido em tempo de execucao. -->
   <uses-permission android:name="android.permission.BODY_SENSORS" />
   <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <!-- A respiracao guiada marca cada fase no pulso, e o check-in confirma o
+       toque. Num relogio o retorno tatil faz o trabalho que no celular seria
+       de um som ou de uma animacao maior. -->
+  <uses-permission android:name="android.permission.VIBRATE" />
 
   <application
     android:allowBackup="false"
