@@ -21,15 +21,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.Dp
-import com.mellowpet.wear.data.BLUSH
 import com.mellowpet.wear.data.BROWS
 import com.mellowpet.wear.data.EYES
 import com.mellowpet.wear.data.Emotion
 import com.mellowpet.wear.data.HEAD
-import com.mellowpet.wear.data.LINE
 import com.mellowpet.wear.data.MOUTH
 import com.mellowpet.wear.data.MUZZLE
-import com.mellowpet.wear.data.PET_BODY
 import com.mellowpet.wear.data.WHISKERS
 
 /**
@@ -91,11 +88,11 @@ private fun DrawScope.drawPet(
   brows: Pair<Path, Path>?,
   mouth: Path,
 ) {
-  drawPath(head, PET_BODY)
+  drawPath(head, Mellow.SealBody)
 
   // Barriga e brilho: os mesmos valores do PetFace.tsx (bel 0.22, luz a 0.2).
   drawOval(
-    color = Color.Black.copy(alpha = 0.22f * 0.35f),
+    color = Mellow.SealBelly.copy(alpha = 0.55f),
     topLeft = Offset(20f, 53f),
     size = Size(60f, 38f),
   )
@@ -105,19 +102,19 @@ private fun DrawScope.drawPet(
     size = Size(16f, 10f),
   )
 
-  drawPath(muzzle, PET_BODY.lighten(0.88f))
+  drawPath(muzzle, Mellow.SealBody.lighten(0.5f))
 
-  drawCircle(BLUSH.copy(alpha = 0.55f), radius = 7f, center = Offset(20f, 60f))
-  drawCircle(BLUSH.copy(alpha = 0.55f), radius = 7f, center = Offset(80f, 60f))
+  drawCircle(Mellow.Blush.copy(alpha = 0.5f), radius = 7f, center = Offset(20f, 60f))
+  drawCircle(Mellow.Blush.copy(alpha = 0.5f), radius = 7f, center = Offset(80f, 60f))
 
   val whiskerStroke = Stroke(width = 1.5f, cap = StrokeCap.Round)
-  whiskers.forEach { drawPath(it, Color(0xFF6B6470).copy(alpha = 0.75f), style = whiskerStroke) }
+  whiskers.forEach { drawPath(it, Mellow.SealWhisker, style = whiskerStroke) }
 
   // `happy` usa arcos no lugar dos olhos redondos — mesma regra do app.
   if (emotion == Emotion.HAPPY) {
     val arc = Stroke(width = 4.4f, cap = StrokeCap.Round)
-    drawPath(eyes.first, LINE, style = arc)
-    drawPath(eyes.second, LINE, style = arc)
+    drawPath(eyes.first, Mellow.SealLine, style = arc)
+    drawPath(eyes.second, Mellow.SealLine, style = arc)
   } else {
     val r = when (emotion) {
       Emotion.SURPRISED -> 7.6f
@@ -126,22 +123,22 @@ private fun DrawScope.drawPet(
     }
     val y = if (emotion == Emotion.SURPRISED) 51f else 52f
     val glintY = if (emotion == Emotion.SURPRISED) 48.4f else 49.6f
-    drawCircle(LINE, radius = r, center = Offset(36f, y))
-    drawCircle(LINE, radius = r, center = Offset(64f, y))
+    drawCircle(Mellow.SealLine, radius = r, center = Offset(36f, y))
+    drawCircle(Mellow.SealLine, radius = r, center = Offset(64f, y))
     drawCircle(Color.White, radius = 2.3f, center = Offset(38.3f, glintY))
     drawCircle(Color.White, radius = 2.3f, center = Offset(66.3f, glintY))
   }
 
   brows?.let { (l, r) ->
     val s = Stroke(width = 2.6f, cap = StrokeCap.Round)
-    drawPath(l, LINE, style = s)
-    drawPath(r, LINE, style = s)
+    drawPath(l, Mellow.SealLine, style = s)
+    drawPath(r, Mellow.SealLine, style = s)
   }
 
-  drawOval(LINE, topLeft = Offset(45.4f, 60.2f), size = Size(9.2f, 7.6f))
+  drawOval(Mellow.SealLine, topLeft = Offset(45.4f, 60.2f), size = Size(9.2f, 7.6f))
   drawPath(
     mouth,
-    LINE,
+    Mellow.SealLine,
     style = Stroke(width = 2.6f, cap = StrokeCap.Round),
   )
 }

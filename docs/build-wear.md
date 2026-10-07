@@ -93,6 +93,15 @@ Wi-Fi é mais simples e é o caminho recomendado.
 
 O relógio e o PC precisam estar **na mesma rede Wi-Fi**.
 
+6. Ainda em Opções do desenvolvedor, ligue **Permanecer ativo**
+   (*Stay awake while charging*). Sem isso a tela apaga em segundos, o Wi-Fi
+   entra em baixo consumo e **a conexão do `adb` cai no meio do `install`** —
+   e ao religar a porta muda, exigindo parear de novo.
+
+> **O carregador não serve para `adb`.** O berço do Watch 4 é só energia: é um
+> carregador sem fio, sem linhas de dados. Ligá-lo no PC não faz o relógio
+> aparecer no `adb devices`, e nenhum driver resolve. Wi-Fi é o caminho.
+
 ### No PC
 
 ```powershell
@@ -145,13 +154,15 @@ No mostrador, deslize para a esquerda até o fim → **+** → escolha **Mellow*
 | Fica "medindo…" e não sai | Pulso frouxo ou sensor sem contato | Aperte a pulseira; o sensor precisa encostar na pele |
 | "N aguardando o celular" não zera | Celular fora de alcance, ou app do celular nunca aberto | Aproxime e abra o app no celular |
 | `adb install` foi para o celular | Dois aparelhos conectados, sem `-s` | Sempre use `-s <id-do-relogio>` |
+| `device offline` no meio do trabalho | A tela apagou e o Wi-Fi dormiu | Ligue *Permanecer ativo*; reconecte e, se a porta mudou, pareie de novo |
+| Relógio não aparece com o carregador no PC | O berço é só energia, sem dados | Use Wi-Fi; não há caminho USB no Watch 4 |
 
 ## Limites desta versão
 
-- **Não testado em aparelho.** Compila e está assinado corretamente, mas não
-  havia Watch 4 pareado para validar. O Data Layer, em particular, só se prova
-  com os dois aparelhos reais: ele depende de pareamento, Play Services e
-  assinatura, e nenhum dos três se simula bem.
+- **Instalado e rodando num Watch 4 real** (SM-R870, Wear OS 5 / API 34): o
+  bichinho desenha, o seletor de emoções funciona e os batimentos medem. O que
+  **não** foi validado é a entrega ao celular: o Data Layer precisa dos dois
+  aparelhos conectados ao mesmo tempo, e o celular não estava disponível.
 - O bichinho é sempre a **foca**. O celular ainda não envia qual pet o dono
   escolheu.
 - O **Tile não desenha o bichinho** — Tile usa ProtoLayout, não Compose, e o
