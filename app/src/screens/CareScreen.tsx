@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
 
 import { fetchCareDashboardSummary, listCareAlerts, revokeCareLink, type CaregiverLink } from '../care/careClient';
@@ -39,7 +39,7 @@ export function CareScreen() {
   const [linkActionError, setLinkActionError] = useState<string | null>(null);
 
   const current = useMemo(() => links.find((link) => link.id === state.person) ?? links[0], [links, state.person]);
-  const refreshCurrent = () => {
+  const refreshCurrent = useCallback(() => {
     if (!current?.cared_user_id) return;
     setError(null);
     Promise.all([fetchCareDashboardSummary(current.cared_user_id, 24 * 7), listCareAlerts(current.cared_user_id)])
@@ -48,7 +48,7 @@ export function CareScreen() {
         setLoaded(null);
         setError(reason instanceof Error ? reason : new Error('Não foi possível atualizar os dados de cuidado.'));
       });
-  };
+  }, [current?.cared_user_id, current?.id]);
 
   const endCareRelationship = () => {
     if (!current || revoking) return;
@@ -80,13 +80,15 @@ export function CareScreen() {
     refreshCurrent();
     const id = setInterval(refreshCurrent, 60_000);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id, current?.cared_user_id]);
+  }, [refreshCurrent]);
 
   const currentData = loaded?.id === current?.id ? loaded : null;
   const score = currentData ? signalScore(currentData.summary) : null;
   const scoreColor = signalColor(score);
-  const activeAlerts = currentData?.alerts.filter((alert) => alert.status !== 'resolved') ?? [];
+  const activeAlerts = useMemo(
+    () => currentData?.alerts.filter((alert) => alert.status !== 'resolved') ?? [],
+    [currentData?.alerts]
+  );
 
   useEffect(() => {
     if (!current || !currentData) return;

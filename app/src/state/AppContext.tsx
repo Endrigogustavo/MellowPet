@@ -144,6 +144,7 @@ export type State = {
 
   /** Sessão real, vinda da API. null = ninguém autenticado. */
   userId: string | null;
+  authRestored: boolean;
   authLoading: boolean;
   authError: string | null;
 
@@ -238,6 +239,7 @@ const INITIAL: State = {
   plan: 'plus',
 
   userId: null,
+  authRestored: false,
   authLoading: false,
   authError: null,
 
@@ -270,7 +272,12 @@ const INITIAL: State = {
 type Patch = Partial<State> | ((s: State) => Partial<State>);
 
 function reducer(s: State, patch: Patch): State {
-  return { ...s, ...(typeof patch === 'function' ? patch(s) : patch) };
+  const changes = typeof patch === 'function' ? patch(s) : patch;
+  const keys = Object.keys(changes) as (keyof State)[];
+  if (keys.length === 0 || keys.every((key) => Object.is(s[key], changes[key]))) {
+    return s;
+  }
+  return { ...s, ...changes };
 }
 
 export type Actions = {
@@ -381,8 +388,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let alive = true;
     loadStoredSession().then((user) => {
-      if (!alive || !user) return;
+      if (!alive) return;
+      if (!user) {
+        dispatch({ authRestored: true });
+        return;
+      }
       dispatch((s) => ({
+        authRestored: true,
         userId: user.userId,
         email: user.email,
         role: user.role,
@@ -398,6 +410,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchProfileStats(user.userId).then((stats) => {
         if (alive) dispatch(stats);
       });
+    }).catch(() => {
+      if (alive) dispatch({ authRestored: true });
     });
     return () => {
       alive = false;
@@ -409,6 +423,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       subscribeToSignOut(() => {
         dispatch((s) => ({
           userId: null,
+          authRestored: true,
           email: '',
           pass: '',
           screen: 'login',
@@ -650,6 +665,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             authLoading: false,
             authError: null,
             userId: user.userId,
+            authRestored: true,
             role: user.role,
             accountRole: user.role,
             pass: '',

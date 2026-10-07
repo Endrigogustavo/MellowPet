@@ -1,18 +1,32 @@
 import * as SecureStore from 'expo-secure-store';
 
-const STORAGE_KEY = 'mellowpet.vision.calibration.v1';
+import { EXPRESSION_CLASSIFIER_VERSION } from './expressionEngine';
 
 type StoredCalibration = {
-  schemaVersion: 1;
+  schemaVersion: 2;
+  userId: string;
+  classifierVersion: string;
   baseline: Record<string, number>;
 };
 
-export async function loadCalibrationBaseline() {
-  const encoded = await SecureStore.getItemAsync(STORAGE_KEY);
+function storageKey(userId: string) {
+  const safeUserId = encodeURIComponent(userId).slice(0, 120);
+  return `mellowpet.vision.calibration.v2.${safeUserId}.${EXPRESSION_CLASSIFIER_VERSION}`;
+}
+
+export async function loadCalibrationBaseline(userId: string | null | undefined) {
+  if (!userId) return null;
+  const encoded = await SecureStore.getItemAsync(storageKey(userId));
   if (!encoded) return null;
   try {
     const parsed = JSON.parse(encoded) as Partial<StoredCalibration>;
-    if (parsed.schemaVersion !== 1 || !parsed.baseline || typeof parsed.baseline !== 'object') {
+    if (
+      parsed.schemaVersion !== 2 ||
+      parsed.userId !== userId ||
+      parsed.classifierVersion !== EXPRESSION_CLASSIFIER_VERSION ||
+      !parsed.baseline ||
+      typeof parsed.baseline !== 'object'
+    ) {
       return null;
     }
     const entries = Object.entries(parsed.baseline).filter(
@@ -24,11 +38,17 @@ export async function loadCalibrationBaseline() {
   }
 }
 
-export async function saveCalibrationBaseline(baseline: Record<string, number>) {
-  const payload: StoredCalibration = { schemaVersion: 1, baseline };
-  await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(payload));
+export async function saveCalibrationBaseline(userId: string, baseline: Record<string, number>) {
+  const payload: StoredCalibration = {
+    schemaVersion: 2,
+    userId,
+    classifierVersion: EXPRESSION_CLASSIFIER_VERSION,
+    baseline,
+  };
+  await SecureStore.setItemAsync(storageKey(userId), JSON.stringify(payload));
 }
 
-export async function clearCalibrationBaseline() {
-  await SecureStore.deleteItemAsync(STORAGE_KEY);
+export async function clearCalibrationBaseline(userId: string | null | undefined) {
+  if (!userId) return;
+  await SecureStore.deleteItemAsync(storageKey(userId));
 }

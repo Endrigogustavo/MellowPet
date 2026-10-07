@@ -17,6 +17,10 @@
       sem preview) alimentando o FaceLandmarker. Precisa ser foreground service
       do tipo camera — a partir do Android 14 o sistema recusa abrir a camera em
       segundo plano sem isso.
+
+      Nome completo, e nao ".VisionBackgroundService": num manifesto de
+      biblioteca o nome relativo depende do namespace resolvido no merge, e o
+      completo nao deixa margem.
     -->
     <service
       android:name="com.mellowpet.vision.VisionBackgroundService"

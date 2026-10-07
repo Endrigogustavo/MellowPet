@@ -1,27 +1,27 @@
-import * as SecureStore from 'expo-secure-store';
-
 import { supabase } from '../supabase/client';
 import type { VisionEventEnvelope, VisionFeedback } from './eventContracts';
 import { VISION_FLAGS } from './featureFlags';
+import { uploadQueueBatch } from './queueBatch';
+import {
+  assignVisionFeedbackOwner,
+  getVisionQueueStats,
+  listVisionQueueItems,
+  listUnownedVisionFeedback,
+  removeVisionQueueItems,
+  storeVisionQueueItem,
+} from './visionQueueStore';
 
-const INDEX_KEY = 'mellowpet.vision.queue.v2.index';
-const ITEM_PREFIX = 'mellowpet.vision.queue.v2.item.';
-const MAX_QUEUE_ITEMS = 32;
-const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const BASE_BACKOFF_MS = 2_000;
 const MAX_BACKOFF_MS = 5 * 60 * 1000;
 
 export const VISION_EVENT_UPLOAD_ENABLED = VISION_FLAGS.eventUploadEnabled;
 
-type QueueIndexItem = { id: string; createdAtMs: number };
-type StoredQueueItem =
-  | { id: string; createdAtMs: number; type: 'event'; payload: VisionEventEnvelope }
-  | { id: string; createdAtMs: number; type: 'feedback'; payload: VisionFeedback };
-
-let storageChain: Promise<unknown> = Promise.resolve();
 let flushPromise: Promise<VisionQueueMetrics> | null = null;
 let failureCount = 0;
 let nextAttemptAtMs = 0;
+let nextLegacyResolveAtMs = 0;
+let legacyResolveUserId: string | null = null;
+let legacyCursor: { createdAtMs: number; id: string } | undefined;
 
 export type VisionQueueMetrics = {
   size: number;
@@ -30,56 +30,9 @@ export type VisionQueueMetrics = {
   nextAttemptAtMs: number;
 };
 
-function serialized<T>(operation: () => Promise<T>): Promise<T> {
-  const next = storageChain.then(operation, operation);
-  storageChain = next.then(
-    () => undefined,
-    () => undefined
-  );
-  return next;
-}
-
-async function readIndex(): Promise<QueueIndexItem[]> {
-  const encoded = await SecureStore.getItemAsync(INDEX_KEY);
-  if (!encoded) return [];
-  try {
-    const value = JSON.parse(encoded) as unknown;
-    if (!Array.isArray(value)) return [];
-    return value.filter(
-      (item): item is QueueIndexItem =>
-        typeof item?.id === 'string' &&
-        typeof item?.createdAtMs === 'number' &&
-        Number.isFinite(item.createdAtMs)
-    );
-  } catch {
-    return [];
-  }
-}
-
-async function writeIndex(index: QueueIndexItem[]) {
-  await SecureStore.setItemAsync(INDEX_KEY, JSON.stringify(index));
-}
-
-async function enqueue(item: StoredQueueItem) {
-  return serialized(async () => {
-    const now = Date.now();
-    let index = (await readIndex()).filter((entry) => now - entry.createdAtMs <= RETENTION_MS);
-    const expired = (await readIndex()).filter((entry) => now - entry.createdAtMs > RETENTION_MS);
-    await Promise.all(expired.map((entry) => SecureStore.deleteItemAsync(ITEM_PREFIX + entry.id)));
-
-    await SecureStore.setItemAsync(ITEM_PREFIX + item.id, JSON.stringify(item));
-    index = [...index.filter((entry) => entry.id !== item.id), { id: item.id, createdAtMs: item.createdAtMs }];
-    while (index.length > MAX_QUEUE_ITEMS) {
-      const removed = index.shift();
-      if (removed) await SecureStore.deleteItemAsync(ITEM_PREFIX + removed.id);
-    }
-    await writeIndex(index);
-  });
-}
-
 export async function enqueueVisionEvent(payload: VisionEventEnvelope) {
   if (!VISION_EVENT_UPLOAD_ENABLED) return;
-  await enqueue({
+  await storeVisionQueueItem({
     id: `event_${payload.event.event_id}`,
     createdAtMs: Date.now(),
     type: 'event',
@@ -89,7 +42,7 @@ export async function enqueueVisionEvent(payload: VisionEventEnvelope) {
 
 export async function enqueueVisionFeedback(payload: VisionFeedback) {
   if (!VISION_EVENT_UPLOAD_ENABLED) return;
-  await enqueue({
+  await storeVisionQueueItem({
     id: `feedback_${payload.feedback_id}`,
     createdAtMs: Date.now(),
     type: 'feedback',
@@ -97,41 +50,11 @@ export async function enqueueVisionFeedback(payload: VisionFeedback) {
   });
 }
 
-async function listItems(): Promise<StoredQueueItem[]> {
-  return serialized(async () => {
-    const index = await readIndex();
-    const items = await Promise.all(
-      index.map(async (entry) => {
-        const encoded = await SecureStore.getItemAsync(ITEM_PREFIX + entry.id);
-        if (!encoded) return null;
-        try {
-          return JSON.parse(encoded) as StoredQueueItem;
-        } catch {
-          return null;
-        }
-      })
-    );
-    return items.filter((item): item is StoredQueueItem => item !== null);
-  });
-}
-
-async function removeItems(ids: Set<string>) {
-  if (ids.size === 0) return;
-  await serialized(async () => {
-    const index = await readIndex();
-    await Promise.all([...ids].map((id) => SecureStore.deleteItemAsync(ITEM_PREFIX + id)));
-    await writeIndex(index.filter((entry) => !ids.has(entry.id)));
-  });
-}
-
-function metrics(items: StoredQueueItem[]): VisionQueueMetrics {
-  const oldest = items.reduce(
-    (minimum, item) => Math.min(minimum, item.createdAtMs),
-    Number.POSITIVE_INFINITY
-  );
+async function metrics(): Promise<VisionQueueMetrics> {
+  const stats = await getVisionQueueStats();
   return {
-    size: items.length,
-    oldestAgeMs: Number.isFinite(oldest) ? Math.max(0, Date.now() - oldest) : 0,
+    size: stats.size,
+    oldestAgeMs: stats.oldestAtMs === null ? 0 : Math.max(0, Date.now() - stats.oldestAtMs),
     failureCount,
     nextAttemptAtMs,
   };
@@ -178,38 +101,28 @@ function emotionRow(envelope: VisionEventEnvelope) {
   };
 }
 
-/** Sem usuário autenticado não há como escrever sob RLS — descarta em vez
- * de tentar pra sempre (nunca vai conseguir). */
-async function pushEvents(items: { id: string; payload: VisionEventEnvelope }[]): Promise<Set<string>> {
-  const acknowledged = new Set<string>();
-  const withUser = items.filter((item) => item.payload.user_id);
-  items.filter((item) => !item.payload.user_id).forEach((item) => acknowledged.add(item.id));
-  if (withUser.length === 0) return acknowledged;
+async function pushEvents(items: { id: string; payload: VisionEventEnvelope }[]) {
+  return uploadQueueBatch(items, async (batch) => {
+    const { error: intervalError } = await supabase
+      .from('vision_intervals')
+      .upsert(batch.map((item) => intervalRow(item.payload)), { onConflict: 'event_id', ignoreDuplicates: true });
+    if (intervalError) return intervalError;
 
-  const { error: intervalError } = await supabase
-    .from('vision_intervals')
-    .upsert(withUser.map((item) => intervalRow(item.payload)), { onConflict: 'event_id', ignoreDuplicates: true });
-  if (intervalError) throw intervalError;
-
-  const emotionRows = withUser
-    .filter((item) => item.payload.event.observed_expression !== 'unknown')
-    .map((item) => emotionRow(item.payload));
-  if (emotionRows.length > 0) {
-    const { error: emotionError } = await supabase
+    const emotionRows = batch
+      .filter((item) => item.payload.event.observed_expression !== 'unknown')
+      .map((item) => emotionRow(item.payload));
+    if (emotionRows.length === 0) return null;
+    const { error } = await supabase
       .from('emotion_events')
       .upsert(emotionRows, { onConflict: 'event_id', ignoreDuplicates: true });
-    if (emotionError) throw emotionError;
-  }
-
-  withUser.forEach((item) => acknowledged.add(item.id));
-  return acknowledged;
+    return error;
+  });
 }
 
-async function pushFeedback(items: { id: string; payload: VisionFeedback }[]): Promise<Set<string>> {
-  const acknowledged = new Set<string>();
-  for (const item of items) {
+async function pushFeedback(items: { id: string; payload: VisionFeedback }[]) {
+  return uploadQueueBatch(items, async (batch) => {
     const { error } = await supabase.from('vision_feedback').upsert(
-      {
+      batch.map((item) => ({
         feedback_id: item.payload.feedback_id,
         event_id: item.payload.event_id,
         agreement: item.payload.agreement,
@@ -217,41 +130,66 @@ async function pushFeedback(items: { id: string; payload: VisionFeedback }[]): P
         corrected_observed_expression: item.payload.corrected_observed_expression ?? null,
         note: item.payload.note ?? null,
         created_at_ts: item.payload.created_at,
-      },
+      })),
       { onConflict: 'feedback_id', ignoreDuplicates: true }
     );
-    // Evento referenciado pode ter sido descartado (sem user_id) — não
-    // trava a fila por isso, só não reconhece esse item de feedback.
-    if (!error) acknowledged.add(item.id);
+    return error;
+  });
+}
+
+async function resolveLegacyFeedbackOwner(activeUserId: string) {
+  if (legacyResolveUserId !== activeUserId) {
+    legacyResolveUserId = activeUserId;
+    nextLegacyResolveAtMs = 0;
+    legacyCursor = undefined;
   }
-  return acknowledged;
+  if (Date.now() < nextLegacyResolveAtMs) return;
+  nextLegacyResolveAtMs = Date.now() + 5 * 60_000;
+  const legacy = await listUnownedVisionFeedback(100, legacyCursor);
+  if (legacy.length === 0) {
+    legacyCursor = undefined;
+    return;
+  }
+  const eventIds = [...new Set(legacy.map((item) => item.payload.event_id))];
+  const { data, error } = await supabase
+    .from('vision_intervals')
+    .select('event_id')
+    .eq('user_id', activeUserId)
+    .in('event_id', eventIds);
+  if (error) throw error;
+  const ownedIds = new Set((data ?? []).map((row) => row.event_id));
+  await assignVisionFeedbackOwner(
+    legacy.filter((item) => ownedIds.has(item.payload.event_id)).map((item) => item.id),
+    activeUserId
+  );
+  const last = legacy[legacy.length - 1];
+  legacyCursor = legacy.length === 100 ? { createdAtMs: last.createdAtMs, id: last.id } : undefined;
 }
 
 async function performFlush(): Promise<VisionQueueMetrics> {
-  const items = await listItems();
-  if (!VISION_EVENT_UPLOAD_ENABLED || items.length === 0) return metrics(items);
-  if (Date.now() < nextAttemptAtMs) return metrics(items);
+  if (!VISION_EVENT_UPLOAD_ENABLED || Date.now() < nextAttemptAtMs) return metrics();
 
-  const acknowledged = new Set<string>();
   try {
-    const eventItems = items.filter(
-      (item): item is StoredQueueItem & { type: 'event' } => item.type === 'event'
-    );
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!session?.user.id) return metrics();
+    const activeUserId = session.user.id;
+    const eventItems = await listVisionQueueItems(activeUserId, 'event');
     if (eventItems.length > 0) {
-      const acked = await pushEvents(eventItems);
-      acked.forEach((id) => acknowledged.add(id));
+      const { acknowledged, rejected } = await pushEvents(eventItems);
+      await removeVisionQueueItems(acknowledged);
+      if (rejected.length > 0) throw new Error('Evento inválido permanece na fila para inspeção.');
     }
 
-    // Eventos sempre sao enviados antes do feedback que os referencia.
-    const feedbackItems = items.filter(
-      (item): item is StoredQueueItem & { type: 'feedback' } => item.type === 'feedback'
-    );
+    await resolveLegacyFeedbackOwner(activeUserId);
+    // A seleção ignora feedback cujo evento ainda esteja na fila local.
+    const feedbackItems = await listVisionQueueItems(activeUserId, 'feedback');
     if (feedbackItems.length > 0) {
-      const acked = await pushFeedback(feedbackItems);
-      acked.forEach((id) => acknowledged.add(id));
+      const { acknowledged, rejected } = await pushFeedback(feedbackItems);
+      await removeVisionQueueItems(acknowledged);
+      if (rejected.length > 0) throw new Error('Feedback inválido permanece na fila para inspeção.');
     }
 
-    await removeItems(acknowledged);
     failureCount = 0;
     nextAttemptAtMs = 0;
   } catch {
@@ -261,7 +199,7 @@ async function performFlush(): Promise<VisionQueueMetrics> {
     nextAttemptAtMs = Date.now() + Math.round(delay * jitter);
   }
 
-  return metrics(await listItems());
+  return metrics();
 }
 
 export function flushVisionQueue() {
@@ -274,5 +212,5 @@ export function flushVisionQueue() {
 }
 
 export async function getVisionQueueMetrics() {
-  return metrics(await listItems());
+  return metrics();
 }

@@ -9,7 +9,7 @@ precisa de uma chave de provedor de IA, que não pode ir para o app.
 from typing import Literal
 
 from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from services.ai_service import ai_chat_service
 from utils.logger import setup_logger
@@ -28,12 +28,26 @@ class InsightSummary(BaseModel):
     wellbeing_score: float = Field(ge=0, le=100)
     total_readings: int = Field(ge=0, le=1_000_000)
 
+    @field_validator("distribution")
+    @classmethod
+    def validate_distribution(cls, value: dict[str, float]) -> dict[str, float]:
+        unknown = set(value) - set(KnownEmotion.__args__)
+        if unknown:
+            raise ValueError("distribution contains an unsupported emotion")
+        if any(score < 0 or score > 100 for score in value.values()):
+            raise ValueError("distribution values must be percentages between 0 and 100")
+        # O cliente arredonda cada uma das sete classes separadamente; nesse
+        # caso uma distribuição válida pode somar até 103%.
+        if sum(value.values()) > 103.5:
+            raise ValueError("distribution percentages cannot exceed 100")
+        return value
+
 
 class InsightRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     summary: InsightSummary
-    period: str = Field(min_length=1, max_length=32)
+    period: Literal["24 horas", "3 dias", "7 dias"]
 
 
 @router.post("/insight", summary="Generate an AI insight for an already-computed emotion summary")

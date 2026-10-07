@@ -3,6 +3,13 @@ const API_KEY = process.env.EXPO_PUBLIC_API_KEY ?? '';
 
 export class ChatError extends Error {}
 
+export function toApiHistory(history: { role: 'user' | 'bot'; content: string }[]) {
+  return history.slice(-12).map(({ role, content }) => ({
+    role: role === 'bot' ? 'assistant' : role,
+    content,
+  }));
+}
+
 export async function sendChatMessage(
   message: string,
   emotion: string,
@@ -25,7 +32,7 @@ export async function sendChatMessage(
         emotion,
         confidence,
         // A API espera uma lista de turnos; o mesmo shape de ChatMessage do app.
-        history: history.slice(-12),
+        history: toApiHistory(history),
       }),
     });
   } catch {

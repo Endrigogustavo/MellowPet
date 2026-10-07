@@ -6,7 +6,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# curl entra para o HEALTHCHECK abaixo.
+# curl entra para o HEALTHCHECK abaixo; a visão roda no app mobile e não exige
+# pesos de modelo dentro desta imagem.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \

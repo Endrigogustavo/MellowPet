@@ -1,9 +1,9 @@
 # Scorecard de desenvolvimento — Motor de Expressões Faciais V3
 
-**Data:** 22 de agosto de 2026
-**Base:** `main@3a6f50e`
-**Classificador:** `expression-v3.0.0-selective`
-**Pipeline Android:** `mellow-vision-v3.0.0-camera2-rgb`
+**Data:** 17 de setembro de 2026
+**Base:** `origin/main@b7e2736`
+**Classificador:** `expression-v3.5.0-absolute-evidence`
+**Pipeline nativo:** `mellow-vision-v3.1.0-native`
 
 ## Objetivo
 
@@ -21,12 +21,11 @@ pessoa.
   assimétricas;
 - cada classe combina ações faciais complementares e desconta contradições;
 - `neutral` usa baixa atividade global e o coeficiente neutro do MediaPipe;
-- margem mínima e confiança mínima impedem classificação forçada;
+- margem mínima, confiança heurística baseada em evidência pré-normalização e separação da segunda classe
+  reduzem classificação forçada;
 - conflitos persistentes produzem `unknown/uncertain`;
-- warm-up exige três hipóteses coerentes da mesma classe;
-- transições continuam exigindo três atualizações e resistem a um frame isolado;
-- calibração pessoal aplica deadband e normalização pelo espaço restante do
-  coeficiente;
+- calibração pessoal só aceita frames neutros, estáveis e com qualidade mínima,
+  além de aplicar deadband e normalização pelo espaço restante do coeficiente;
 - Camera2 converte YUV diretamente para RGB, removendo o caminho com perdas
   YUV → JPEG → Bitmap antes do Face Landmarker.
 
@@ -46,27 +45,28 @@ pessoa.
 
 | Gate | Resultado |
 |---|---:|
-| Testes do app | 15/15 |
+| Testes do app | 48/48 (inclui seleção e paginação em SQLite local) |
 | Padrões canônicos das sete classes | passou |
 | Padrões adversariais contaminados | passou |
 | Ruído baixo e sorriso unilateral | permaneceu neutro |
-| Conflito forte fearful/surprised | abstém em vez de chutar |
+| Conflito forte fearful/surprised | mantém classe plausível sob o gate atual |
 | Frame divergente isolado | não troca estado |
 | TypeScript | passou |
-| ESLint completo | passou |
-| Expo Doctor | 18/18 |
-| Backend em ambiente limpo | 63/63 |
-| Compilação do módulo Kotlin/Camera2 | passou |
-| APK debug ARM64 | gerado, 79.160.029 bytes |
-| Permissão `RECORD_AUDIO` no APK | ausente |
-| Alinhamento Android de 16 KiB | passou |
-| Custo do classificador JS, 100.000 atualizações | 0,013 ms/update em média local |
-
-**SHA-256 do APK:**
-`15B9E5328D9E22BE8B2E957F84C6BC9FFC9A6A3979F6B3F7BE1280E8E3B512FB`
+| ESLint completo | passou sem avisos |
+| Expo Doctor | 18/18, sem problemas |
+| Backend em ambiente Python 3.12 novo | 22/22 testes passaram; avisos de dependências e cache do pytest |
+| Build nativo Android/iOS | não executado: projeto nativo não está gerado no checkout |
+| Custo do classificador JS, 100.000 atualizações | p50 0,0152 ms; p95 0,0308 ms; p99 0,1489 ms; 46.897 atualizações/s nesta máquina |
 
 O benchmark JavaScript mede apenas scoring, suavização e decisão. Ele não mede
 captura Camera2, conversão YUV, Face Landmarker, bridge React Native ou render.
+Reprodução: `cd app; npm run benchmark:vision -- 100000`. Os números dependem
+da máquina e não substituem a medição de latência no dispositivo.
+
+A confiança exibida ainda não é uma probabilidade calibrada. A nova fórmula
+considera a força dos sinais antes da normalização, mas sua qualidade precisa
+ser medida contra um conjunto humano rotulado antes de qualquer alegação de
+ganho de acurácia.
 
 ## Protocolo de validação física
 
@@ -81,9 +81,8 @@ captura Camera2, conversão YUV, Face Landmarker, bridge React Native ou render.
 ## Limite de evidência
 
 Não há amostra humana rotulada ou aparelho conectado nesta medição. Portanto,
-os testes provam regressão de software, coerência das regras e compilação, mas
-não permitem declarar aumento percentual de acurácia real. Como o projeto não
-terá benchmark humano nesta etapa, a recomendação é liberar como beta
-controlada após o teste funcional em aparelho, acompanhar cobertura,
-abstenções, trocas e latência sem armazenar imagens e ajustar os gates com esse
-feedback operacional.
+os testes provam regressão de software, coerência das regras e validação
+estática, mas não permitem declarar aumento percentual de acurácia real. O
+próximo gate de qualidade precisa ser um conjunto humano rotulado, dividido em
+treino/validação/teste, com macro-F1, matriz de confusão, cobertura de
+abstenção, calibração de confiança e cortes por dispositivo, iluminação e pose.

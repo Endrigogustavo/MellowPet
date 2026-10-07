@@ -19,6 +19,7 @@
     "expo-notifications": "~0.32.17",
     "expo-secure-store": "~15.0.8",
     "expo-sensors": "~15.0.8",
+    "expo-sqlite": "~16.0.10",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
     "react-native": "0.81.5",
@@ -40,6 +41,7 @@
     "prebuild": "expo prebuild",
     "doctor": "npx expo-doctor@latest",
     "test:vision": "node --no-warnings --test --experimental-strip-types tests/*.test.mjs",
+    "benchmark:vision": "node --no-warnings --experimental-strip-types scripts/benchmarkVision.mjs",
     "web": "expo start --web",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"

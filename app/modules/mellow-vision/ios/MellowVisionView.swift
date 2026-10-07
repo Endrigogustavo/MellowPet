@@ -6,7 +6,7 @@ import UIKit
 final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate,
   FaceLandmarkerLiveStreamDelegate {
   static let modelVersion = "mediapipe-face-landmarker-float16-v1"
-  static let pipelineVersion = "mellow-vision-v2.0.0"
+  static let pipelineVersion = "mellow-vision-v3.1.0-native"
 
   private let onVisionResult = EventDispatcher()
   private let onVisionError = EventDispatcher()
@@ -28,6 +28,7 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
   private var pipelineStartedAtMs = 0
   private var initializationLatencyMs = 0
   private var pendingFrames: [Int: FrameMeta] = [:]
+  private var pipelineGeneration = 0
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -79,6 +80,7 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
         if !self.configured { try self.configureSession() }
         if !self.session.isRunning {
           self.stateLock.lock()
+          self.pipelineGeneration += 1
           self.droppedFrames = 0
           self.receivedFrames = 0
           self.processedFrames = 0
@@ -143,6 +145,7 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
       guard let self else { return }
       if self.session.isRunning { self.session.stopRunning() }
       self.stateLock.lock()
+      self.pipelineGeneration += 1
       self.inFlight = false
       self.pendingFrames.removeAll()
       self.stateLock.unlock()
@@ -158,6 +161,7 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
     let timestamp = Int(CACurrentMediaTime() * 1_000)
     let interval = 1_000 / effectiveMaxFps()
     stateLock.lock()
+    let generation = pipelineGeneration
     receivedFrames += 1
     if timestamp - lastSubmittedAtMs < interval || inFlight {
       droppedFrames += 1
@@ -167,7 +171,13 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
     lastSubmittedAtMs = timestamp
     inFlight = true
     let meta = computeFrameStats(sampleBuffer: sampleBuffer)
-    pendingFrames[timestamp] = meta
+    pendingFrames[timestamp] = FrameMeta(
+      brightness: meta.brightness,
+      contrast: meta.contrast,
+      sharpness: meta.sharpness,
+      capturedAtMs: meta.capturedAtMs,
+      generation: generation
+    )
     stateLock.unlock()
 
     do {
@@ -190,7 +200,11 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
     error: Error?
   ) {
     stateLock.lock()
-    let meta = pendingFrames.removeValue(forKey: timestampInMilliseconds) ?? FrameMeta()
+    guard let meta = pendingFrames.removeValue(forKey: timestampInMilliseconds),
+          meta.generation == pipelineGeneration else {
+      stateLock.unlock()
+      return
+    }
     inFlight = false
     processedFrames += 1
     if initializationLatencyMs == 0, pipelineStartedAtMs > 0 {
@@ -390,13 +404,15 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
     let contrast: Double
     let sharpness: Double
     let capturedAtMs: Int
+    let generation: Int
 
     init(brightness: Double = 0, contrast: Double = 0, sharpness: Double = 0,
-         capturedAtMs: Int = Int(Date().timeIntervalSince1970 * 1_000)) {
+         capturedAtMs: Int = Int(Date().timeIntervalSince1970 * 1_000), generation: Int = 0) {
       self.brightness = brightness
       self.contrast = contrast
       self.sharpness = sharpness
       self.capturedAtMs = capturedAtMs
+      self.generation = generation
     }
   }
 

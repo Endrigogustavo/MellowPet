@@ -105,7 +105,9 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   private val initializationLatencyMs = AtomicLong(0)
   private val lastSubmittedAtMs = AtomicLong(0)
   private val lastTimestampMs = AtomicLong(0)
+  private val sessionGeneration = AtomicLong(0)
   private val pendingFrames = ConcurrentHashMap<Long, FrameMeta>()
+  private var restartScheduled = false
 
   init {
     addView(textureView)
@@ -199,6 +201,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     processedFrames.set(0)
     initializationLatencyMs.set(0)
     pipelineStartedAtMs.set(SystemClock.uptimeMillis())
+    sessionGeneration.incrementAndGet()
 
     executor.execute {
       if (!active || !attached) return@execute
@@ -252,6 +255,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
             opening = false
             device.close()
             if (cameraDevice === device) cameraDevice = null
+            scheduleRestart()
           }
 
           override fun onError(device: CameraDevice, error: Int) {
@@ -259,6 +263,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
             device.close()
             if (cameraDevice === device) cameraDevice = null
             emitError("camera_bind_failed", "Falha ao abrir a câmera frontal (código $error).", true)
+            scheduleRestart()
           }
         },
         backgroundHandler,
@@ -266,6 +271,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     } catch (error: Exception) {
       opening = false
       emitError("camera_bind_failed", error.message ?: "Não foi possível abrir a câmera frontal.", true)
+      scheduleRestart()
     }
   }
 
@@ -273,6 +279,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     val texture = textureView.surfaceTexture
     if (texture == null) {
       emitError("camera_unavailable", "Superfície de câmera indisponível.", true)
+      scheduleRestart()
       return
     }
     texture.setDefaultBufferSize(STREAM_WIDTH, STREAM_HEIGHT)
@@ -330,11 +337,20 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
             bound = true
           } catch (error: Exception) {
             emitError("camera_bind_failed", error.message ?: "Falha ao iniciar captura contínua.", true)
+            scheduleRestart()
           }
         }
 
         override fun onConfigureFailed(session: CameraCaptureSession) {
+          session.close()
+          if (captureSession === session) captureSession = null
+          if (cameraDevice === device) {
+            cameraDevice = null
+            device.close()
+          }
+          bound = false
           emitError("camera_bind_failed", "Falha ao configurar sessão de câmera.", true)
+          scheduleRestart()
         }
       }
 
@@ -353,7 +369,27 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
         device.createCaptureSession(outputs, sessionCallback, backgroundHandler)
       }
     } catch (error: Exception) {
+      if (cameraDevice === device) {
+        cameraDevice = null
+        device.close()
+      }
+      bound = false
       emitError("camera_bind_failed", error.message ?: "Falha ao criar sessão de câmera.", true)
+      scheduleRestart()
+    }
+  }
+
+  private fun scheduleRestart() {
+    post {
+      if (restartScheduled || !active || !attached) return@post
+      restartScheduled = true
+      postDelayed({
+        restartScheduled = false
+        if (active && attached) {
+          stopPipeline()
+          startIfPossible()
+        }
+      }, CAMERA_RESTART_DELAY_MS)
     }
   }
 
@@ -407,30 +443,44 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   private fun analyzeImage(image: Image) {
     val width = image.width
     val height = image.height
+    var timestamp = 0L
+    var sourceBitmap: Bitmap? = null
+    var normalizedBitmap: Bitmap? = null
     try {
       val bitmap = image.use(::yuv420ToBitmap)
+      sourceBitmap = bitmap
       val frameStats = computeFrameStats(bitmap)
       val matrix = Matrix().apply {
         postRotate(sensorOrientation.toFloat())
         if (mirror) postScale(-1f, 1f, width.toFloat(), height.toFloat())
       }
-      val normalizedBitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true)
-      val timestamp = monotonicTimestamp()
+      val transformed = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true)
+      normalizedBitmap = transformed
+      timestamp = monotonicTimestamp()
+      val generation = sessionGeneration.get()
       pendingFrames[timestamp] = FrameMeta(
         brightness = frameStats.brightness,
         contrast = frameStats.contrast,
         sharpness = frameStats.sharpness,
         capturedAtMs = System.currentTimeMillis(),
+        generation = generation,
       )
-      val mpImage = BitmapImageBuilder(normalizedBitmap).build()
+      val mpImage = BitmapImageBuilder(transformed).build()
       // Keep the instance stable for this frame. The camera lifecycle may
       // close the shared field while a frame is already being analyzed.
       val landmarker = faceLandmarker
         ?: throw IllegalStateException("Face Landmarker indisponível")
       landmarker.detectAsync(mpImage, timestamp)
     } catch (error: Exception) {
+      if (timestamp != 0L) pendingFrames.remove(timestamp)
       inferenceInFlight.set(false)
       emitError("frame_processing_failed", error.message ?: "Falha ao processar frame.", true)
+    } finally {
+      // O MPImage assíncrono pode manter o bitmap transformado até o callback.
+      // O bitmap YUV convertido já não é necessário quando a transformação
+      // produziu outra instância.
+      val source = sourceBitmap
+      if (source != null && source !== normalizedBitmap && !source.isRecycled) source.recycle()
     }
   }
 
@@ -488,7 +538,8 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   }
 
   private fun handleResult(result: FaceLandmarkerResult, input: MPImage) {
-    val meta = pendingFrames.remove(result.timestampMs()) ?: FrameMeta()
+    val meta = pendingFrames.remove(result.timestampMs()) ?: return
+    if (meta.generation != sessionGeneration.get()) return
     inferenceInFlight.set(false)
     processedFrames.incrementAndGet()
     val startedAt = pipelineStartedAtMs.get()
@@ -576,6 +627,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   }
 
   private fun stopPipeline() {
+    sessionGeneration.incrementAndGet()
     bound = false
     opening = false
     try {
@@ -593,6 +645,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     } catch (_: Exception) {
     }
     cameraDevice = null
+    previewSurface?.release()
     previewSurface = null
     readerSurface = null
     pendingFrames.clear()
@@ -710,6 +763,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     val contrast: Double = 0.0,
     val sharpness: Double = 0.0,
     val capturedAtMs: Long = System.currentTimeMillis(),
+    val generation: Long = 0L,
   )
   private data class Point(val x: Double, val y: Double)
   private data class FaceGeometry(
@@ -721,9 +775,10 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
 
   companion object {
     const val MODEL_VERSION = "mediapipe-face-landmarker-float16-v1"
-    const val PIPELINE_VERSION = "mellow-vision-v3.0.0-camera2-rgb"
+    const val PIPELINE_VERSION = "mellow-vision-v3.1.0-native"
     private const val MODEL_ASSET = "face_landmarker.task"
     private const val STREAM_WIDTH = 640
     private const val STREAM_HEIGHT = 480
+    private const val CAMERA_RESTART_DELAY_MS = 1_000L
   }
 }

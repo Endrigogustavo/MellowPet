@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, Platform, View } from 'react-native';
 
 import { acceptInvite, listLinks, revokeCareLink, type CaregiverLink } from '../care/careClient';
 import { Field } from '../components/Field';
@@ -37,6 +37,7 @@ export function SettingsScreen() {
   const { state, actions } = useApp();
   const { T, isDark, full } = useTheme();
   const toggles = full ? SETTING_TOGGLES : SETTING_TOGGLES.slice(0, 3);
+  const backgroundVisionSupported = Platform.OS === 'android';
 
   // Vem do lado nativo, não do estado do app: quem manda é o serviço estar
   // rodando ou não, e ele sobrevive ao app fechar.
@@ -393,7 +394,7 @@ export function SettingsScreen() {
             }}
           />
 
-          <ToggleRow
+          {backgroundVisionSupported ? <ToggleRow
             label="Ler expressão com o app fechado"
             sub={`A câmera abre por alguns segundos a cada ${bgVision.intervalMinutes} min, lê e fecha. Fica um aviso permanente enquanto estiver ligado.`}
             on={bgVision.enabled}
@@ -403,9 +404,9 @@ export function SettingsScreen() {
               setBackgroundVision(next.enabled, next.intervalMinutes);
               setBgVision(next);
             }}
-          />
+          /> : null}
 
-          {bgVision.enabled ? (
+          {backgroundVisionSupported && bgVision.enabled ? (
             <View style={{ paddingBottom: 15, gap: 8 }}>
               <Txt s={11.5} c={T.t3}>
                 Uma leitura a cada

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 
 import { listCareAuditEntries } from '../care/careClient';
 import { auditActionLabel } from '../care/careAudit';

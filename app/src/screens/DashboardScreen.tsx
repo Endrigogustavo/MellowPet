@@ -33,7 +33,10 @@ export function DashboardScreen() {
     if (!state.userId) return;
     const key = `${state.userId}:${state.period}`;
     setLoaded(null);
-    const refresh = () =>
+    let lastRefreshStartedAt = 0;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      lastRefreshStartedAt = Date.now();
       fetchDashboardPeriod(state.userId!, state.period)
         .then((period) => {
           if (alive) setLoaded({ key, period });
@@ -41,12 +44,21 @@ export function DashboardScreen() {
         .catch(() => {
           if (alive) setLoaded({ key, period: null });
         });
+    };
     refresh();
     // Leitura nova chegando com a tela aberta atualiza sozinha, sem esperar
     // o usuário trocar de aba e voltar.
-    const unsubscribe = subscribeToEmotionEvents(state.userId, refresh);
+    const unsubscribe = subscribeToEmotionEvents(state.userId, () => {
+      if (refreshTimer) return;
+      const wait = Math.max(0, 60_000 - (Date.now() - lastRefreshStartedAt));
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        if (alive) refresh();
+      }, wait);
+    });
     return () => {
       alive = false;
+      if (refreshTimer) clearTimeout(refreshTimer);
       unsubscribe();
     };
   }, [state.userId, state.period]);

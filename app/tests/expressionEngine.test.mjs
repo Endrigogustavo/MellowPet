@@ -366,6 +366,15 @@ test('quality rejection always produces unknown', () => {
   assert.deepEqual(result.qualityReasons, ['too_dark']);
 });
 
+test('losing the face clears the previous emotion and temporal evidence', () => {
+  const engine = new ExpressionEngine();
+  assert.equal(engine.process(baseFrame(smile)).observedExpression, 'happy');
+  assert.equal(engine.process(baseFrame({}, { status: 'no_face' })).observedExpression, 'unknown');
+  const recovered = engine.process(baseFrame({}));
+  assert.equal(recovered.observedExpression, 'neutral');
+  assert.equal(recovered.signalStatus, 'ready');
+});
+
 test('calibration only learns after an explicit request', () => {
   const engine = new ExpressionEngine();
   assert.equal(engine.getCalibrationState().complete, false);

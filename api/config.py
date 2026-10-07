@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
+    ai_timeout_seconds: float = Field(default=25.0, ge=5.0, le=120.0)
 
     @field_validator("log_level")
     @classmethod
