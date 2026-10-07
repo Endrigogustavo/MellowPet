@@ -1,0 +1,24 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.mellowpet.wearbridge'
+version = '1.0.0'
+
+android {
+  namespace "com.mellowpet.wearbridge"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  // Data Layer. Mesma biblioteca do lado do relogio — e o unico canal que
+  // atravessa celular/relogio sem cada lado ter credencial propria.
+  implementation 'com.google.android.gms:play-services-wearable:18.2.0'
+}

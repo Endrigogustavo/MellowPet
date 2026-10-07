@@ -1,0 +1,26 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools">
+
+  <!--
+    Declarado no manifesto do modulo, e nao em android/app/, porque aquela pasta
+    e gerada pelo prebuild e esta no .gitignore. O AGP faz o merge deste no app.
+  -->
+
+  <application>
+    <!--
+      Recebe os check-ins que o relogio envia pelo Data Layer. Precisa ser
+      exported: quem entrega a mensagem e o Google Play Services, outro
+      processo. A protecao nao e o exported e sim o proprio Data Layer, que so
+      entrega entre apps de mesmo applicationId e mesma assinatura.
+    -->
+    <service
+      android:name="com.mellowpet.wearbridge.WatchMessageListener"
+      android:exported="true"
+      tools:ignore="ExportedService">
+      <intent-filter>
+        <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+        <data android:scheme="wear" android:host="*" android:pathPrefix="/mellow/checkin" />
+      </intent-filter>
+    </service>
+  </application>
+</manifest>

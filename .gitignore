@@ -185,3 +185,13 @@ GoogleService-Info.plist
 !.env.example
 secrets/
 *.pem
+
+# Build do app do relógio (projeto Gradle próprio em wear/)
+wear/build/
+wear/app/build/
+wear/.gradle/
+wear/local.properties
+
+# Crash logs da JVM (Gradle/Kotlin daemon)
+hs_err_pid*.log
+replay_pid*.log

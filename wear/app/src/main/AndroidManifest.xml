@@ -1,0 +1,59 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools">
+
+  <uses-feature android:name="android.hardware.type.watch" />
+
+  <!-- Batimentos: sensor corporal, pedido em tempo de execucao. -->
+  <uses-permission android:name="android.permission.BODY_SENSORS" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+  <application
+    android:allowBackup="false"
+    android:icon="@mipmap/ic_launcher"
+    android:label="@string/app_name"
+    android:supportsRtl="true"
+    android:theme="@android:style/Theme.DeviceDefault">
+
+    <!-- Diz ao sistema que este app funciona sem um app de celular instalado.
+         Falso aqui seria mentira ao contrario: o relogio depende do celular
+         para gravar, mas abre e faz check-in offline, guardando na fila. -->
+    <meta-data
+      android:name="com.google.android.wearable.standalone"
+      android:value="false" />
+
+    <activity
+      android:name=".MainActivity"
+      android:exported="true"
+      android:taskAffinity=""
+      android:theme="@android:style/Theme.DeviceDefault">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
+
+    <!-- Recebe o estado que o celular empurra (emocao, nivel, sequencia). -->
+    <service
+      android:name=".sync.PhoneStateListener"
+      android:exported="true"
+      tools:ignore="ExportedService">
+      <intent-filter>
+        <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+        <data android:scheme="wear" android:host="*" android:pathPrefix="/mellow/state" />
+      </intent-filter>
+    </service>
+
+    <service
+      android:name=".tile.MellowTileService"
+      android:exported="true"
+      android:label="@string/tile_label"
+      android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+      <intent-filter>
+        <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+      </intent-filter>
+      <meta-data
+        android:name="androidx.wear.tiles.PREVIEW"
+        android:resource="@drawable/tile_preview" />
+    </service>
+  </application>
+</manifest>

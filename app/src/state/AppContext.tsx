@@ -34,7 +34,9 @@ import {
   moodPctFor,
   updateMoodWidget,
 } from '../widgets/widgetBridge';
+import { fetchStreak } from '../dashboard/streak';
 import { logManualEmotion } from '../vision/manualEmotion';
+import { pushStateToWatch, syncWatchCheckins } from '../wear/wearBridge';
 import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
 import { loadDensity, saveDensity } from './preferencesStore';
 
@@ -337,6 +339,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // O que a pessoa registrou pelos widgets com o app fechado. Só drena
   // depois de ter sessão: sem `userId` não há como escrever sob RLS, e a
   // fila do lado nativo se esvazia ao ser lida — perderíamos os toques.
+  // Check-ins feitos no relógio. Mesma razão de esperar a sessão: a fila
+  // nativa esvazia ao ser lida, então ler sem `userId` perderia tudo.
+  useEffect(() => {
+    if (!state.userId) return;
+    syncWatchCheckins(state.userId).catch(() => undefined);
+  }, [state.userId]);
+
+  // Espelha o estado no relógio: o pet no pulso mostra a mesma emoção e nível
+  // da tela inicial. A sequência vem do banco, não de `state.streak` — aquele
+  // conta segundos da mesma leitura, não dias seguidos.
+  useEffect(() => {
+    if (!state.userId) return;
+    let alive = true;
+    fetchStreak(state.userId)
+      .then(({ days, week }) => {
+        if (!alive) return;
+        pushStateToWatch(state.observedExpression, levelFromXp(state.xp), days, week[6] === true);
+      })
+      .catch(() => {
+        if (alive) pushStateToWatch(state.observedExpression, levelFromXp(state.xp), 0, false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [state.userId, state.observedExpression, state.xp]);
+
   useEffect(() => {
     if (!state.userId) return;
     const pending = drainPendingWidgetActions();

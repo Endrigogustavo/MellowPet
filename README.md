@@ -182,6 +182,9 @@ adb reverse tcp:8000 tcp:8000
 Para gerar o APK de release e instalar num celular físico, veja
 [docs/build-android.md](docs/build-android.md).
 
+Para o app do Galaxy Watch 4 (projeto próprio em [`wear/`](wear)), veja
+[docs/build-wear.md](docs/build-wear.md).
+
 ---
 
 ## Funcionalidades Implementadas
