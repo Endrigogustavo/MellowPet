@@ -126,5 +126,10 @@ object StateCache {
     } catch (_: Exception) {
       // Tile pode nem estar adicionado ao mostrador; nao e erro.
     }
+    try {
+      com.mellowpet.wear.complication.MellowComplicationService.requestUpdate(context)
+    } catch (_: Exception) {
+      // Nenhum mostrador usando a complicacao.
+    }
   }
 }
