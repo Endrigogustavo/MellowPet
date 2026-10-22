@@ -1,5 +1,6 @@
 import type { VisionFramePayload } from '../../modules/mellow-vision';
 import type { EmotionKey } from '../data/emotions';
+import type { ActionUnits } from './evidence';
 import type { SignalStatus, VisionSnapshot } from './contracts';
 
 type ObservedExpression = Exclude<EmotionKey, 'unknown'>;
@@ -119,7 +120,9 @@ function bilateral(
  * Isso evita que um único coeficiente ruidoso (por exemplo mouthSmile) force
  * uma emoção e reduz as trocas entre classes visualmente parecidas.
  */
-function scoreBlendshapeDetails(source: Blendshapes): { scores: Scores; evidence: Scores } {
+function scoreBlendshapeDetails(
+  source: Blendshapes
+): { scores: Scores; evidence: Scores; aus: ActionUnits } {
   // Onset/saturation mais baixos nos AUs centrais de raiva/tristeza: uma
   // expressao genuina raramente ativa um blendshape acima de ~0.5-0.6, entao
   // saturar por volta desse ponto (em vez de ~0.68-0.7) evita descontar
@@ -235,7 +238,20 @@ function scoreBlendshapeDetails(source: Blendshapes): { scores: Scores; evidence
       0.2 * modelNeutral
   );
   const absolute = { ...evidence, neutral };
-  return { scores: normalize(absolute), evidence: absolute };
+  // Os AUs saem junto para a tela poder explicar a leitura (ver vision/evidence.ts).
+  // Sao os mesmos valores usados acima — nada e recalculado para a explicacao.
+  const aus: ActionUnits = {
+    browInner, browOuter, browDown, cheekRaise, noseWrinkle, smile, frown,
+    mouthStretch, jawOpen, eyesClosed, eyeWide, eyeSquint, mouthPress,
+    mouthPucker, mouthRoll, mouthShrug, mouthLower, mouthUpper, dimple,
+    jawLateral,
+  };
+  return { scores: normalize(absolute), evidence: absolute, aus };
+}
+
+/** Os AUs medidos neste quadro, para explicar a leitura. */
+export function measureActionUnits(source: Blendshapes): ActionUnits {
+  return scoreBlendshapeDetails(source).aus;
 }
 
 export function scoreBlendshapes(source: Blendshapes): Scores {
@@ -264,6 +280,8 @@ export class ExpressionEngine {
   private votes: Scores[] = [];
   private ema: Scores | null = null;
   private evidenceEma: Scores | null = null;
+  /** AUs do ultimo quadro pontuado, para explicar a leitura. */
+  private lastActionUnits: ActionUnits | null = null;
   private current: ObservedExpression | null = null;
   private pending: ObservedExpression | null = null;
   private pendingCount = 0;
@@ -344,7 +362,8 @@ export class ExpressionEngine {
     }
 
     const corrected = this.subtractBaseline(frame.blendshapes);
-    const { scores: rawScores, evidence: rawEvidence } = scoreBlendshapeDetails(corrected);
+    const { scores: rawScores, evidence: rawEvidence, aus } = scoreBlendshapeDetails(corrected);
+    this.lastActionUnits = aus;
     const voted = this.vote(rawScores);
     const topRaw = Math.max(...EXPRESSIONS.map((expression) => voted[expression]));
     const alpha = clip(0.38 + 0.34 * frame.qualityScore + 0.2 * topRaw);
@@ -494,6 +513,7 @@ export class ExpressionEngine {
     this.votes = [];
     this.ema = null;
     this.evidenceEma = null;
+    this.lastActionUnits = null;
     this.current = null;
     this.pending = null;
     this.pendingCount = 0;
@@ -526,6 +546,10 @@ export class ExpressionEngine {
         : [];
     return {
       observedExpression: expression,
+      // Os AUs deste quadro, para a tela poder dizer o que pesou na leitura.
+      // So com leitura pronta: num retorno antecipado (rosto perdido, aquecendo)
+      // o valor guardado seria do quadro anterior, e explicaria a coisa errada.
+      actionUnits: status === 'ready' ? (this.lastActionUnits ?? undefined) : undefined,
       signalConfidence: Number(confidence.toFixed(3)),
       signalStatus: status,
       qualityScore: Number(frame.qualityScore.toFixed(3)),

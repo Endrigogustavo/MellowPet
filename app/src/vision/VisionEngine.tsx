@@ -9,6 +9,7 @@ import {
   type VisionFramePayload,
 } from '../../modules/mellow-vision';
 import { useApp } from '../state/AppContext';
+import { explainReading } from './evidence';
 import { loadCalibrationBaseline, saveCalibrationBaseline } from './calibrationStore';
 import { createVisionId, VisionEventRecorder } from './eventRecorder';
 import {
@@ -213,6 +214,12 @@ export function VisionEngine() {
           signalConfidence: result.signalConfidence,
           qualityScore: result.qualityScore,
           secondaryEmotions: result.secondaryEmotions,
+          // Calculado no mesmo ritmo da leitura, nao a cada quadro: a tela so
+          // precisa dos sinais que sustentam o rotulo que ela esta mostrando.
+          readingEvidence:
+            result.signalStatus === 'ready' && result.actionUnits
+              ? explainReading(result.actionUnits, result.observedExpression)
+              : [],
           ...(result.signalStatus === 'ready' ? { streak: 0 } : null),
         });
         lastSignalCommitRef.current = {

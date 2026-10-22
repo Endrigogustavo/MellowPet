@@ -383,6 +383,37 @@ export function HomeScreen() {
             {emo.msg}
           </Txt>
 
+          {/* por que o Mellow leu isso: os sinais do rosto que puxaram a leitura */}
+          {hasReliableReading && state.readingEvidence.length > 0 ? (
+            <View style={{ marginTop: 13, paddingTop: 13, borderTopWidth: 1, borderTopColor: T.bd }}>
+              <Txt s={11} w={800} c={T.t3} ls={1.2}>
+                POR QUE O MELLOW LEU ISSO
+              </Txt>
+              <View style={{ gap: 8, marginTop: 9 }}>
+                {state.readingEvidence.map((signal) => (
+                  <View key={signal.label}>
+                    <View
+                      style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}
+                    >
+                      <Txt s={12.5} w={700} c={T.t1}>
+                        {signal.label}
+                      </Txt>
+                      <Txt s={11} c={T.t3}>
+                        {Math.round(signal.strength * 100)}%
+                      </Txt>
+                    </View>
+                    <View style={{ marginTop: 4 }}>
+                      <Bar pct={signal.strength * 100} color={emoColor} height={4} />
+                    </View>
+                  </View>
+                ))}
+              </View>
+              <Txt s={11} lh={1.45} c={T.t3} style={{ marginTop: 9 }}>
+                É o que o rosto mostrou, não o que você sente. Testa franzida também pode ser concentração.
+              </Txt>
+            </View>
+          ) : null}
+
           {hasReliableReading ? <View
             style={{
               flexDirection: 'row',

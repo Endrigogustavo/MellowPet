@@ -13,6 +13,8 @@ export type SignalStatus =
 export type VisionMode = 'demo' | 'disabled' | 'device';
 
 export type VisionSnapshot = {
+  /** Unidades de acao medidas no quadro, para explicar a leitura. */
+  actionUnits?: import('./evidence').ActionUnits;
   observedExpression: EmotionKey;
   signalConfidence: number;
   signalStatus: SignalStatus;

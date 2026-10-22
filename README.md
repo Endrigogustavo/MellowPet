@@ -305,9 +305,9 @@ O sistema funciona sem IA configurada (modo fallback), mas para:
 - [x] Alertas inteligentes
 - [x] Identidade visual e assets de loja
 - [x] Endurecimento para produção (API key, rate limit, CORS)
-- [ ] Autenticação de usuário (login + dados isolados por conta)
+- [x] Autenticação de usuário (login + dados isolados por conta)
 - [ ] Suporte a múltiplos idiomas
-- [ ] Integração com wearables
+- [x] Integração com wearables (Galaxy Watch 4 — ver `docs/build-wear.md`)
 - [ ] Análise preditiva de bem-estar
 - [ ] Comunidade e compartilhamento de insights
 
@@ -331,22 +331,22 @@ Controles implementados e verificáveis no código:
 |----------|------|
 | API key (`X-API-Key`) nas rotas `/api/v1/*` | `api/utils/security.py` |
 | Rate limit por IP (120/min, ajustável) | `api/utils/security.py` |
-| Limite de corpo (6 MB) e de frame (4 MB) | `api/utils/security.py`, `api/routers/emotion.py` |
+| Limite de tamanho de corpo da requisição | `api/utils/security.py` |
+| Nenhuma imagem sai do aparelho: a leitura facial roda localmente | `app/modules/mellow-vision` |
 | CORS por allowlist, sem credenciais | `api/main.py` |
 | Erro 500 sem stacktrace no corpo da resposta | `api/main.py` |
 | Erro de validação sem ecoar o frame enviado | `api/main.py` |
-| Allowlist de destinatários de e-mail | `api/routers/alerts.py` |
 | Escape de HTML e do Subject nos e-mails | `api/services/alert_service.py` |
-| Consulta de histórico exige `session_id`/`user_id` | `api/routers/history.py` |
+| Histórico isolado por conta (RLS por `auth.uid()`) | `supabase/migrations/` |
 | Boot bloqueado se a config de produção estiver insegura | `api/config.py` |
 | Container non-root com healthcheck | `api/Dockerfile` |
 | Banco e segredos fora do versionamento | `.gitignore` |
 
 **O que ainda não existe** — importante para quem for usar isto com dados reais:
 
-- **Não há autenticação de usuário.** Quem tiver a API key e um `session_id`
-  válido lê o histórico daquela sessão. A key vai embutida no app e é extraível
-  de um APK, então ela barra terceiros, não usuários do próprio app.
+- **A API key da API em Python vai embutida no app** e é extraível de um APK.
+  Ela barra terceiros, não usuários do próprio app. Os dados pessoais não
+  dependem dela: ficam no Supabase, atrás de login e de RLS por conta.
 - **Dados agregados dependem das políticas RLS do Supabase.** Revise migrations,
   índices e políticas antes de usar dados reais.
 - **O rate limit é por processo.** Com várias réplicas, use o gateway ou Redis.

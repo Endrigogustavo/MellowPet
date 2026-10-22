@@ -35,6 +35,7 @@ import {
   updateMoodWidget,
 } from '../widgets/widgetBridge';
 import { fetchStreak } from '../dashboard/streak';
+import type { EvidenceSignal } from '../vision/evidence';
 import { logManualEmotion } from '../vision/manualEmotion';
 import { pushStateToWatch, syncWatchCheckins } from '../wear/wearBridge';
 import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
@@ -107,6 +108,8 @@ export type State = {
   /** Até 2 emoções secundárias da leitura atual (além da primária) — juntas
    * formam a mistura de até 3 emoções exposta como métrica de verdade. */
   secondaryEmotions: { expression: EmotionKey; confidence: number }[];
+  /** Sinais do rosto que puxaram a leitura atual (ver vision/evidence.ts). */
+  readingEvidence: EvidenceSignal[];
 
   breathing: boolean;
   breathTick: number;
@@ -203,6 +206,7 @@ const INITIAL: State = {
   visionThermalLimited: false,
   visionScores: null,
   secondaryEmotions: [],
+  readingEvidence: [],
 
   breathing: false,
   breathTick: 0,
