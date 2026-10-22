@@ -29,6 +29,9 @@ import { sendChatMessage } from '../chat/chatClient';
 import { fetchToolContent } from '../tools/toolsClient';
 import { listLinks } from '../care/careClient';
 import { bumpProfileStats, fetchProfileStats, levelFromXp } from '../profile/profileClient';
+import { grewUp, type PetStage } from '../pet/growth';
+import { fetchCareDayCount, markCareDay } from '../pet/growthClient';
+import { fetchSettings } from '../settings/settingsClient';
 import {
   drainPendingWidgetActions,
   moodPctFor,
@@ -87,6 +90,10 @@ export type State = {
 
   petName: string;
   petType: PetKey;
+  /** Dias distintos com algum cuidado — o que faz o pet crescer. */
+  careDays: number;
+  /** Estágio recém-alcançado, para a cerimônia de evolução. Some depois de vista. */
+  growthEvent: PetStage | null;
   /** Leitura facial observada; nunca representa automaticamente o estado interno. */
   observedExpression: EmotionKey;
   /** Estado visual do bichinho, separado da leitura da pessoa. */
@@ -193,6 +200,8 @@ const INITIAL: State = {
 
   petName: 'Mellow',
   petType: 'seal',
+  careDays: 0,
+  growthEvent: null,
   observedExpression: VISION_MODE === 'demo' ? 'neutral' : 'unknown',
   petMood: 'neutral',
   visionMode: VISION_MODE,
@@ -286,6 +295,20 @@ function reducer(s: State, patch: Patch): State {
   return { ...s, ...changes };
 }
 
+/**
+ * Tipo, nome e dias de cuidado do pet, lidos no restore da sessão. Antes só a
+ * tela de Ajustes lia tipo/nome, então depois de reiniciar a Home mostrava a
+ * foca padrão até alguém abrir Ajustes.
+ */
+function loadPetIdentity(userId: string, apply: (patch: Partial<State>) => void) {
+  fetchSettings(userId)
+    .then((s) => apply({ petType: s.pet_type as PetKey, petName: s.pet_name }))
+    .catch(() => undefined);
+  fetchCareDayCount(userId)
+    .then((careDays) => apply({ careDays }))
+    .catch(() => undefined);
+}
+
 export type Actions = {
   set: (patch: Patch) => void;
   go: (screen: Screen) => void;
@@ -301,6 +324,8 @@ export type Actions = {
   submitAuth: () => Promise<void>;
   logout: () => Promise<void>;
   dismissCard: (id: string) => void;
+  /** Registra que hoje houve cuidado. Idempotente por dia. */
+  markCare: () => void;
 };
 
 type Ctx = { state: State; actions: Actions };
@@ -347,7 +372,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // nativa esvazia ao ser lida, então ler sem `userId` perderia tudo.
   useEffect(() => {
     if (!state.userId) return;
-    syncWatchCheckins(state.userId).catch(() => undefined);
+    syncWatchCheckins(state.userId)
+      .then((saved) => {
+        if (saved > 0) actions.markCare();
+      })
+      .catch(() => undefined);
   }, [state.userId]);
 
   // Espelha o estado no relógio: o pet no pulso mostra a mesma emoção e nível
@@ -441,6 +470,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         .catch(() => undefined);
       fetchProfileStats(user.userId).then((stats) => {
         if (alive) dispatch(stats);
+      });
+      loadPetIdentity(user.userId, (patch) => {
+        if (alive) dispatch(patch);
       });
     }).catch(() => {
       if (alive) dispatch({ authRestored: true });
@@ -722,6 +754,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             .then((res) => dispatch({ linked: res.links.length > 0 }))
             .catch(() => undefined);
           fetchProfileStats(user.userId).then((stats) => dispatch(stats));
+          loadPetIdentity(user.userId, dispatch);
         } catch (error) {
           dispatch({
             authLoading: false,
@@ -730,6 +763,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       },
 
+
+      markCare: () => {
+        const userId = ref.current.userId;
+        if (!userId) return;
+        markCareDay(userId)
+          .then((isNewDay) => {
+            if (!isNewDay) return;
+            dispatch((s) => {
+              const careDays = s.careDays + 1;
+              const reached = grewUp(s.careDays, careDays);
+              return reached ? { careDays, growthEvent: reached } : { careDays };
+            });
+          })
+          .catch(() => undefined);
+      },
 
       dismissCard: (id: string) => {
         dispatch((s) => {

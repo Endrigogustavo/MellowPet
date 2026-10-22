@@ -4,6 +4,7 @@ import Svg, { Circle, Ellipse, G, Path } from 'react-native-svg';
 import { BROWS, EYES, MOUTH, type EmotionKey } from '../data/emotions';
 import { DET, EARS, HEAD, PATCH_FILL, PET_BODY, type PetKey } from '../data/pets';
 import { mix } from '../theme/palette';
+import { STAGE_SHAPE, type PetStage } from '../pet/growth';
 
 /**
  * O viewBox original do design é 100×100 com `overflow:visible`, porque a orelha
@@ -35,6 +36,8 @@ export type PetFaceProps = {
   belly?: string;
   whisker?: string;
   blush?: number;
+  /** Estágio de crescimento: muda proporções (filhote tem olhos maiores). */
+  stage?: PetStage;
 };
 
 export function PetFace({
@@ -45,7 +48,9 @@ export function PetFace({
   belly: bellyProp,
   whisker = 'rgba(107,100,112,0.75)',
   blush = 0.55,
+  stage = 'jovem',
 }: PetFaceProps) {
+  const shape = STAGE_SHAPE[stage];
   const body = bodyProp ?? PET_BODY[petType];
   const det = DET[petType];
   const preview = !emotion;
@@ -67,11 +72,11 @@ export function PetFace({
   const brows = emotion ? BROWS[emotion] : ['', ''];
   const arcEyes = emotion === 'happy';
   const eyeY = emotion === 'surprised' ? 51 : 52;
-  const eyeR = emotion === 'surprised' ? 7.6 : emotion === 'fearful' ? 5.4 : 6.6;
+  const eyeR = (emotion === 'surprised' ? 7.6 : emotion === 'fearful' ? 5.4 : 6.6) * shape.eye;
   const glintY = emotion === 'surprised' ? 48.4 : 49.6;
   const mouth = emotion ? MOUTH[emotion] : 'M 40 70 q 10 8 20 0';
 
-  const px = size * SCALE;
+  const px = size * SCALE * shape.scale;
 
   return (
     <Svg width={px} height={px} viewBox={VIEW_BOX}>
@@ -87,6 +92,16 @@ export function PetFace({
 
       {/* cabeça */}
       <Path d={HEAD} fill={body} />
+      {/* filhote: um cachinho no topo da cabeça */}
+      {stage === 'filhote' ? (
+        <Path
+          d="M 50 9 c -4 -6 3 -10 6 -5 c 2 4 -3 6 -4 3"
+          fill="none"
+          stroke={LINE}
+          strokeWidth={2.4}
+          strokeLinecap="round"
+        />
+      ) : null}
 
       {!preview && det.bel > 0 ? (
         <Ellipse cx={50} cy={72} rx={30} ry={19} fill={belly} opacity={det.bel} />
@@ -113,8 +128,8 @@ export function PetFace({
 
       {!preview ? (
         <>
-          <Circle cx={20} cy={60} r={7} fill="#F0A0AC" opacity={blush} />
-          <Circle cx={80} cy={60} r={7} fill="#F0A0AC" opacity={blush} />
+          <Circle cx={20} cy={60} r={7 * shape.blush} fill="#F0A0AC" opacity={blush} />
+          <Circle cx={80} cy={60} r={7 * shape.blush} fill="#F0A0AC" opacity={blush} />
           {det.w ? (
             <G fill="none" stroke={whisker} strokeWidth={1.5} strokeLinecap="round">
               {WHISKERS.map((d) => (

@@ -221,6 +221,7 @@ export function CheckinScreen() {
         detectedConfidence: hasReading ? state.signalConfidence : null,
       });
       setJustSaved(created);
+      actions.markCare();
       setRecent((prev) => [created, ...prev]);
       actions.set((s) => ({ xp: s.xp + CHECKIN_XP }));
       bumpProfileStats({ xp: CHECKIN_XP }).then((stats) => {

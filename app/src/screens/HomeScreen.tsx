@@ -10,6 +10,8 @@ import { Bar, Card, Touchable, Txt } from '../components/ui';
 import { FACE_ICON, INTENSITY } from '../data/emotions';
 import { ICONS } from '../data/content';
 import { bumpProfileStats, levelFromXp } from '../profile/profileClient';
+import { GrowthCeremony } from '../components/GrowthCeremony';
+import { growthProgress, STAGE_LABEL } from '../pet/growth';
 import { useApp, useTheme } from '../state/AppContext';
 import { OK } from '../theme/palette';
 
@@ -101,6 +103,7 @@ export function HomeScreen() {
   // Otimista na UI, reconciliado com o valor real assim que a chamada volta
   // — nível é sempre derivado de xp (levelFromXp), nunca um contador à parte.
   const bumpCare = (delta: { fed?: number; played?: number; xp: number }, patch: Partial<typeof state>) => {
+    actions.markCare();
     actions.set((s) => ({
       fed: s.fed + (delta.fed ?? 0),
       played: s.played + (delta.played ?? 0),
@@ -224,8 +227,10 @@ export function HomeScreen() {
           </Txt>
         </Touchable>
         <Touchable
-          onPress={() =>
-            actions.set((s) => ({ breathing: !s.breathing, breathTick: 0, focus: false }))
+          onPress={() => {
+            if (!state.breathing) actions.markCare();
+            actions.set((s) => ({ breathing: !s.breathing, breathTick: 0, focus: false }));
+          }
           }
           style={modePill(state.breathing)}
         >
@@ -237,6 +242,9 @@ export function HomeScreen() {
       </View>
 
       <PetStage />
+      {state.growthEvent ? (
+        <GrowthCeremony stage={state.growthEvent} onDone={() => actions.set({ growthEvent: null })} />
+      ) : null}
 
       {/* conexão com cuidador */}
       {!state.linked && !state.dismissedCards.includes('caregiver_connect') ? (
@@ -336,6 +344,27 @@ export function HomeScreen() {
           <View style={{ marginTop: 8 }}>
             <Bar pct={state.xp % 100} color={emoColor} />
           </View>
+          {/* crescimento: dias de cuidado, não tempo de tela */}
+          {(() => {
+            const g = growthProgress(state.careDays);
+            return (
+              <View style={{ marginTop: 11, paddingTop: 10, borderTopWidth: 1, borderTopColor: T.bd }}>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                  <Txt s={12.5} w={800} c={T.t1}>
+                    {state.petName} · {STAGE_LABEL[g.stage]}
+                  </Txt>
+                  <Txt s={11.5} c={T.t3}>
+                    {g.next
+                      ? `${g.remaining} ${g.remaining === 1 ? 'dia' : 'dias'} de cuidado para virar ${STAGE_LABEL[g.next].toLowerCase()}`
+                      : 'crescido'}
+                  </Txt>
+                </View>
+                <View style={{ marginTop: 8 }}>
+                  <Bar pct={g.fraction * 100} color={T.pri} />
+                </View>
+              </View>
+            );
+          })()}
         </Card>
       </Section>
 

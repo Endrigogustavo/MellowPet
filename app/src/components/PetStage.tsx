@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, View } from 'react-native';
 
 import { ICONS } from '../data/content';
 import { EMOTIONS, type IdleAnim } from '../data/emotions';
+import { stageForDays } from '../pet/growth';
 import { useApp, useTheme } from '../state/AppContext';
 import { Icon } from './Icon';
 import { PetFace } from './PetFace';
@@ -197,6 +198,7 @@ export function PetStage() {
             belly={pet.belly}
             whisker={pet.whisker}
             blush={pet.blush}
+            stage={stageForDays(state.careDays)}
           />
         </Animated.View>
       </Pressable>
