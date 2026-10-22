@@ -14,6 +14,8 @@ import { EMOTIONS, FACE_ICON } from '../data/emotions';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK, WARN, hexA } from '../theme/palette';
 import { ForecastCard } from '../components/ForecastCard';
+import { HealthCard } from '../components/HealthCard';
+import { AgendaCard } from '../components/AgendaCard';
 
 const RING_C = 2 * Math.PI * 50; // 314.16
 const DONUT_C = 2 * Math.PI * 45; // 282.74
@@ -108,6 +110,12 @@ export function DashboardScreen() {
 
       <Section top={0} style={{ marginBottom: 12 }}>
         <ForecastCard />
+      </Section>
+      <Section top={0} style={{ marginBottom: 12 }}>
+        <HealthCard />
+      </Section>
+      <Section top={0} style={{ marginBottom: 12 }}>
+        <AgendaCard />
       </Section>
 
       {/* mapa do mês: check-ins e leituras, dia a dia */}

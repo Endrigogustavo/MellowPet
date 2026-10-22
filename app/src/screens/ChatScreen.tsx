@@ -249,6 +249,24 @@ export function ChatScreen() {
                     NO APARELHO · NADA FOI ENVIADO
                   </Txt>
                 ) : null}
+                {bot && m.source === 'crisis' ? (
+                  <Touchable
+                    onPress={actions.sos}
+                    accessibilityLabel="Preciso de ajuda"
+                    style={{
+                      marginTop: 10,
+                      alignSelf: 'flex-start',
+                      paddingVertical: 8,
+                      paddingHorizontal: 14,
+                      borderRadius: 999,
+                      backgroundColor: '#E5484D',
+                    }}
+                  >
+                    <Txt s={12.5} w={800} c="#fff">
+                      Preciso de ajuda
+                    </Txt>
+                  </Touchable>
+                ) : null}
                 {bot && m.action ? (
                   <Touchable
                     onPress={() => m.action && actions.runChatAction(m.action)}

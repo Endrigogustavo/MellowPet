@@ -91,6 +91,7 @@ import {
 } from '../pet/habits';
 import { ritualDay, type Ritual } from '../pet/rituals';
 import { recordEncounter, requestEncounterPermissions, startEncounters } from '../pet/encounters';
+import { loadLights, setLightForEmotion } from '../integrations/homeLights';
 
 export type Screen =
   | 'splash'
@@ -111,6 +112,8 @@ export type Screen =
   | 'friends'
   | 'fairness'
   | 'lullaby'
+  | 'sos'
+  | 'crisisplan'
   | 'wardrobe'
   | 'care'
   | 'carealerts'
@@ -445,7 +448,10 @@ export type Actions = {
   pet: () => void;
   send: () => void;
   sendBot: (content: string, screen?: Screen) => void;
+  /** Abre a tela de ajuda (CVV, SAMU, rede, plano de crise). */
   sos: () => void;
+  /** Leva ao chat com a mensagem de apoio. */
+  sosChat: () => void;
   openTool: (act: ToolAction, title: string, sub: string) => void;
   toggleTheme: () => void;
   /** Modo simples/completo. Persiste no aparelho. */
@@ -599,6 +605,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     pendingScreen.current = null;
     if (target !== 'home') dispatch((s) => ({ screen: target, navSeq: s.navSeq + 1 }));
   }, [state.userId, state.screen]);
+
+  const lightsSent = useRef({ at: 0, emotion: '' });
+  useEffect(() => {
+    const emotion = state.observedExpression;
+    if (state.signalStatus !== 'ready' || emotion === lightsSent.current.emotion) return;
+    if (Date.now() - lightsSent.current.at < 5 * 60_000) return;
+    loadLights()
+      .then((c) => {
+        if (!c?.enabled) return;
+        lightsSent.current = { at: Date.now(), emotion };
+        return setLightForEmotion(c, emotion);
+      })
+      .catch(() => undefined);
+  }, [state.observedExpression, state.signalStatus]);
 
   const encounterStage = stageForDays(state.careDays);
   useEffect(() => {
@@ -1037,7 +1057,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ...(screen ? { screen, navSeq: s.navSeq + 1 } : null),
         })),
 
-      sos: () =>
+      sos: () => go('sos'),
+
+      sosChat: () =>
         dispatch((s) => ({
           screen: 'chat',
           navSeq: s.navSeq + 1,

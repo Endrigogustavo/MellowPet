@@ -1,0 +1,44 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools">
+
+  <!--
+    Health Connect pede API 26+, o app aceita 24. O módulo só chama o Health
+    Connect depois de checar a versão (getSdkStatus), então em aparelhos
+    antigos a função simplesmente aparece como indisponível.
+  -->
+  <uses-sdk tools:overrideLibrary="androidx.health.connect.client" />
+
+  <!-- Só leitura, e só destes dois tipos. -->
+  <uses-permission android:name="android.permission.health.READ_SLEEP" />
+  <uses-permission android:name="android.permission.health.READ_STEPS" />
+
+  <queries>
+    <package android:name="com.google.android.apps.healthdata" />
+  </queries>
+
+  <application>
+    <!--
+      O Health Connect exige uma tela que explique o uso dos dados. As duas
+      entradas abaixo abrem o próprio app (a explicação fica em Ajustes).
+      Android 14+: VIEW_PERMISSION_USAGE; Android 13-: a ação de rationale.
+    -->
+    <activity-alias
+      android:name="com.mellowpet.health.ViewPermissionUsageActivity"
+      android:exported="true"
+      android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+      android:targetActivity="com.mellowpet.app.MainActivity">
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+        <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+      </intent-filter>
+    </activity-alias>
+    <activity-alias
+      android:name="com.mellowpet.health.PermissionsRationaleActivity"
+      android:exported="true"
+      android:targetActivity="com.mellowpet.app.MainActivity">
+      <intent-filter>
+        <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+      </intent-filter>
+    </activity-alias>
+  </application>
+</manifest>

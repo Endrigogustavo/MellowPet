@@ -1,0 +1,24 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.mellowpet.health'
+version = '1.0.0'
+
+android {
+  namespace "com.mellowpet.health"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  // Health Connect: sono e passos que outros apps (relógio, Samsung Health,
+  // Google Fit) já registram no aparelho. Só leitura.
+  implementation 'androidx.health.connect:connect-client:1.1.0'
+}

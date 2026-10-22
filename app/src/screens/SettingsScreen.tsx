@@ -35,6 +35,7 @@ import {
   getBackgroundVision,
   setBackgroundVision,
 } from '../vision/backgroundVision';
+import { LightsCard } from '../components/LightsCard';
 
 export function SettingsScreen() {
   const { state, actions } = useApp();
@@ -242,6 +243,11 @@ export function SettingsScreen() {
       {/* calibração da leitura facial */}
       <Section>
         <CalibrationCard />
+      </Section>
+
+      {/* luzes da casa */}
+      <Section>
+        <LightsCard />
       </Section>
 
       {/* memória e voz do Mellow */}
