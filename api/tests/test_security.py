@@ -106,3 +106,13 @@ class TestHeadersDeSeguranca:
         assert h["x-content-type-options"] == "nosniff"
         assert h["x-frame-options"] == "DENY"
         assert h["referrer-policy"] == "no-referrer"
+
+
+def test_full_app_answers_get_without_content_length():
+    """Regressão: GET (sem Content-Length) atravessando a pilha real do
+    main.py dava 500 "No response returned" — inclusive o health check."""
+    import main
+
+    with TestClient(main.app) as real:
+        assert real.get("/health").status_code == 200
+        assert real.get("/").status_code == 200

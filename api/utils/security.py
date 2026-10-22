@@ -105,7 +105,11 @@ class RequestSizeLimitMiddleware:
         async def replay_receive() -> Message:
             nonlocal delivered
             if delivered:
-                return {"type": "http.disconnect"}
+                # Depois do corpo, espera o desconecte DE VERDADE. Devolver
+                # http.disconnect na hora fazia o BaseHTTPMiddleware achar que
+                # o cliente tinha ido embora e cancelar a resposta: todo GET
+                # (que não tem Content-Length) virava 500 "No response returned".
+                return await receive()
             delivered = True
             return {"type": "http.request", "body": body, "more_body": False}
 
