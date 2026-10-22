@@ -39,6 +39,15 @@ export function CalibrationCard() {
           ))}
         </View>
       ) : null}
+      <Touchable
+        onPress={() => actions.go('fairness')}
+        accessibilityLabel="Abrir auditoria da leitura"
+        style={{ marginTop: 12 }}
+      >
+        <Txt s={12.5} w={800} c={T.pri}>
+          A leitura é justa com você? Ver o acerto
+        </Txt>
+      </Touchable>
       {g.samples > 0 ? (
         <Touchable onPress={actions.resetCalibration} accessibilityLabel="Zerar calibração pessoal" style={{ marginTop: 12 }}>
           <Txt s={12.5} w={800} c={T.pri}>

@@ -50,3 +50,14 @@ export async function loadEncountersEnabled(): Promise<boolean> {
 export async function saveEncountersEnabled(enabled: boolean): Promise<void> {
   await SecureStore.setItemAsync(ENCOUNTERS_KEY, enabled ? 'on' : 'off');
 }
+
+/** Microcheck-ins em horários sorteados: opt-in deste aparelho. */
+const EMA_KEY = 'mellowpet.ema.v1';
+
+export async function loadEmaEnabled(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(EMA_KEY)) === 'on';
+}
+
+export async function saveEmaEnabled(enabled: boolean): Promise<void> {
+  await SecureStore.setItemAsync(EMA_KEY, enabled ? 'on' : 'off');
+}

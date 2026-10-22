@@ -243,6 +243,24 @@ export function SettingsScreen() {
         <CalibrationCard />
       </Section>
 
+      {/* microcheck-ins */}
+      <Section>
+        <Card radius={24} padding={18}>
+          <ToggleRow
+            label="Microcheck-ins surpresa"
+            sub={
+              state.emaEnabled
+                ? '3 avisos por dia em horários sorteados entre 9h e 21h. Cada resposta ensina a leitura a acertar mais com você.'
+                : 'Desligado. Perguntar sempre na mesma hora mede só aquela hora — sortear dá uma foto mais honesta do seu dia.'
+            }
+            on={state.emaEnabled}
+            onPress={() => {
+              actions.setEma(!state.emaEnabled).catch(() => undefined);
+            }}
+          />
+        </Card>
+      </Section>
+
       {/* IA no aparelho */}
       <Section>
         <OfflineMellowCard />

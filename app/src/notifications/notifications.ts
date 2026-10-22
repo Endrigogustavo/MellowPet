@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { EMA_PROMPTS, upcomingEmaTimes } from '../checkins/ema';
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -71,7 +73,8 @@ export async function cancelRoutineReminder(routineId: string) {
  * agendamentos não sobrevivem à reinstalação/limpeza de dados do app, então
  * isso roda toda vez que a tela de rotina carrega. */
 export async function resyncRoutineReminders(items: { id: string; time: string; name: string; notify: boolean }[]) {
-  await Notifications.cancelAllScheduledNotificationsAsync().catch(() => undefined);
+  // Só os de rotina: pausa de água e microcheck-ins têm vida própria.
+  await cancelWhere((data) => typeof data.routineId === 'string');
   scheduledByRoutineId.clear();
   const granted = await ensureNotificationPermission();
   if (!granted) return;
@@ -109,4 +112,33 @@ export function scheduleWaterBreak(minutes = 30) {
     'Levanta, bebe um copo de água e olha para longe da tela por um minuto.',
     { kind: 'water' }
   );
+}
+
+async function cancelWhere(match: (data: Record<string, unknown>) => boolean) {
+  const all = await Notifications.getAllScheduledNotificationsAsync().catch(() => []);
+  await Promise.all(
+    all
+      .filter((n) => match((n.content.data ?? {}) as Record<string, unknown>))
+      .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => undefined))
+  );
+}
+
+/**
+ * Microcheck-ins: refaz o sorteio de hoje e amanhã a cada abertura do app.
+ * Desligado, apenas cancela os pendentes. Devolve quantos ficaram agendados
+ * (0 também quando falta permissão).
+ */
+export async function rescheduleEma(enabled: boolean, now = new Date()): Promise<number> {
+  await cancelWhere((data) => data.kind === 'ema');
+  if (!enabled || !(await ensureNotificationPermission())) return 0;
+  const times = upcomingEmaTimes(now, 2, Math.random);
+  await Promise.all(
+    times.map((date, i) =>
+      Notifications.scheduleNotificationAsync({
+        content: { title: 'Mellow', body: EMA_PROMPTS[i % EMA_PROMPTS.length], data: { kind: 'ema' } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: CHANNEL_ID },
+      })
+    )
+  );
+  return times.length;
 }

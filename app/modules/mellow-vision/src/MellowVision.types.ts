@@ -33,6 +33,8 @@ export type VisionFramePayload = {
   initializationLatencyMs: number;
   modelVersion: string;
   pipelineVersion: string;
+  /** Média [R, G, B] da pele (testa + bochechas) para o rPPG; null sem rosto. */
+  skinRgb?: [number, number, number] | null;
 };
 
 export type VisionErrorPayload = {

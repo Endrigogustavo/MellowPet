@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import * as Notifications from 'expo-notifications';
 import { AppState as RNAppState, Linking, Vibration } from 'react-native';
 
 import { EMOTIONS, REPLIES, type EmotionKey } from '../data/emotions';
@@ -42,7 +43,7 @@ import {
 import { fetchStreak } from '../dashboard/streak';
 import type { EvidenceSignal } from '../vision/evidence';
 import { logManualEmotion } from '../vision/manualEmotion';
-import { scheduleWaterBreak } from '../notifications/notifications';
+import { rescheduleEma, scheduleWaterBreak } from '../notifications/notifications';
 import {
   DEFAULT_GAINS,
   learnFromCheckin,
@@ -60,9 +61,11 @@ import { pushStateToWatch, syncWatchCheckins } from '../wear/wearBridge';
 import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
 import {
   loadDensity,
+  loadEmaEnabled,
   loadEncountersEnabled,
   loadMeals,
   saveDensity,
+  saveEmaEnabled,
   saveEncountersEnabled,
   saveMeals,
 } from './preferencesStore';
@@ -86,6 +89,7 @@ export type Screen =
   | 'checkin'
   | 'heatmap'
   | 'friends'
+  | 'fairness'
   | 'care'
   | 'carealerts'
   | 'careaudit'
@@ -129,15 +133,17 @@ export type State = {
   encountersEnabled: boolean;
   /** Pet de outra pessoa que está visitando agora (some sozinho). */
   visitor: PetCard | null;
-  /** Modelo de IA baixado para rodar no aparelho (null = nenhum). */
   /** Refeições de hoje (limite diário em pet/feeding.ts). */
   meals: MealRecord | null;
+  /** Microcheck-ins em horários sorteados (opt-in deste aparelho). */
+  emaEnabled: boolean;
   /** Ganhos por emoção aprendidos com o feedback desta pessoa. */
   personalGains: PersonalGains;
   /** Lembrete vindo de sinal sustentado (tensão, fadiga, olhar no foco). */
   nudge: NudgeKind | null;
   /** Humor contínuo no círculo de Russell, estimado do rosto. */
   affect: Affect | null;
+  /** Modelo de IA baixado para rodar no aparelho (null = nenhum). */
   localModel: 'leve' | 'melhor' | null;
   /** "Nada sai do aparelho": o chat nunca fala com o servidor. */
   privateMode: boolean;
@@ -156,6 +162,8 @@ export type State = {
   visionQualityHint: string | null;
   visionNativeError: string | null;
   visionThermalLimited: boolean;
+  /** Batimento pela câmera (só na tela da câmera). bpm null = ainda medindo. */
+  heart: { bpm: number | null; progress: number } | null;
   /** Pontuação bruta de cada classe (0-1, soma 1) — só pra depuração visual
    * enquanto calibramos o motor contra expressões reais. */
   visionScores: Record<string, number> | null;
@@ -252,6 +260,7 @@ const INITIAL: State = {
   encountersEnabled: false,
   visitor: null,
   meals: null,
+  emaEnabled: false,
   personalGains: DEFAULT_GAINS,
   nudge: null,
   affect: null,
@@ -268,6 +277,7 @@ const INITIAL: State = {
   visionQualityHint: null,
   visionNativeError: null,
   visionThermalLimited: false,
+  heart: null,
   visionScores: null,
   secondaryEmotions: [],
   readingEvidence: [],
@@ -397,6 +407,8 @@ export type Actions = {
   resetCalibration: () => void;
   /** Liga/desliga os encontros. Ao ligar pede as permissões; devolve se ficou ligado. */
   setEncounters: (enabled: boolean) => Promise<boolean>;
+  /** Liga/desliga os microcheck-ins; devolve quantos ficaram agendados. */
+  setEma: (enabled: boolean) => Promise<number>;
 };
 
 type Ctx = { state: State; actions: Actions };
@@ -452,6 +464,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadEncountersEnabled()
       .then((encountersEnabled) => dispatch({ encountersEnabled }))
       .catch(() => undefined);
+    // Refaz o sorteio a cada abertura: avisos já disparados saem, os de
+    // amanhã entram. Sem isso a pessoa só receberia os do dia em que ligou.
+    loadEmaEnabled()
+      .then((emaEnabled) => {
+        dispatch({ emaEnabled });
+        if (emaEnabled) rescheduleEma(true).catch(() => undefined);
+      })
+      .catch(() => undefined);
     loadLocalChoice()
       .then(({ modelId, privateMode }) => dispatch({ localModel: modelId, privateMode }))
       .catch(() => undefined);
@@ -482,6 +502,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const sub = RNAppState.addEventListener('change', (next) => setForeground(next === 'active'));
     return () => sub.remove();
   }, []);
+
+  useEffect(() => {
+    const target = pendingScreen.current;
+    if (!target || !state.userId || state.screen !== 'home') return;
+    pendingScreen.current = null;
+    if (target !== 'home') dispatch((s) => ({ screen: target, navSeq: s.navSeq + 1 }));
+  }, [state.userId, state.screen]);
 
   const encounterStage = stageForDays(state.careDays);
   useEffect(() => {
@@ -710,6 +737,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url));
     return () => subscription.remove();
+  }, []);
+
+  // Toque numa notificação: microcheck-in abre o check-in; pausa de água
+  // volta para a Home (o pet comemora a pausa por lá).
+  // Com o app frio, o toque chega antes do login terminar; a tela fica
+  // guardada e só abre quando a Home aparecer (senão o splash a atropela).
+  const pendingScreen = useRef<Screen | null>(null);
+  useEffect(() => {
+    const open = (data: Record<string, unknown> | undefined) => {
+      const target: Screen | null = data?.kind === 'ema' ? 'checkin' : data?.kind === 'water' ? 'home' : null;
+      if (!target) return;
+      if (ref.current.userId && ref.current.screen !== 'splash') {
+        dispatch((s) => ({ screen: target, navSeq: s.navSeq + 1 }));
+      } else {
+        pendingScreen.current = target;
+      }
+    };
+    const last = Notifications.getLastNotificationResponse();
+    if (last) open(last.notification.request.content.data);
+    const sub = Notifications.addNotificationResponseReceivedListener((r) => open(r.notification.request.content.data));
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {
@@ -977,6 +1025,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             .catch(() => undefined);
         }
         return true;
+      },
+
+      setEma: async (enabled: boolean) => {
+        const scheduled = await rescheduleEma(enabled).catch(() => 0);
+        // Sem permissão de notificação não adianta ficar "ligado".
+        const on = enabled && scheduled > 0;
+        dispatch({ emaEnabled: on });
+        await saveEmaEnabled(on).catch(() => undefined);
+        return scheduled;
       },
 
       setEncounters: async (enabled: boolean) => {

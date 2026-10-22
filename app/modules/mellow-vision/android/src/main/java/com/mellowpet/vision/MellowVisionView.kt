@@ -27,6 +27,7 @@ import android.os.SystemClock
 import android.view.Surface
 import android.view.TextureView
 import androidx.core.content.ContextCompat
+import com.google.mediapipe.framework.image.BitmapExtractor
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
@@ -561,13 +562,19 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     }
 
     val landmarks = faces.first()
-    val geometry = computeGeometry(landmarks.map { Point(it.x().toDouble(), it.y().toDouble()) })
+    val points = landmarks.map { Point(it.x().toDouble(), it.y().toDouble()) }
+    val geometry = computeGeometry(points)
     val blendshapes = result.faceBlendshapes().orElse(emptyList())
       .firstOrNull()
       ?.associate { category -> category.categoryName() to category.score().toDouble().coerceIn(0.0, 1.0) }
       ?: emptyMap()
     val reasons = qualityReasons(meta, geometry)
     val qualityScore = qualityScore(meta, geometry)
+    val skin = try {
+      skinRgb(points, BitmapExtractor.extract(input))
+    } catch (_: Exception) {
+      null
+    }
     emitResult(
       status = if (reasons.isEmpty()) "ready" else "insufficient_quality",
       qualityScore = qualityScore,
@@ -576,7 +583,50 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
       geometry = geometry,
       meta = meta,
       latencyMs = (SystemClock.uptimeMillis() - result.timestampMs()).coerceAtLeast(0),
+      skin = skin,
     )
+  }
+
+  /**
+   * Média RGB da pele na testa e nas duas bochechas, para o rPPG (o batimento
+   * muda levemente a cor da pele a cada pulso). Só três números atravessam a
+   * ponte — nunca pixels. Lê um pixel a cada dois para caber no orçamento do
+   * quadro. null quando as regiões saem da imagem.
+   */
+  private fun skinRgb(points: List<Point>, bitmap: Bitmap): DoubleArray? {
+    if (points.size < 455) return null
+    val w = bitmap.width
+    val h = bitmap.height
+    val faceWidth = abs(points[454].x - points[234].x) * w
+    val half = (faceWidth * 0.06).toInt().coerceAtLeast(3)
+    // 151 = centro da testa; 50 e 280 = maçãs do rosto.
+    val centers = intArrayOf(151, 50, 280)
+    var r = 0.0
+    var g = 0.0
+    var b = 0.0
+    var n = 0
+    val row = IntArray(2 * half + 1)
+    for (index in centers) {
+      val cx = (points[index].x * w).toInt()
+      val cy = (points[index].y * h).toInt()
+      if (cx - half < 0 || cy - half < 0 || cx + half >= w || cy + half >= h) return null
+      var y = cy - half
+      while (y <= cy + half) {
+        bitmap.getPixels(row, 0, row.size, cx - half, y, row.size, 1)
+        var i = 0
+        while (i < row.size) {
+          val c = row[i]
+          r += (c shr 16 and 0xff)
+          g += (c shr 8 and 0xff)
+          b += (c and 0xff)
+          n += 1
+          i += 2
+        }
+        y += 2
+      }
+    }
+    if (n == 0) return null
+    return doubleArrayOf(r / n, g / n, b / n)
   }
 
   private fun handleLandmarkerError(error: RuntimeException) {
@@ -593,6 +643,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     geometry: FaceGeometry,
     meta: FrameMeta,
     latencyMs: Long,
+    skin: DoubleArray? = null,
   ) {
     val payload = mapOf<String, Any?>(
       "status" to status,
@@ -616,6 +667,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
       "initializationLatencyMs" to initializationLatencyMs.get(),
       "modelVersion" to MODEL_VERSION,
       "pipelineVersion" to PIPELINE_VERSION,
+      "skinRgb" to skin?.toList(),
     )
     post { if (active && attached) onVisionResult(payload) }
   }

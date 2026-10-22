@@ -25,6 +25,7 @@ export function VisionScreen() {
 
   const submitFeedback = (agreement: 'yes' | 'no' | 'unsure') => {
     if (submitVisionFeedback(agreement)) setSessionFeedback(agreement);
+    actions.giveFeedback(agreement);
   };
 
   if (!permission?.granted) {
@@ -126,6 +127,20 @@ export function VisionScreen() {
               em mistura
             </Txt>
           ) : null}
+          {NATIVE_PIPELINE_AVAILABLE && state.heart ? (
+            <View style={styles.readingRow} accessibilityLiveRegion="polite">
+              <Txt s={12.5} w={900} c="#FFFFFF">
+                {state.heart.bpm !== null ? `♥ ${state.heart.bpm} bpm` : '♥ medindo o batimento…'}
+              </Txt>
+              <Txt s={11} w={700} c="rgba(255,255,255,0.66)">
+                {state.heart.bpm !== null
+                  ? 'estimativa pela cor da pele · não é medição médica'
+                  : state.heart.progress < 1
+                    ? `fique parado com boa luz · ${Math.round(state.heart.progress * 100)}%`
+                    : 'sinal fraco: mais luz no rosto ajuda'}
+              </Txt>
+            </View>
+          ) : null}
           {/* Painel de depuração temporário — pontuação bruta de cada classe,
               pra calibrar o motor contra expressões reais. */}
           {NATIVE_PIPELINE_AVAILABLE && state.visionScores ? (
@@ -149,7 +164,7 @@ export function VisionScreen() {
               </Txt>
               {sessionFeedback ? (
                 <Txt s={11.5} w={800} c="#B9F6D3">
-                  Feedback registrado para avaliação; o modelo não é alterado automaticamente.
+                  Anotado. A leitura se ajusta ao seu rosto aos poucos, só neste aparelho.
                 </Txt>
               ) : (
                 <View style={styles.feedbackButtons}>

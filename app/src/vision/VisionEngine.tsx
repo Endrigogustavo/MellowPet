@@ -12,6 +12,7 @@ import { useApp } from '../state/AppContext';
 import { explainReading } from './evidence';
 import { applyGains } from './personalCalibration';
 import { affectFromScores } from './affect';
+import { HeartGate, MIN_SPAN_MS, RppgBuffer } from './rppg';
 import { SignalTracker } from './signalTracker';
 import { visionFps, type FpsDecision } from './fpsPolicy';
 import * as Battery from 'expo-battery';
@@ -116,6 +117,7 @@ export function VisionEngine() {
   const [permission, requestPermission] = useCameraPermissions();
   const [engine] = useState(() => new ExpressionEngine());
   const [tracker] = useState(() => new SignalTracker());
+  const [pulse] = useState(() => ({ buffer: new RppgBuffer(), gate: new HeartGate(), nextAt: 0 }));
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -258,6 +260,28 @@ export function VisionEngine() {
         stateRef.current.focus
       );
       if (kind) actions.set({ nudge: kind });
+
+      // Batimento: só na tela da câmera, onde a taxa de quadros é a maior e a
+      // pessoa está parada olhando. Rosto virado conta como quadro perdido.
+      if (stateRef.current.screen === 'vision') {
+        const at = nativeEvent.capturedAtMs ?? Date.now();
+        const usable = result.signalStatus === 'ready' && Math.abs(nativeEvent.yaw ?? 0) < 20;
+        pulse.buffer.push({ t: at, rgb: usable ? (nativeEvent.skinRgb ?? null) : null });
+        if (at >= pulse.nextAt) {
+          pulse.nextAt = at + 2000;
+          const bpm = pulse.gate.push(pulse.buffer.estimate());
+          const progress = Math.min(1, pulse.buffer.spanMs() / MIN_SPAN_MS);
+          const prev = stateRef.current.heart;
+          if (!prev || prev.bpm !== bpm || Math.abs(prev.progress - progress) >= 0.1) {
+            actions.set({ heart: { bpm, progress } });
+          }
+        }
+      } else if (stateRef.current.heart) {
+        pulse.buffer.reset();
+        pulse.gate.reset();
+        actions.set({ heart: null });
+      }
+
       telemetry.record(nativeEvent, result);
       const intervalEvents = eventRecorder.record(result);
       if (intervalEvents.length > 0) {
@@ -352,7 +376,7 @@ export function VisionEngine() {
         }
       }
     },
-    [actions, engine, eventRecorder, state.userId, telemetry, tracker]
+    [actions, engine, eventRecorder, pulse, state.userId, telemetry, tracker]
   );
 
   const onVisionError = useCallback(
