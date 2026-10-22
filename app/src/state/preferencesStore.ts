@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
+import { parseNotes } from '../chat/memory';
 import { parseHabits, type Habits } from '../pet/habits';
 import type { Density } from './AppContext';
 
@@ -76,4 +77,38 @@ export async function loadHabits(userId: string): Promise<Habits> {
 
 export async function saveHabits(userId: string, habits: Habits): Promise<void> {
   await SecureStore.setItemAsync(habitsKey(userId), JSON.stringify(habits));
+}
+
+/**
+ * Memória do Mellow: consentimento + notas que a pessoa pediu para lembrar.
+ * Fica no aparelho; só segue com a mensagem quando ligada.
+ */
+const memoryKey = (userId: string) => `mellowpet.memory.v1.${encodeURIComponent(userId).slice(0, 120)}`;
+
+export async function loadMemory(userId: string): Promise<{ enabled: boolean; notes: string[] }> {
+  try {
+    const raw = await SecureStore.getItemAsync(memoryKey(userId));
+    const parsed = raw ? (JSON.parse(raw) as { enabled?: unknown; notes?: unknown }) : null;
+    return {
+      enabled: parsed?.enabled === true,
+      notes: parseNotes(JSON.stringify(parsed?.notes ?? [])),
+    };
+  } catch {
+    return { enabled: false, notes: [] };
+  }
+}
+
+export async function saveMemory(userId: string, memory: { enabled: boolean; notes: string[] }): Promise<void> {
+  await SecureStore.setItemAsync(memoryKey(userId), JSON.stringify(memory));
+}
+
+/** "O Mellow fala": lê as respostas do chat em voz alta. Deste aparelho. */
+const SPEAK_KEY = 'mellowpet.speak.v1';
+
+export async function loadSpeak(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(SPEAK_KEY)) === 'on';
+}
+
+export async function saveSpeak(enabled: boolean): Promise<void> {
+  await SecureStore.setItemAsync(SPEAK_KEY, enabled ? 'on' : 'off');
 }

@@ -118,6 +118,8 @@ export function VisionEngine() {
   const [engine] = useState(() => new ExpressionEngine());
   const [tracker] = useState(() => new SignalTracker());
   const [pulse] = useState(() => ({ buffer: new RppgBuffer(), gate: new HeartGate(), nextAt: 0 }));
+  // Tensão somada desde o último check-in (divergência gentil).
+  const [tense] = useState(() => ({ ms: 0, lastAt: 0, since: 0 }));
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -282,6 +284,20 @@ export function VisionEngine() {
         actions.set({ heart: null });
       }
 
+      // Divergência gentil: soma o tempo de rosto tenso desde o check-in.
+      const checkinAt = stateRef.current.lastCheckin?.at ?? 0;
+      if (checkinAt !== tense.since) {
+        tense.since = checkinAt;
+        tense.ms = 0;
+      }
+      const frameAt = nativeEvent.capturedAtMs ?? Date.now();
+      if (checkinAt && result.signalStatus === 'ready' && (result.tensionSignal ?? 0) >= 0.5 && tense.lastAt) {
+        tense.ms += Math.min(2000, Math.max(0, frameAt - tense.lastAt));
+        const minutes = Math.floor(tense.ms / 60_000);
+        if (minutes !== stateRef.current.tenseSinceCheckin) actions.set({ tenseSinceCheckin: minutes });
+      }
+      tense.lastAt = frameAt;
+
       // Jogo de ninar: a tensão precisa chegar mais fina que o rótulo.
       if (stateRef.current.screen === 'lullaby') {
         const t = result.signalStatus === 'ready' ? result.tensionSignal : null;
@@ -385,7 +401,7 @@ export function VisionEngine() {
         }
       }
     },
-    [actions, engine, eventRecorder, pulse, state.userId, telemetry, tracker]
+    [actions, engine, eventRecorder, pulse, state.userId, telemetry, tense, tracker]
   );
 
   const onVisionError = useCallback(

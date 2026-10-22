@@ -9,6 +9,9 @@ import React, {
   useState,
 } from 'react';
 import * as Notifications from 'expo-notifications';
+import * as Speech from 'expo-speech';
+import { LOCAL_ACTIONS_HINT, splitAction, type ChatAction } from '../chat/actions';
+import { addNote, extractMemoryRequest } from '../chat/memory';
 import { AppState as RNAppState, Linking, Vibration } from 'react-native';
 
 import { EMOTIONS, REPLIES, type EmotionKey } from '../data/emotions';
@@ -27,7 +30,7 @@ import {
   signup as apiSignup,
   subscribeToSignOut,
 } from '../auth/authClient';
-import { SERVER_CONFIGURED, sendChatMessage } from '../chat/chatClient';
+import { SERVER_CONFIGURED, sendChatMessage, streamChatMessage } from '../chat/chatClient';
 import { fetchToolContent } from '../tools/toolsClient';
 import { listLinks } from '../care/careClient';
 import { bumpProfileStats, fetchProfileStats, levelFromXp } from '../profile/profileClient';
@@ -64,11 +67,15 @@ import {
   loadEmaEnabled,
   loadEncountersEnabled,
   loadHabits,
+  loadMemory,
+  loadSpeak,
   loadMeals,
   saveDensity,
   saveEmaEnabled,
   saveEncountersEnabled,
   saveHabits,
+  saveMemory,
+  saveSpeak,
   saveMeals,
 } from './preferencesStore';
 import type { PetCard } from '../pet/encounterPayload';
@@ -126,7 +133,9 @@ export type ChatMessage = {
   role: 'user' | 'bot';
   content: string;
   /** De onde veio a resposta — o chat mostra um selo "no aparelho". */
-  source?: 'server' | 'device' | 'canned' | 'crisis';
+  source?: 'server' | 'device' | 'canned' | 'crisis' | 'memory';
+  /** Ação do app sugerida pelo Mellow; vira botão, nunca executa sozinha. */
+  action?: ChatAction | null;
 };
 export type JournalEntry = { text: string; tag: string; when: string };
 export type Heart = { id: number; x: number };
@@ -154,6 +163,17 @@ export type State = {
   meals: MealRecord | null;
   /** Microcheck-ins em horários sorteados (opt-in deste aparelho). */
   emaEnabled: boolean;
+  /** Memória do Mellow ligada (consentimento) e as notas pedidas pela pessoa. */
+  memoryEnabled: boolean;
+  memoryNotes: string[];
+  /** O Mellow lê as respostas em voz alta. */
+  speakReplies: boolean;
+  /** Último check-in desta sessão, para a divergência gentil. */
+  lastCheckin: { emotion: string; at: number } | null;
+  /** Minutos de rosto tenso desde esse check-in. */
+  tenseSinceCheckin: number;
+  /** Dia em que a divergência gentil já apareceu (uma vez por dia). */
+  divergenceShownDay: string | null;
   /** Diário de hábitos: personalidade, acessórios e rituais. */
   habits: Habits;
   /** Acessório recém-liberado, para comemorar uma vez. */
@@ -286,6 +306,12 @@ const INITIAL: State = {
   meals: null,
   emaEnabled: false,
   habits: EMPTY_HABITS,
+  memoryEnabled: false,
+  memoryNotes: [],
+  speakReplies: false,
+  lastCheckin: null,
+  tenseSinceCheckin: 0,
+  divergenceShownDay: null,
   unlockEvent: null,
   tension: null,
   personalGains: DEFAULT_GAINS,
@@ -408,6 +434,9 @@ function loadPetIdentity(userId: string, apply: (patch: Partial<State>) => void)
   loadHabits(userId)
     .then((habits) => apply({ habits }))
     .catch(() => undefined);
+  loadMemory(userId)
+    .then(({ enabled, notes }) => apply({ memoryEnabled: enabled, memoryNotes: notes }))
+    .catch(() => undefined);
 }
 
 export type Actions = {
@@ -445,6 +474,12 @@ export type Actions = {
   equip: (id: AccessoryId | null) => void;
   /** "Agora não" num ritual: some até a próxima janela, sem contar. */
   dismissRitual: (ritual: Ritual) => void;
+  /** Liga/desliga a memória do Mellow (desligar apaga as notas). */
+  setMemory: (enabled: boolean) => void;
+  forgetNote: (note: string) => void;
+  setSpeak: (enabled: boolean) => void;
+  /** Executa a ação sugerida no chat (toque da pessoa). */
+  runChatAction: (action: ChatAction) => void;
 };
 
 type Ctx = { state: State; actions: Actions };
@@ -515,6 +550,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     loadEncountersEnabled()
       .then((encountersEnabled) => dispatch({ encountersEnabled }))
+      .catch(() => undefined);
+    loadSpeak()
+      .then((speakReplies) => dispatch({ speakReplies }))
       .catch(() => undefined);
     // Refaz o sorteio a cada abertura: avisos já disparados saem, os de
     // amanhã entram. Sem isso a pessoa só receberia os do dia em que ligou.
@@ -872,21 +910,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const history = s.messages;
         const emotion = s.observedExpression;
         const confidence = s.signalConfidence;
+        const memory = s.memoryEnabled ? s.memoryNotes : [];
         dispatch({
           messages: [...s.messages, { role: 'user', content: text }],
           chatInput: '',
           typing: true,
         });
 
-        const reply = (content: string, source: ChatMessage['source']) =>
-          dispatch((cur) => ({ typing: false, messages: [...cur.messages, { role: 'bot', content, source }] }));
+        const speak = (content: string) => {
+          if (!ref.current.speakReplies) return;
+          Speech.stop();
+          Speech.speak(content, { language: 'pt-BR', rate: 1.0, pitch: 1.15 });
+        };
+        const reply = (content: string, source: ChatMessage['source'], action: ChatAction | null = null) => {
+          dispatch((cur) => ({ typing: false, messages: [...cur.messages, { role: 'bot', content, source, action }] }));
+          speak(content);
+        };
+        const setLast = (content: string, source: ChatMessage['source'], action: ChatAction | null = null) =>
+          dispatch((cur) => {
+            const messages = [...cur.messages];
+            messages[messages.length - 1] = { role: 'bot', content, source, action };
+            return { typing: false, messages };
+          });
+        const dropLast = () => dispatch((cur) => ({ messages: cur.messages.slice(0, -1) }));
         const canned = () => reply(REPLIES[emotion], 'canned');
+
+        // "Mellow, lembra que…": só guarda com a memória ligada.
+        const note = extractMemoryRequest(text);
+        if (note) {
+          if (!s.memoryEnabled) {
+            reply(
+              'Eu adoraria lembrar disso! Para eu guardar, ligue "Memória do Mellow" em Ajustes — fica só no seu celular e você apaga quando quiser.',
+              'memory'
+            );
+            return;
+          }
+          const notes = addNote(s.memoryNotes, note);
+          dispatch({ memoryNotes: notes });
+          if (s.userId) saveMemory(s.userId, { enabled: true, notes }).catch(() => undefined);
+          reply(`Pode deixar, vou lembrar: "${note}". Dá para apagar em Ajustes.`, 'memory');
+          return;
+        }
 
         // Escreve a resposta do modelo local aos poucos, conforme é gerada.
         const runDevice = () => {
           const modelId = s.localModel!;
+          const memoryLine = memory.length > 0 ? `\nA pessoa pediu para você lembrar: ${memory.join('; ')}.` : '';
           const prompt = buildQwenPrompt(
-            systemPrompt(EMOTIONS[emotion].label.toLowerCase(), Math.round(confidence * 100)),
+            systemPrompt(EMOTIONS[emotion].label.toLowerCase(), Math.round(confidence * 100)) +
+              memoryLine +
+              '\n' +
+              LOCAL_ACTIONS_HINT,
             history,
             text
           );
@@ -894,15 +968,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             typing: false,
             messages: [...cur.messages, { role: 'bot', content: '…', source: 'device' }],
           }));
-          const setLast = (content: string) =>
-            dispatch((cur) => {
-              const messages = [...cur.messages];
-              messages[messages.length - 1] = { role: 'bot', content, source: 'device' };
-              return { messages };
-            });
-          generateLocal(modelId, prompt, (partial) => setLast(tidyReply(partial) || '…'))
-            .then((full) => setLast(tidyReply(full) || REPLIES[emotion]))
-            .catch(() => setLast(REPLIES[emotion]));
+          generateLocal(modelId, prompt, (partial) => setLast(splitAction(tidyReply(partial)).text || '…', 'device'))
+            .then((full) => {
+              const { text: clean, action } = splitAction(tidyReply(full));
+              setLast(clean || REPLIES[emotion], 'device', action);
+              speak(clean || REPLIES[emotion]);
+            })
+            .catch(() => setLast(REPLIES[emotion], 'device'));
         };
 
         const ready = localReady(s.localModel);
@@ -916,16 +988,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (route === 'device') return runDevice();
         if (route === 'canned') return canned();
 
-        sendChatMessage(text, emotion, confidence, history)
-          .then(({ content, provider }) => {
-            const next = afterServer(provider, ready);
-            if (next === 'device') runDevice();
-            else reply(content, 'server');
-          })
+        // Servidor em streaming: as palavras aparecem conforme o modelo escreve.
+        let started = false;
+        const finishServer = (content: string, provider: string, action: ChatAction | null) => {
+          if (afterServer(provider, ready) === 'device') {
+            // Servidor sem IA e modelo local pronto: a resposta local substitui a fixa.
+            if (started) dropLast();
+            runDevice();
+            return;
+          }
+          const clean = splitAction(content).text || REPLIES[emotion];
+          if (started) {
+            setLast(clean, provider === 'crisis' ? 'crisis' : 'server', action);
+            speak(clean);
+          } else {
+            reply(clean, provider === 'crisis' ? 'crisis' : 'server', action);
+          }
+        };
+        streamChatMessage(text, emotion, confidence, history, memory, (soFar) => {
+          const shown = splitAction(soFar).text || '…';
+          if (!started) {
+            started = true;
+            dispatch((cur) => ({
+              typing: false,
+              messages: [...cur.messages, { role: 'bot', content: shown, source: 'server' }],
+            }));
+          } else {
+            setLast(shown, 'server');
+          }
+        })
+          .then(({ content, provider, action }) => finishServer(content, provider, action))
           .catch(() => {
-            // Rede ou servidor fora: modelo local se houver, senão as fixas.
-            if (afterServer(null, ready) === 'device') runDevice();
-            else canned();
+            if (started) return; // já mostrou parte da resposta; fica com ela
+            // Streaming indisponível (proxy, versão antiga da API): pedido normal.
+            sendChatMessage(text, emotion, confidence, history, memory)
+              .then(({ content, provider, action }) => finishServer(content, provider, action))
+              .catch(() => {
+                // Rede ou servidor fora: modelo local se houver, senão as fixas.
+                if (afterServer(null, ready) === 'device') runDevice();
+                else canned();
+              });
           });
       },
 
@@ -1057,6 +1159,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       learnFromCheckin: (said, seen) => {
+        dispatch({ lastCheckin: { emotion: said, at: Date.now() }, tenseSinceCheckin: 0 });
         const s = ref.current;
         const gains = learnFromCheckin(s.personalGains, said, seen);
         if (gains === s.personalGains) return;
@@ -1088,6 +1191,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       equip: (id) => updateHabits((h) => (id === null || isUnlocked(h, id) ? { ...h, equipped: id } : h)),
 
       dismissRitual: (ritual) => updateHabits((h) => dismissRitualIn(h, ritual, ritualDay(new Date(), ritual))),
+
+      setMemory: (enabled) => {
+        // Desligar é também esquecer: memória sem consentimento não fica.
+        const notes = enabled ? ref.current.memoryNotes : [];
+        dispatch({ memoryEnabled: enabled, memoryNotes: notes });
+        const userId = ref.current.userId;
+        if (userId) saveMemory(userId, { enabled, notes }).catch(() => undefined);
+      },
+
+      forgetNote: (note) => {
+        const notes = ref.current.memoryNotes.filter((n) => n !== note);
+        dispatch({ memoryNotes: notes });
+        const userId = ref.current.userId;
+        if (userId) saveMemory(userId, { enabled: ref.current.memoryEnabled, notes }).catch(() => undefined);
+      },
+
+      setSpeak: (enabled) => {
+        if (!enabled) Speech.stop();
+        dispatch({ speakReplies: enabled });
+        saveSpeak(enabled).catch(() => undefined);
+      },
+
+      runChatAction: (action) => {
+        if (action === 'respirar') {
+          updateHabits((h) => recordHabit(h, 'breath', localDay()));
+          dispatch((st) => ({ screen: 'home', navSeq: st.navSeq + 1, breathing: true, breathTick: 0, focus: false }));
+        } else if (action === 'musica') go('music');
+        else if (action === 'ninar') go('lullaby');
+        else go('checkin');
+      },
 
       setEma: async (enabled: boolean) => {
         const scheduled = await rescheduleEma(enabled).catch(() => 0);

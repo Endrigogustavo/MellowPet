@@ -19,6 +19,7 @@ import { growthProgress, localDay, STAGE_LABEL } from '../pet/growth';
 import { MEALS_PER_DAY, mealsLeft } from '../pet/feeding';
 import { useApp, useTheme } from '../state/AppContext';
 import { OK } from '../theme/palette';
+import { DivergenceCard } from '../components/DivergenceCard';
 
 /** Botão redondo de 44px do cabeçalho. */
 function HeaderButton({ d, onPress, label }: { d: string; onPress: () => void; label: string }) {
@@ -281,6 +282,9 @@ export function HomeScreen() {
       <NudgeCard />
       <Section top={10}>
         <RitualCard />
+      </Section>
+      <Section top={10}>
+        <DivergenceCard />
       </Section>
       {state.unlockEvent ? (
         <Section top={10}>

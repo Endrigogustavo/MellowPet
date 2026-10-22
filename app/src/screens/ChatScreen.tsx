@@ -15,6 +15,7 @@ import {
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useApp, useTheme } from '../state/AppContext';
 import { font } from '../theme/type';
+import { ACTION_LABEL } from '../chat/actions';
 
 /** Um dos três pontinhos de "digitando" — keyframe `mp-dots`. */
 function Dot({ delay, color }: { delay: number; color: string }) {
@@ -247,6 +248,24 @@ export function ChatScreen() {
                   <Txt s={10} w={800} c={T.t3} ls={0.8} style={{ marginTop: 5 }}>
                     NO APARELHO · NADA FOI ENVIADO
                   </Txt>
+                ) : null}
+                {bot && m.action ? (
+                  <Touchable
+                    onPress={() => m.action && actions.runChatAction(m.action)}
+                    accessibilityLabel={ACTION_LABEL[m.action]}
+                    style={{
+                      marginTop: 10,
+                      alignSelf: 'flex-start',
+                      paddingVertical: 8,
+                      paddingHorizontal: 14,
+                      borderRadius: 999,
+                      backgroundColor: T.pri,
+                    }}
+                  >
+                    <Txt s={12.5} w={800} c="#fff">
+                      {ACTION_LABEL[m.action]}
+                    </Txt>
+                  </Touchable>
                 ) : null}
               </View>
             </View>

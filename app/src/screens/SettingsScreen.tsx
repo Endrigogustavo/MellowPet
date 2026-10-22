@@ -244,6 +244,45 @@ export function SettingsScreen() {
         <CalibrationCard />
       </Section>
 
+      {/* memória e voz do Mellow */}
+      <Section>
+        <Card radius={24} padding={18}>
+          <ToggleRow
+            label="Memória do Mellow"
+            sub={
+              state.memoryEnabled
+                ? 'Diga "Mellow, lembra que…" no chat. Só o que você pedir fica guardado, neste celular, e vai junto nas conversas.'
+                : 'Desligada. Ligando, o Mellow guarda só o que você pedir explicitamente para lembrar.'
+            }
+            on={state.memoryEnabled}
+            onPress={() => actions.setMemory(!state.memoryEnabled)}
+          />
+          {state.memoryEnabled && state.memoryNotes.length > 0 ? (
+            <View style={{ gap: 8, marginTop: 12 }}>
+              {state.memoryNotes.map((note) => (
+                <View key={note} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Txt s={12.5} lh={1.45} c={T.t2} style={{ flex: 1 }}>
+                    • {note}
+                  </Txt>
+                  <Touchable onPress={() => actions.forgetNote(note)} accessibilityLabel={`Esquecer: ${note}`}>
+                    <Txt s={12} w={800} c={DANGER}>
+                      Esquecer
+                    </Txt>
+                  </Touchable>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          <View style={{ height: 1, backgroundColor: T.bd, marginVertical: 14 }} />
+          <ToggleRow
+            label="O Mellow fala"
+            sub="Lê as respostas do chat em voz alta, com a voz do próprio celular."
+            on={state.speakReplies}
+            onPress={() => actions.setSpeak(!state.speakReplies)}
+          />
+        </Card>
+      </Section>
+
       {/* microcheck-ins */}
       <Section>
         <Card radius={24} padding={18}>

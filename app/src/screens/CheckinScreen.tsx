@@ -20,6 +20,8 @@ import { EMOTIONS, FACE_ICON, type EmotionKey } from '../data/emotions';
 import { bumpProfileStats } from '../profile/profileClient';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK, hexA } from '../theme/palette';
+import MellowVoice, { isVoiceAvailable } from '../../modules/mellow-voice';
+import { suggestTags } from '../checkins/tagSuggest';
 
 /** XP por check-in. Menor que alimentar (6): é reflexão, não cuidado ativo —
  * mas tem de valer alguma coisa, senão ninguém volta. */
@@ -184,6 +186,16 @@ export function CheckinScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState<Checkin | null>(null);
+  const voiceOk = useMemo(() => isVoiceAvailable(), []);
+  const suggested = useMemo(() => suggestTags(note, tags), [note, tags]);
+  // Diário por voz: o ditado do sistema devolve só o texto, que entra na nota.
+  const dictate = () => {
+    MellowVoice?.listen('Como foi o seu dia?')
+      .then((text) => {
+        if (text) setNote((prev) => `${prev ? `${prev} ` : ''}${text}`.slice(0, NOTE_MAX));
+      })
+      .catch(() => undefined);
+  };
 
   const [recent, setRecent] = useState<Checkin[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
@@ -408,6 +420,41 @@ export function CheckinScreen() {
                 maxLength={NOTE_MAX}
                 hint={`${note.length}/${NOTE_MAX}`}
               />
+              {voiceOk ? (
+                <Touchable
+                  onPress={dictate}
+                  accessibilityLabel="Ditar o diário por voz"
+                  style={{
+                    marginTop: 10,
+                    alignSelf: 'flex-start',
+                    paddingVertical: 9,
+                    paddingHorizontal: 14,
+                    borderRadius: 999,
+                    backgroundColor: T.priL,
+                  }}
+                >
+                  <Txt s={12.5} w={800} c={T.pri}>
+                    🎙 Ditar
+                  </Txt>
+                </Touchable>
+              ) : null}
+              {suggested.length > 0 ? (
+                <View style={{ marginTop: 12 }}>
+                  <Txt s={11.5} c={T.t3} style={{ marginBottom: 6 }}>
+                    Parece ter a ver com — toque para marcar:
+                  </Txt>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {suggested.map((t) => (
+                      <Chip
+                        key={t}
+                        label={`+ ${CHECKIN_TAGS.find(([k]) => k === t)?.[1] ?? t}`}
+                        on={false}
+                        onPress={() => toggleTag(t)}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ) : null}
             </Card>
           </Section>
 

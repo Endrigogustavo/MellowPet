@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!--
+    Ditado pelo reconhecedor de voz do próprio sistema (a tela do Google que
+    aparece com o microfone). O app não grava áudio nem pede RECORD_AUDIO: quem
+    escuta é o app de reconhecimento, que devolve só o texto.
+
+    A partir do Android 11 o app precisa declarar que procura esse serviço,
+    senão o sistema esconde o reconhecedor e o ditado parece "indisponível".
+  -->
+  <queries>
+    <intent>
+      <action android:name="android.speech.RecognitionService" />
+    </intent>
+    <intent>
+      <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+    </intent>
+  </queries>
+</manifest>

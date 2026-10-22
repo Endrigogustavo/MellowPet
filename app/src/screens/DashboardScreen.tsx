@@ -13,6 +13,7 @@ import { updateStreakWidget } from '../widgets/widgetBridge';
 import { EMOTIONS, FACE_ICON } from '../data/emotions';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK, WARN, hexA } from '../theme/palette';
+import { ForecastCard } from '../components/ForecastCard';
 
 const RING_C = 2 * Math.PI * 50; // 314.16
 const DONUT_C = 2 * Math.PI * 45; // 282.74
@@ -103,6 +104,10 @@ export function DashboardScreen() {
           index={state.period}
           onChange={(period) => actions.set({ period })}
         />
+      </Section>
+
+      <Section top={0} style={{ marginBottom: 12 }}>
+        <ForecastCard />
       </Section>
 
       {/* mapa do mês: check-ins e leituras, dia a dia */}
