@@ -42,6 +42,7 @@ import {
 import { fetchStreak } from '../dashboard/streak';
 import type { EvidenceSignal } from '../vision/evidence';
 import { logManualEmotion } from '../vision/manualEmotion';
+import { scheduleWaterBreak } from '../notifications/notifications';
 import {
   DEFAULT_GAINS,
   learnFromCheckin,
@@ -49,6 +50,8 @@ import {
   type PersonalGains,
 } from '../vision/personalCalibration';
 import { clearGains, loadGains, saveGains } from '../vision/personalCalibrationStore';
+import type { NudgeKind } from '../vision/signalTracker';
+import type { Affect } from '../vision/affect';
 import { afterServer, firstRoute } from '../chat/chatRouter';
 import { CRISIS_REPLY, detectCrisis } from '../chat/crisis';
 import { generateLocal, loadLocalChoice, localReady } from '../chat/localLlm';
@@ -131,6 +134,10 @@ export type State = {
   meals: MealRecord | null;
   /** Ganhos por emoção aprendidos com o feedback desta pessoa. */
   personalGains: PersonalGains;
+  /** Lembrete vindo de sinal sustentado (tensão, fadiga, olhar no foco). */
+  nudge: NudgeKind | null;
+  /** Humor contínuo no círculo de Russell, estimado do rosto. */
+  affect: Affect | null;
   localModel: 'leve' | 'melhor' | null;
   /** "Nada sai do aparelho": o chat nunca fala com o servidor. */
   privateMode: boolean;
@@ -246,6 +253,8 @@ const INITIAL: State = {
   visitor: null,
   meals: null,
   personalGains: DEFAULT_GAINS,
+  nudge: null,
+  affect: null,
   localModel: null,
   privateMode: false,
   observedExpression: VISION_MODE === 'demo' ? 'neutral' : 'unknown',
@@ -831,6 +840,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         })),
 
       openTool: (act, title, sub) => {
+        // "Pausa de água" agenda um lembrete de verdade, além da conversa.
+        if (title === 'Pausa de água') scheduleWaterBreak().catch(() => undefined);
         if (act === 'breath') {
           dispatch((s) => ({
             screen: 'home',

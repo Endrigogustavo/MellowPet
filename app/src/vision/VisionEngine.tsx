@@ -11,6 +11,50 @@ import {
 import { useApp } from '../state/AppContext';
 import { explainReading } from './evidence';
 import { applyGains } from './personalCalibration';
+import { affectFromScores } from './affect';
+import { SignalTracker } from './signalTracker';
+import { visionFps, type FpsDecision } from './fpsPolicy';
+import * as Battery from 'expo-battery';
+import MellowVisionNative from '../../modules/mellow-vision/src/MellowVisionModule';
+
+/** Lê bateria e temperatura a cada 30 s e decide o ritmo da análise. */
+function useVisionBudget(base: number): FpsDecision {
+  const [decision, setDecision] = useState<FpsDecision>({ fps: base, reason: null });
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      const [level, state, lowPower] = await Promise.all([
+        Battery.getBatteryLevelAsync().catch(() => -1),
+        Battery.getBatteryStateAsync().catch(() => Battery.BatteryState.UNKNOWN),
+        Battery.isLowPowerModeEnabledAsync().catch(() => false),
+      ]);
+      let thermal: number | null = null;
+      try {
+        const t = MellowVisionNative?.thermalStatus() ?? -1;
+        thermal = t >= 0 ? t : null;
+      } catch {
+        thermal = null;
+      }
+      if (!alive) return;
+      setDecision(
+        visionFps({
+          base,
+          battery: level >= 0 ? level : null,
+          charging: state === Battery.BatteryState.CHARGING || state === Battery.BatteryState.FULL,
+          lowPowerMode: lowPower,
+          thermal,
+        })
+      );
+    };
+    check();
+    const id = setInterval(check, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [base]);
+  return decision;
+}
 import { loadCalibrationBaseline, saveCalibrationBaseline } from './calibrationStore';
 import { createVisionId, VisionEventRecorder } from './eventRecorder';
 import {
@@ -71,6 +115,9 @@ export function VisionEngine() {
   const { state, actions } = useApp();
   const [permission, requestPermission] = useCameraPermissions();
   const [engine] = useState(() => new ExpressionEngine());
+  const [tracker] = useState(() => new SignalTracker());
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // Calibração pessoal: cada mudança nos ganhos vale a partir do próximo quadro.
   useEffect(() => {
@@ -196,6 +243,21 @@ export function VisionEngine() {
   const onVisionResult = useCallback(
     ({ nativeEvent }: { nativeEvent: VisionFramePayload }) => {
       const result = engine.process(nativeEvent);
+
+      // Sinais sustentados: tensão, piscadas e olhar fora da tela no foco.
+      const bs = nativeEvent.blendshapes ?? {};
+      const kind = tracker.push(
+        {
+          atMs: nativeEvent.capturedAtMs ?? Date.now(),
+          ready: result.signalStatus === 'ready',
+          tension: result.tensionSignal,
+          blink: ((bs.eyeBlinkLeft ?? 0) + (bs.eyeBlinkRight ?? 0)) / 2,
+          yaw: nativeEvent.yaw ?? 0,
+          lookOut: Math.max(bs.eyeLookOutLeft ?? 0, bs.eyeLookOutRight ?? 0),
+        },
+        stateRef.current.focus
+      );
+      if (kind) actions.set({ nudge: kind });
       telemetry.record(nativeEvent, result);
       const intervalEvents = eventRecorder.record(result);
       if (intervalEvents.length > 0) {
@@ -223,6 +285,10 @@ export function VisionEngine() {
           secondaryEmotions: result.secondaryEmotions,
           // Calculado no mesmo ritmo da leitura, nao a cada quadro: a tela so
           // precisa dos sinais que sustentam o rotulo que ela esta mostrando.
+          affect:
+            result.signalStatus === 'ready'
+              ? affectFromScores(result.scores, result.tensionSignal)
+              : null,
           readingEvidence:
             result.signalStatus === 'ready' && result.actionUnits
               ? explainReading(result.actionUnits, result.observedExpression)
@@ -286,7 +352,7 @@ export function VisionEngine() {
         }
       }
     },
-    [actions, engine, eventRecorder, state.userId, telemetry]
+    [actions, engine, eventRecorder, state.userId, telemetry, tracker]
   );
 
   const onVisionError = useCallback(
@@ -309,6 +375,9 @@ export function VisionEngine() {
     [actions]
   );
 
+  // Antes de qualquer retorno antecipado: hooks não podem ser condicionais.
+  const budget = useVisionBudget(state.screen === 'vision' ? 10 : 5);
+
   if (!NATIVE_PIPELINE_AVAILABLE || !permission?.granted || !state.userId || state.role !== 'user') return null;
 
   // Em qualquer tela fora da de câmera, fica minúsculo e fora da área
@@ -323,8 +392,8 @@ export function VisionEngine() {
       pointerEvents="none"
     >
       <MellowVisionView
-        active={appForeground}
-        maxFps={onVisionScreen ? 10 : 5}
+        active={appForeground && budget.fps > 0}
+        maxFps={Math.max(1, budget.fps)}
         mirror
         showPreview={onVisionScreen}
         onVisionResult={onVisionResult}

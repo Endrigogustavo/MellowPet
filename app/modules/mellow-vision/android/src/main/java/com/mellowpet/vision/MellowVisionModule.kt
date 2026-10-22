@@ -9,6 +9,18 @@ class MellowVisionModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("MellowVision")
 
+    /**
+     * Estado térmico do aparelho (PowerManager.THERMAL_STATUS_*), para a visão
+     * reduzir o ritmo antes de aquecer o celular. -1 quando o Android não
+     * informa (anterior ao 10).
+     */
+    Function("thermalStatus") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) return@Function -1
+      val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+      pm.currentThermalStatus
+    }
+
     AsyncFunction("getCapabilitiesAsync") {
       mapOf(
         "available" to true,

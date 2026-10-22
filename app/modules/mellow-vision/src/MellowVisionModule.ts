@@ -11,6 +11,8 @@ export type BackgroundVisionState = {
 };
 
 export declare class MellowVisionModule extends NativeModule<MellowVisionModuleEvents> {
+  /** PowerManager.THERMAL_STATUS_* (0–6), ou -1 se indisponível. */
+  thermalStatus(): number;
   getCapabilitiesAsync(): Promise<MellowVisionCapabilities>;
   /** Leitura facial com o app fechado. Liga um serviço em primeiro plano
    * com notificação permanente — é a única forma de usar a câmera fora da

@@ -10,7 +10,9 @@ import { Bar, Card, Touchable, Txt } from '../components/ui';
 import { FACE_ICON, INTENSITY } from '../data/emotions';
 import { ICONS } from '../data/content';
 import { bumpProfileStats, levelFromXp } from '../profile/profileClient';
+import { AffectCircle } from '../components/AffectCircle';
 import { GrowthCeremony } from '../components/GrowthCeremony';
+import { NudgeCard } from '../components/NudgeCard';
 import { growthProgress, localDay, STAGE_LABEL } from '../pet/growth';
 import { MEALS_PER_DAY, mealsLeft } from '../pet/feeding';
 import { useApp, useTheme } from '../state/AppContext';
@@ -271,6 +273,7 @@ export function HomeScreen() {
       </View>
 
       <PetStage />
+      <NudgeCard />
       {state.growthEvent ? (
         <GrowthCeremony stage={state.growthEvent} onDone={() => actions.set({ growthEvent: null })} />
       ) : null}
@@ -606,6 +609,17 @@ export function HomeScreen() {
               color={T.t1}
             />
           </Section>
+
+          {state.affect ? (
+            <Section>
+              <Card>
+                <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 8 }}>
+                  Humor no círculo
+                </Txt>
+                <AffectCircle affect={state.affect} />
+              </Card>
+            </Section>
+          ) : null}
 
           <Section>
             <Card>

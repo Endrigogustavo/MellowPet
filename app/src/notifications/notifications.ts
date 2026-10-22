@@ -79,3 +79,34 @@ export async function resyncRoutineReminders(items: { id: string; time: string; 
     if (item.notify) await scheduleRoutineReminder(item.id, item.time, item.name);
   }
 }
+
+/**
+ * Lembrete único daqui a alguns minutos (pausa de água, microcheck-in).
+ * Devolve o id, ou null sem permissão de notificação.
+ */
+export async function scheduleOnce(
+  seconds: number,
+  title: string,
+  body: string,
+  data: Record<string, string> = {}
+): Promise<string | null> {
+  if (!(await ensureNotificationPermission())) return null;
+  return Notifications.scheduleNotificationAsync({
+    content: { title, body, data },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: Math.max(5, Math.round(seconds)),
+      channelId: CHANNEL_ID,
+    },
+  });
+}
+
+/** Pausa de água: um lembrete para daqui a 30 min. */
+export function scheduleWaterBreak(minutes = 30) {
+  return scheduleOnce(
+    minutes * 60,
+    'Pausa de água 💧',
+    'Levanta, bebe um copo de água e olha para longe da tela por um minuto.',
+    { kind: 'water' }
+  );
+}
