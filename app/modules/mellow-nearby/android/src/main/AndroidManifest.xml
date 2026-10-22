@@ -1,0 +1,26 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!--
+    Permissões do Nearby Connections, que usa Bluetooth e Wi-Fi direto para
+    achar aparelhos perto. Ficam no manifesto do módulo porque android/ é
+    gerada pelo prebuild e está no .gitignore.
+
+    Cada versão do Android pede um conjunto diferente: até a 11 era localização
+    (o Bluetooth "revelava" onde você está); da 12 em diante são permissões de
+    "dispositivos próximos". Os maxSdkVersion evitam pedir o que a versão do
+    aparelho não precisa.
+
+    O app NÃO usa localização para nada: ela só aparece porque o Android antigo
+    exige essa permissão para buscar aparelhos por Bluetooth.
+  -->
+  <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+  <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="32" />
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="32" />
+  <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+  <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+  <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+  <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+</manifest>

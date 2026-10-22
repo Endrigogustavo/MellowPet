@@ -1,0 +1,24 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.mellowpet.nearby'
+version = '1.0.0'
+
+android {
+  namespace "com.mellowpet.nearby"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  // Nearby Connections: Bluetooth + Wi-Fi direto entre aparelhos próximos,
+  // sem internet e sem servidor no meio.
+  implementation 'com.google.android.gms:play-services-nearby:19.3.0'
+}

@@ -141,6 +141,20 @@ export function PetStage() {
     }).start();
   }, [state.petting, wobble]);
 
+  // Visita: o pet de quem você encontrou entra pela direita e o seu chega para
+  // o lado. Os dois ficam felizes enquanto dura — é a única reação; nada do
+  // estado emocional de ninguém aparece.
+  const [visit] = useState(() => new Animated.Value(0));
+  const visitor = state.visitor;
+  useEffect(() => {
+    Animated.spring(visit, {
+      toValue: visitor ? 1 : 0,
+      friction: 6,
+      tension: 50,
+      useNativeDriver: true,
+    }).start();
+  }, [visitor, visit]);
+
   const phase = state.breathing ? Math.floor((state.breathTick % 12) / 4) : -1;
   const breathLabel =
     phase === 0 ? 'Inspire · 4s' : phase === 1 ? 'Segure · 4s' : 'Solte · 4s';
@@ -174,6 +188,8 @@ export function PetStage() {
         <Animated.View
           style={{
             transform: [
+              { translateX: visit.interpolate({ inputRange: [0, 1], outputRange: [0, -62] }) },
+              { scale: visit.interpolate({ inputRange: [0, 1], outputRange: [1, 0.78] }) },
               ...idleTransform(emo.anim.kind, idle),
               {
                 rotate: wobble.interpolate({
@@ -193,7 +209,7 @@ export function PetStage() {
           <PetFace
             size={172}
             petType={state.petType}
-            emotion={state.petMood}
+            emotion={visitor ? 'happy' : state.petMood}
             body={pet.body}
             belly={pet.belly}
             whisker={pet.whisker}
@@ -202,6 +218,44 @@ export function PetStage() {
           />
         </Animated.View>
       </Pressable>
+
+      {visitor ? (
+        <>
+          <Animated.View
+            pointerEvents="none"
+            accessibilityLabel={`${visitor.petName} veio visitar`}
+            style={{
+              position: 'absolute',
+              transform: [
+                { translateX: visit.interpolate({ inputRange: [0, 1], outputRange: [260, 70] }) },
+              ],
+            }}
+          >
+            <PetFace size={124} petType={visitor.petType} emotion="happy" stage={visitor.stage} />
+          </Animated.View>
+          <Heart x={-20} color={emoColor} />
+          <Heart x={12} color={emoColor} />
+          <Heart x={40} color={emoColor} />
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 8,
+              opacity: visit,
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              backgroundColor: T.surf,
+              borderWidth: 1,
+              borderColor: T.bd,
+            }}
+          >
+            <Txt s={12.5} w={800} c={T.t1}>
+              {visitor.petName} veio visitar!
+            </Txt>
+          </Animated.View>
+        </>
+      ) : null}
 
       {state.breathing ? (
         <View style={{ position: 'absolute', bottom: 10, alignItems: 'center', gap: 3 }}>

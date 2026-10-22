@@ -6,8 +6,9 @@ import React, {
   useMemo,
   useReducer,
   useRef,
+  useState,
 } from 'react';
-import { Linking } from 'react-native';
+import { AppState as RNAppState, Linking, Vibration } from 'react-native';
 
 import { EMOTIONS, REPLIES, type EmotionKey } from '../data/emotions';
 import type { PetKey } from '../data/pets';
@@ -29,7 +30,7 @@ import { sendChatMessage } from '../chat/chatClient';
 import { fetchToolContent } from '../tools/toolsClient';
 import { listLinks } from '../care/careClient';
 import { bumpProfileStats, fetchProfileStats, levelFromXp } from '../profile/profileClient';
-import { grewUp, type PetStage } from '../pet/growth';
+import { grewUp, stageForDays, type PetStage } from '../pet/growth';
 import { fetchCareDayCount, markCareDay } from '../pet/growthClient';
 import { fetchSettings } from '../settings/settingsClient';
 import {
@@ -42,7 +43,9 @@ import type { EvidenceSignal } from '../vision/evidence';
 import { logManualEmotion } from '../vision/manualEmotion';
 import { pushStateToWatch, syncWatchCheckins } from '../wear/wearBridge';
 import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
-import { loadDensity, saveDensity } from './preferencesStore';
+import { loadDensity, loadEncountersEnabled, saveDensity, saveEncountersEnabled } from './preferencesStore';
+import type { PetCard } from '../pet/encounterPayload';
+import { recordEncounter, requestEncounterPermissions, startEncounters } from '../pet/encounters';
 
 export type Screen =
   | 'splash'
@@ -60,6 +63,7 @@ export type Screen =
   | 'dashboard'
   | 'checkin'
   | 'heatmap'
+  | 'friends'
   | 'care'
   | 'carealerts'
   | 'careaudit'
@@ -94,6 +98,10 @@ export type State = {
   careDays: number;
   /** Estágio recém-alcançado, para a cerimônia de evolução. Some depois de vista. */
   growthEvent: PetStage | null;
+  /** Opt-in deste aparelho para encontros por proximidade. */
+  encountersEnabled: boolean;
+  /** Pet de outra pessoa que está visitando agora (some sozinho). */
+  visitor: PetCard | null;
   /** Leitura facial observada; nunca representa automaticamente o estado interno. */
   observedExpression: EmotionKey;
   /** Estado visual do bichinho, separado da leitura da pessoa. */
@@ -202,6 +210,8 @@ const INITIAL: State = {
   petType: 'seal',
   careDays: 0,
   growthEvent: null,
+  encountersEnabled: false,
+  visitor: null,
   observedExpression: VISION_MODE === 'demo' ? 'neutral' : 'unknown',
   petMood: 'neutral',
   visionMode: VISION_MODE,
@@ -326,6 +336,8 @@ export type Actions = {
   dismissCard: (id: string) => void;
   /** Registra que hoje houve cuidado. Idempotente por dia. */
   markCare: () => void;
+  /** Liga/desliga os encontros. Ao ligar pede as permissões; devolve se ficou ligado. */
+  setEncounters: (enabled: boolean) => Promise<boolean>;
 };
 
 type Ctx = { state: State; actions: Actions };
@@ -363,6 +375,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadDensity().then((density) => {
       if (density) dispatch({ density });
     });
+    loadEncountersEnabled()
+      .then((encountersEnabled) => dispatch({ encountersEnabled }))
+      .catch(() => undefined);
   }, []);
 
   // O que a pessoa registrou pelos widgets com o app fechado. Só drena
@@ -377,7 +392,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (saved > 0) actions.markCare();
       })
       .catch(() => undefined);
+    // `actions` é estável e declarado mais abaixo; listá-lo aqui leria a
+    // variável antes da inicialização durante o render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.userId]);
+
+  // Encontros por proximidade. Só procura com tudo isto verdadeiro: sessão,
+  // opt-in, app em primeiro plano e Home aberta. Em segundo plano o anúncio
+  // gastaria bateria e anunciaria o pet sem a pessoa estar olhando.
+  const [foreground, setForeground] = useState(RNAppState.currentState === 'active');
+  useEffect(() => {
+    const sub = RNAppState.addEventListener('change', (next) => setForeground(next === 'active'));
+    return () => sub.remove();
+  }, []);
+
+  const encounterStage = stageForDays(state.careDays);
+  useEffect(() => {
+    if (!state.userId || !state.encountersEnabled || !foreground || state.screen !== 'home') return;
+    const userId = state.userId;
+    let stop: (() => void) | null = null;
+    let cancelled = false;
+    let visitTimer: ReturnType<typeof setTimeout> | null = null;
+    startEncounters(
+      { petName: state.petName, petType: state.petType, stage: encounterStage },
+      (card) => {
+        Vibration.vibrate([0, 40, 60, 40]);
+        dispatch((s) => ({ visitor: card, xp: s.xp + 3 }));
+        bumpProfileStats({ xp: 3 }).catch(() => undefined);
+        actions.markCare();
+        recordEncounter(userId, card).catch(() => undefined);
+        if (visitTimer) clearTimeout(visitTimer);
+        // A visita dura o bastante para ser vista e some sozinha.
+        visitTimer = setTimeout(() => dispatch({ visitor: null }), 12_000);
+      }
+    ).then((fn) => {
+      if (cancelled) fn();
+      else stop = fn;
+    });
+    return () => {
+      cancelled = true;
+      stop?.();
+      if (visitTimer) clearTimeout(visitTimer);
+    };
+    // `actions` é estável e declarado mais abaixo (ver efeito acima).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.userId, state.encountersEnabled, foreground, state.screen, state.petName, state.petType, encounterStage]);
 
   // Espelha o estado no relógio: o pet no pulso mostra a mesma emoção e nível
   // da tela inicial. A sequência vem do banco, não de `state.streak` — aquele
@@ -763,6 +822,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       },
 
+
+      setEncounters: async (enabled: boolean) => {
+        if (enabled && !(await requestEncounterPermissions())) {
+          dispatch({ encountersEnabled: false });
+          return false;
+        }
+        dispatch({ encountersEnabled: enabled });
+        await saveEncountersEnabled(enabled).catch(() => undefined);
+        return enabled;
+      },
 
       markCare: () => {
         const userId = ref.current.userId;

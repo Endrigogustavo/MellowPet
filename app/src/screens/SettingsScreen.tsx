@@ -236,6 +236,33 @@ export function SettingsScreen() {
         </Card>
       </Section>
 
+      {/* encontros entre pets */}
+      <Section>
+        <Card radius={24} padding={18}>
+          <ToggleRow
+            label="Encontros com outros pets"
+            sub={
+              state.encountersEnabled
+                ? 'Com o app aberto na Home, seu pet conhece os pets de quem está perto. Só o nome, a espécie e o estágio do pet são trocados — nenhuma emoção.'
+                : 'Desligado. Ao ligar, o Android pede acesso a dispositivos próximos (Bluetooth).'
+            }
+            on={state.encountersEnabled}
+            onPress={() => {
+              actions.setEncounters(!state.encountersEnabled).catch(() => undefined);
+            }}
+          />
+          <Touchable
+            onPress={() => actions.go('friends')}
+            accessibilityLabel="Abrir amigos do Mellow"
+            style={{ marginTop: 12 }}
+          >
+            <Txt s={12.5} w={800} c={T.pri}>
+              Ver os amigos que {state.petName} já conheceu
+            </Txt>
+          </Touchable>
+        </Card>
+      </Section>
+
       {/* conexões */}
       <Section>
         <Card radius={24} padding={18}>

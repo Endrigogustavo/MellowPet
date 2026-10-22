@@ -19,3 +19,14 @@ export async function loadDensity(): Promise<Density | null> {
 export async function saveDensity(density: Density): Promise<void> {
   await SecureStore.setItemAsync(DENSITY_KEY, density);
 }
+
+/** Encontros com outros pets: opt-in deste aparelho, desligado por padrão. */
+const ENCOUNTERS_KEY = 'mellowpet.encounters.v1';
+
+export async function loadEncountersEnabled(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(ENCOUNTERS_KEY)) === 'on';
+}
+
+export async function saveEncountersEnabled(enabled: boolean): Promise<void> {
+  await SecureStore.setItemAsync(ENCOUNTERS_KEY, enabled ? 'on' : 'off');
+}

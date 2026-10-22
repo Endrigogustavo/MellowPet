@@ -19,6 +19,7 @@ import { CareToolsScreen } from '../screens/CareToolsScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { CheckinScreen } from '../screens/CheckinScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
+import { FriendsScreen } from '../screens/FriendsScreen';
 import { GuideScreen } from '../screens/GuideScreen';
 import { HeatmapScreen } from '../screens/HeatmapScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -54,6 +55,7 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   dashboard: DashboardEntry,
   checkin: CheckinScreen,
   heatmap: HeatmapScreen,
+  friends: FriendsScreen,
   care: CareScreen,
   carealerts: CareAlertsScreen,
   careaudit: CareAuditScreen,
