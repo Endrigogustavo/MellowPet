@@ -52,7 +52,8 @@ create policy care_group_members_leave on public.care_group_members
 -- Cria um grupo e devolve o código (8 caracteres, sem 0/O/1/I).
 create or replace function public.create_care_group(group_name text)
 returns table (id uuid, code text)
-language plpgsql security definer set search_path = public as $$
+-- pgcrypto mora no schema extensions no Supabase.
+language plpgsql security definer set search_path = public, extensions as $$
 declare
   alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   new_code text;
