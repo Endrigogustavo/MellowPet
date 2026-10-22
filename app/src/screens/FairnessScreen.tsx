@@ -23,6 +23,8 @@ import {
   loadAuditProfile,
   saveAuditProfile,
 } from '../vision/fairnessClient';
+import { Icon } from '../components/Icon';
+import { ICONS } from '../data/content';
 
 /**
  * "A leitura é justa com você?" — auditoria de viés.
@@ -196,10 +198,12 @@ export function FairnessScreen() {
                     <Txt s={12} c={g.flagged ? DANGER : T.t2}>
                       {GROUP_LABEL[g.grp] ?? g.grp} · {g.users} pessoas{g.thin ? ' · poucos dados' : ''}
                     </Txt>
-                    <Txt s={12} w={800} c={g.flagged ? DANGER : T.t1}>
-                      {pct(g.rate)}
-                      {g.flagged ? ' ⚠' : ''}
-                    </Txt>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Txt s={12} w={800} c={g.flagged ? DANGER : T.t1}>
+                        {pct(g.rate)}
+                      </Txt>
+                      {g.flagged ? <Icon d={ICONS.alert} size={13} color={DANGER} sw={2} /> : null}
+                    </View>
                   </View>
                 ))}
               </View>

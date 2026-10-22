@@ -142,7 +142,7 @@ export const NUDGE_TEXT: Record<NudgeKind, { title: string; body: string }> = {
     body: 'Você está piscando bem menos que o normal — sinal de tela demais. Que tal uma pausa de água longe dela?',
   },
   gaze: {
-    title: 'Ei, volta pra cá 🐾',
+    title: 'Ei, volta pra cá',
     body: 'Seu olhar saiu da tela algumas vezes no modo foco. Tudo bem dar uma pausa — ou voltamos juntos?',
   },
 };

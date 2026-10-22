@@ -108,7 +108,7 @@ export async function scheduleOnce(
 export function scheduleWaterBreak(minutes = 30) {
   return scheduleOnce(
     minutes * 60,
-    'Pausa de água 💧',
+    'Pausa de água',
     'Levanta, bebe um copo de água e olha para longe da tela por um minuto.',
     { kind: 'water' }
   );

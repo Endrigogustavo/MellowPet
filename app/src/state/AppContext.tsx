@@ -969,17 +969,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             history,
             text
           );
-          dispatch((cur) => ({
-            typing: false,
-            messages: [...cur.messages, { role: 'bot', content: '…', source: 'device' }],
-          }));
-          generateLocal(modelId, prompt, (partial) => setLast(splitAction(tidyReply(partial)).text || '…', 'device'))
+          // A animação de "digitando" fica até a primeira palavra de verdade;
+          // só então a bolha aparece e vai crescendo.
+          dispatch({ typing: true });
+          let shown = false;
+          const show = (content: string, action: ChatAction | null = null) => {
+            if (!shown) {
+              shown = true;
+              reply(content, 'device', action);
+            } else {
+              setLast(content, 'device', action);
+            }
+          };
+          generateLocal(modelId, prompt, (partial) => {
+            const text = splitAction(tidyReply(partial)).text;
+            if (text) {
+              if (!shown) {
+                shown = true;
+                dispatch((cur) => ({ typing: false, messages: [...cur.messages, { role: 'bot', content: text, source: 'device' }] }));
+              } else {
+                setLast(text, 'device');
+              }
+            }
+          })
             .then((full) => {
               const { text: clean, action } = splitAction(tidyReply(full));
-              setLast(clean || REPLIES[emotion], 'device', action);
-              speak(clean || REPLIES[emotion]);
+              if (shown) {
+                setLast(clean || REPLIES[emotion], 'device', action);
+                speak(clean || REPLIES[emotion]);
+              } else {
+                show(clean || REPLIES[emotion], action);
+              }
             })
-            .catch(() => setLast(REPLIES[emotion], 'device'));
+            .catch(() => show(REPLIES[emotion]));
         };
 
         const ready = localReady(s.localModel);
@@ -1011,7 +1033,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         };
         streamChatMessage(text, emotion, confidence, history, memory, (soFar) => {
-          const shown = splitAction(soFar).text || '…';
+          const shown = splitAction(soFar).text;
+          // Só cria a bolha com texto de verdade; até lá fica o "digitando".
+          if (!shown) return;
           if (!started) {
             started = true;
             dispatch((cur) => ({

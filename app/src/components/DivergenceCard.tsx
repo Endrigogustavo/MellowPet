@@ -24,7 +24,7 @@ export function DivergenceCard() {
   return (
     <Card radius={22} padding={16}>
       <Txt s={14.5} w={800} c={T.t1}>
-        Só passando para saber 💛
+        Só passando para saber
       </Txt>
       <Txt s={12.5} lh={1.55} c={T.t2} style={{ marginTop: 4 }}>
         Você disse que estava bem — e pode estar mesmo. Desde então seu rosto pareceu tenso em alguns momentos. Quer

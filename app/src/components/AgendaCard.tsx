@@ -80,7 +80,7 @@ export function AgendaCard() {
               onPress={() => {
                 scheduleOnce(
                   Math.max(5, (pause! - Date.now()) / 1000),
-                  'Pausa entre compromissos 🌿',
+                  'Pausa entre compromissos',
                   'Dois minutos: ombros para baixo, respira fundo, água.',
                   { kind: 'water' }
                 )
@@ -91,7 +91,7 @@ export function AgendaCard() {
             />
           ) : scheduled ? (
             <Txt s={12} c={T.t3} style={{ marginTop: 8 }}>
-              Lembrete marcado ✓
+              Lembrete marcado.
             </Txt>
           ) : null}
         </>

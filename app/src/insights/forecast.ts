@@ -15,11 +15,12 @@ export type PeriodForecast = { period: DayPeriod; weather: Weather | null; sampl
 
 export const PERIOD_LABEL: Record<DayPeriod, string> = { manha: 'Manhã', tarde: 'Tarde', noite: 'Noite' };
 
-export const WEATHER: Record<Weather, { icon: string; text: string }> = {
-  ensolarado: { icon: '☀️', text: 'costuma ser leve' },
-  nublado: { icon: '⛅', text: 'às vezes pesa um pouco' },
-  chuvoso: { icon: '🌧️', text: 'costuma ser mais difícil' },
-  tempestade: { icon: '⛈️', text: 'costuma vir com tensão' },
+/** `icon` é a chave do ícone em EXTRA_ICONS (data/content). */
+export const WEATHER: Record<Weather, { icon: 'sun' | 'cloudSun' | 'rain' | 'storm'; text: string }> = {
+  ensolarado: { icon: 'sun', text: 'costuma ser leve' },
+  nublado: { icon: 'cloudSun', text: 'às vezes pesa um pouco' },
+  chuvoso: { icon: 'rain', text: 'costuma ser mais difícil' },
+  tempestade: { icon: 'storm', text: 'costuma vir com tensão' },
 };
 
 /** Mínimo de leituras no mesmo dia da semana; abaixo disso usa todos os dias. */

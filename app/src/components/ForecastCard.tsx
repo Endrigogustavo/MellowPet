@@ -5,6 +5,8 @@ import { listDetectedEvents } from '../checkins/checkinClient';
 import { PERIOD_LABEL, WEATHER, forecastFor, type PeriodForecast } from '../insights/forecast';
 import { useApp, useTheme } from '../state/AppContext';
 import { Card, Txt } from './ui';
+import { EXTRA_ICONS } from '../data/content';
+import { Icon } from './Icon';
 
 const WEEKDAY = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
 
@@ -47,7 +49,9 @@ export function ForecastCard() {
         <View style={{ gap: 8, marginTop: 10 }}>
           {forecast.map((p) => (
             <View key={p.period} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Txt s={20}>{p.weather ? WEATHER[p.weather].icon : '·'}</Txt>
+              <View style={{ width: 24, alignItems: 'center' }}>
+                {p.weather ? <Icon d={EXTRA_ICONS[WEATHER[p.weather].icon]} size={20} color={T.pri} sw={1.8} /> : <Txt c={T.t3}>·</Txt>}
+              </View>
               <Txt s={12.5} c={T.t2} style={{ flex: 1 }}>
                 <Txt s={12.5} w={800} c={T.t1}>
                   {PERIOD_LABEL[p.period]}

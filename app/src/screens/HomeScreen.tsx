@@ -290,7 +290,7 @@ export function HomeScreen() {
         <Section top={10}>
           <Card radius={22} padding={16}>
             <Txt s={14.5} w={800} c={T.t1}>
-              {state.petName} ganhou: {ACCESSORIES.find((a) => a.id === state.unlockEvent)?.label} 🎁
+              {state.petName} ganhou: {ACCESSORIES.find((a) => a.id === state.unlockEvent)?.label}
             </Txt>
             <Txt s={12.5} lh={1.5} c={T.t2} style={{ marginTop: 4 }}>
               Prêmio pela constância de vocês. Quer vestir agora?

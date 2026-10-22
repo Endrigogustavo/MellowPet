@@ -82,7 +82,7 @@ export function CrisisPlanScreen() {
       ))}
       <Section>
         <View>
-          <PrimaryButton label={saved ? 'Salvo ✓' : 'Salvar meu plano'} onPress={save} />
+          <PrimaryButton label={saved ? 'Salvo' : 'Salvar meu plano'} onPress={save} />
           {saved ? (
             <Txt s={12} c={OK} center style={{ marginTop: 8 }}>
               Ele aparece no botão de ajuda, sempre que precisar.

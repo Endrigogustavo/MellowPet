@@ -129,9 +129,12 @@ export function VisionScreen() {
           ) : null}
           {NATIVE_PIPELINE_AVAILABLE && state.heart ? (
             <View style={styles.readingRow} accessibilityLiveRegion="polite">
-              <Txt s={12.5} w={900} c="#FFFFFF">
-                {state.heart.bpm !== null ? `♥ ${state.heart.bpm} bpm` : '♥ medindo o batimento…'}
-              </Txt>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Icon d={ICONS.heart} size={14} color="#FF8FA3" sw={2} />
+                <Txt s={12.5} w={900} c="#FFFFFF">
+                  {state.heart.bpm !== null ? `${state.heart.bpm} bpm` : 'medindo o batimento…'}
+                </Txt>
+              </View>
               <Txt s={11} w={700} c="rgba(255,255,255,0.66)">
                 {state.heart.bpm !== null
                   ? 'estimativa pela cor da pele · não é medição médica'

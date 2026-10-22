@@ -22,6 +22,7 @@ import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK, hexA } from '../theme/palette';
 import MellowVoice, { isVoiceAvailable } from '../../modules/mellow-voice';
 import { suggestTags } from '../checkins/tagSuggest';
+import { EXTRA_ICONS } from '../data/content';
 
 /** XP por check-in. Menor que alimentar (6): é reflexão, não cuidado ativo —
  * mas tem de valer alguma coisa, senão ninguém volta. */
@@ -433,9 +434,12 @@ export function CheckinScreen() {
                     backgroundColor: T.priL,
                   }}
                 >
-                  <Txt s={12.5} w={800} c={T.pri}>
-                    🎙 Ditar
-                  </Txt>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Icon d={EXTRA_ICONS.mic} size={15} color={T.pri} sw={2} />
+                    <Txt s={12.5} w={800} c={T.pri}>
+                      Ditar
+                    </Txt>
+                  </View>
                 </Touchable>
               ) : null}
               {suggested.length > 0 ? (

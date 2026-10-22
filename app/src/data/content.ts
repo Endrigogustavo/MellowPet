@@ -599,6 +599,17 @@ export const TAB_ICONS: Record<string, string> = {
 };
 
 /** Ícones avulsos que aparecem em mais de uma tela. */
+/** Ícones extras de traço (24×24), no mesmo estilo dos ICONS. */
+export const EXTRA_ICONS = {
+  cloud: 'M7 18h10a4 4 0 00.6-7.95A6 6 0 006.2 9.2 4.5 4.5 0 007 18z',
+  phone: 'M8 3h8a1 1 0 011 1v16a1 1 0 01-1 1H8a1 1 0 01-1-1V4a1 1 0 011-1zM11 18h2',
+  mic: 'M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM5 11a7 7 0 0014 0M12 18v3',
+  sun: 'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+  cloudSun: 'M8 6a3 3 0 015.7-1M3 9h1M5.5 3.5l.7.7M8 18h9a3.5 3.5 0 00.5-7A5 5 0 008.3 10 4 4 0 008 18z',
+  rain: 'M7 14h10a4 4 0 00.6-7.95A6 6 0 006.2 5.2 4.5 4.5 0 007 14zM8 17l-1 3M12 17l-1 3M16 17l-1 3',
+  storm: 'M7 14h10a4 4 0 00.6-7.95A6 6 0 006.2 5.2 4.5 4.5 0 007 14zM13 15l-3 4h4l-3 4',
+};
+
 export const ICONS = {
   back: 'M15 5l-7 7 7 7',
   chevron: 'M9 5l7 7-7 7',
