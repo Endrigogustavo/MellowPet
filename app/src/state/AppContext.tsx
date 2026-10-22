@@ -614,7 +614,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const userId = state.userId;
     let stop: (() => void) | null = null;
     let cancelled = false;
-    let visitTimer: ReturnType<typeof setTimeout> | null = null;
     startEncounters(
       { petName: state.petName, petType: state.petType, stage: encounterStage },
       (card) => {
@@ -624,9 +623,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         bumpProfileStats({ xp: 3 }).catch(() => undefined);
         actions.markCare();
         recordEncounter(userId, card).catch(() => undefined);
-        if (visitTimer) clearTimeout(visitTimer);
-        // A visita dura o bastante para ser vista e some sozinha.
-        visitTimer = setTimeout(() => dispatch({ visitor: null }), 12_000);
+        // Quanto a visita dura é decidido no PetStage: o relógio só anda com
+        // ela na tela (o encontro pode chegar com a pessoa em Ajustes).
       },
       (encounterStatus) => dispatch({ encounterStatus })
     ).then((fn) => {
@@ -636,7 +634,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
       stop?.();
-      if (visitTimer) clearTimeout(visitTimer);
     };
     // `actions` é estável e declarado mais abaixo (ver efeito acima).
     // eslint-disable-next-line react-hooks/exhaustive-deps

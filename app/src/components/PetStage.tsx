@@ -117,6 +117,9 @@ function Halo({ color, breathing, phase }: { color: string; breathing: boolean; 
   );
 }
 
+/** Quanto tempo o pet visitante fica na tela. */
+const VISIT_MS = 20_000;
+
 export function PetStage() {
   const { state, actions } = useApp();
   const { emo, emoColor, emoLight, pet } = useTheme();
@@ -154,6 +157,14 @@ export function PetStage() {
       useNativeDriver: true,
     }).start();
   }, [visitor, visit]);
+
+  // A visita conta a partir de quando aparece aqui, não de quando o cartão
+  // chegou: saindo da Home o tempo para, e na volta ela ainda está inteira.
+  useEffect(() => {
+    if (!visitor) return;
+    const timer = setTimeout(() => actions.set({ visitor: null }), VISIT_MS);
+    return () => clearTimeout(timer);
+  }, [visitor, actions]);
 
   const phase = state.breathing ? Math.floor((state.breathTick % 12) / 4) : -1;
   const breathLabel =
