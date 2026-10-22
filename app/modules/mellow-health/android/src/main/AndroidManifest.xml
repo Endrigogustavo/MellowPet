@@ -8,6 +8,15 @@
   -->
   <uses-sdk tools:overrideLibrary="androidx.health.connect.client" />
 
+  <!--
+    Agenda (expo-calendar). Quem declara isso normalmente é o plugin do
+    expo-calendar no prebuild, que este projeto não roda; sem declarar, o
+    Android negava o pedido na hora. O app só lê; WRITE entra porque o
+    expo-calendar pede as duas juntas.
+  -->
+  <uses-permission android:name="android.permission.READ_CALENDAR" />
+  <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+
   <!-- Só leitura, e só destes dois tipos. -->
   <uses-permission android:name="android.permission.health.READ_SLEEP" />
   <uses-permission android:name="android.permission.health.READ_STEPS" />

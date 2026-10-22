@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.speech.RecognizerIntent
 import expo.modules.kotlin.Promise
+import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
@@ -36,10 +37,9 @@ class MellowVoiceModule : Module() {
         promise.reject("NO_ACTIVITY", "App não está em primeiro plano.", null)
         return@AsyncFunction
       }
-      if (pending != null) {
-        promise.reject("BUSY", "Já existe um ditado aberto.", null)
-        return@AsyncFunction
-      }
+      // Ditado antigo pendurado: encerra sem texto e abre o novo.
+      pending?.resolve(null)
+      pending = null
       val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
@@ -53,7 +53,7 @@ class MellowVoiceModule : Module() {
         pending = null
         promise.reject("UNAVAILABLE", "Este aparelho não tem reconhecimento de voz.", e)
       }
-    }
+    }.runOnQueue(Queues.MAIN)
 
     OnActivityResult { _, payload ->
       if (payload.requestCode != REQUEST_SPEECH) return@OnActivityResult

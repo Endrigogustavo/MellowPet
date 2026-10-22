@@ -21,6 +21,7 @@ import com.google.android.gms.nearby.connection.PayloadCallback
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate
 import com.google.android.gms.nearby.connection.Strategy
 import expo.modules.kotlin.Promise
+import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -154,7 +155,7 @@ class MellowNearbyModule : Module() {
       )
       status("nfc_waiting")
       main.postDelayed({ finish(false) }, 30_000)
-    }
+    }.runOnQueue(Queues.MAIN)
 
     Function("stop") {
       stopInternal()

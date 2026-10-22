@@ -10,6 +10,7 @@ import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import expo.modules.kotlin.Promise
+import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -35,6 +36,13 @@ class MellowHealthModule : Module() {
   private val contract = PermissionController.createRequestPermissionResultContract()
   private var pending: Promise? = null
 
+  /** Resolve o pedido pendente uma única vez. */
+  private fun settle(value: Boolean) {
+    val p = pending ?: return
+    pending = null
+    p.resolve(value)
+  }
+
   private fun context() = appContext.reactContext ?: throw IllegalStateException("sem contexto")
 
   private fun client(): HealthConnectClient = HealthConnectClient.getOrCreate(context())
@@ -56,27 +64,32 @@ class MellowHealthModule : Module() {
       client().permissionController.getGrantedPermissions().containsAll(permissions)
     }
 
+    // Abrir tela de outro app precisa da thread principal; fora dela a
+    // permissão voltava na hora e a promessa era resolvida duas vezes (crash).
     AsyncFunction("requestPermissions") { promise: Promise ->
       val activity = appContext.currentActivity
-      if (activity == null || pending != null) {
+      if (activity == null) {
         promise.resolve(false)
         return@AsyncFunction
       }
+      // Pedido antigo pendurado (a pessoa saiu da tela): encerra como "não".
+      settle(false)
       pending = promise
       try {
         activity.startActivityForResult(contract.createIntent(activity, permissions), REQUEST_HEALTH)
       } catch (e: Exception) {
-        pending = null
-        promise.resolve(false)
+        settle(false)
       }
-    }
+    }.runOnQueue(Queues.MAIN)
 
     OnActivityResult { _, payload ->
       if (payload.requestCode != REQUEST_HEALTH) return@OnActivityResult
-      val promise = pending ?: return@OnActivityResult
-      pending = null
-      val granted = contract.parseResult(payload.resultCode, payload.data)
-      promise.resolve(granted.containsAll(permissions))
+      val granted = try {
+        contract.parseResult(payload.resultCode, payload.data)
+      } catch (_: Exception) {
+        emptySet()
+      }
+      settle(granted.containsAll(permissions))
     }
 
     /** Últimos `days` dias: [{ day: "AAAA-MM-DD", sleepMinutes, steps }]. */
