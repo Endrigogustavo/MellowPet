@@ -1,7 +1,7 @@
 -- Auditoria de viés da leitura facial.
 --
 -- Um motor de expressão pode acertar menos em quem usa óculos, tem barba ou
--- um tom de pele pouco representado nos dados de treino. Para enxergar isso
+-- está numa faixa de idade pouco representada nos dados de treino. Para enxergar isso
 -- é preciso (a) saber a qual grupo a pessoa pertence — só se ela quiser
 -- dizer — e (b) um rótulo de verdade: o check-in, onde a pessoa diz o que
 -- sente e o app guarda o que a câmera lia no mesmo instante.
@@ -13,8 +13,6 @@
 create table if not exists public.vision_audit_profile (
   user_id uuid primary key references auth.users(id) on delete cascade,
   glasses text check (glasses is null or glasses in ('sim', 'nao', 'as_vezes')),
-  -- Escala Monk (1 = mais clara, 10 = mais escura). Agregada em faixas no relatório.
-  skin_tone smallint check (skin_tone is null or skin_tone between 1 and 10),
   age_band text check (age_band is null or age_band in ('<18', '18-24', '25-34', '35-49', '50+')),
   facial_hair text check (facial_hair is null or facial_hair in ('sim', 'nao')),
   updated_at timestamptz not null default now()
@@ -48,10 +46,6 @@ as $$
   groups as (
     select user_id, 'oculos'::text as attribute, glasses as grp
       from public.vision_audit_profile where glasses is not null
-    union all
-    select user_id, 'tom_de_pele',
-      case when skin_tone <= 3 then '1-3' when skin_tone <= 6 then '4-6' else '7-10' end
-      from public.vision_audit_profile where skin_tone is not null
     union all
     select user_id, 'idade', age_band
       from public.vision_audit_profile where age_band is not null

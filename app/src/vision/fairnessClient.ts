@@ -6,7 +6,6 @@ const MISSING = 'Aplique supabase/migrations/202610220003_vision_fairness.sql.';
 
 type ProfileRow = {
   glasses: AuditProfile['glasses'];
-  skin_tone: number | null;
   age_band: AuditProfile['ageBand'];
   facial_hair: AuditProfile['facialHair'];
 };
@@ -22,20 +21,19 @@ function describe(error: { code?: string; message: string }, action: string) {
 export async function loadAuditProfile(userId: string): Promise<AuditProfile> {
   const { data, error } = await supabase
     .from('vision_audit_profile')
-    .select('glasses, skin_tone, age_band, facial_hair')
+    .select('glasses, age_band, facial_hair')
     .eq('user_id', userId)
     .maybeSingle();
   if (error) throw describe(error, 'Não foi possível carregar seus dados da auditoria');
   if (!data) return EMPTY_PROFILE;
   const row = data as ProfileRow;
-  return { glasses: row.glasses, skinTone: row.skin_tone, ageBand: row.age_band, facialHair: row.facial_hair };
+  return { glasses: row.glasses, ageBand: row.age_band, facialHair: row.facial_hair };
 }
 
 export async function saveAuditProfile(userId: string, p: AuditProfile): Promise<void> {
   const { error } = await supabase.from('vision_audit_profile').upsert({
     user_id: userId,
     glasses: p.glasses,
-    skin_tone: p.skinTone,
     age_band: p.ageBand,
     facial_hair: p.facialHair,
     updated_at: new Date().toISOString(),

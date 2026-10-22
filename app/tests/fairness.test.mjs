@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { analyzeGroups, personalAgreement, skinBand } from '../src/vision/fairness.ts';
+import { analyzeGroups, personalAgreement } from '../src/vision/fairness.ts';
 
 test('concordância pessoal ignora check-ins sem leitura', () => {
   const r = personalAgreement([
@@ -41,8 +41,4 @@ test('grupo bem abaixo dos outros do mesmo atributo é sinalizado', () => {
   // Amostra pequena não sinaliza: oscila demais.
   assert.equal(get('barba', 'sim').thin, true);
   assert.equal(get('barba', 'sim').flagged, false);
-});
-
-test('faixas da escala Monk', () => {
-  assert.deepEqual([1, 3, 4, 6, 7, 10].map(skinBand), ['1-3', '1-3', '4-6', '4-6', '7-10', '7-10']);
 });

@@ -45,8 +45,6 @@ const BEARD: [AuditProfile['facialHair'], string][] = [
   ['sim', 'Tenho'],
   ['nao', 'Não tenho'],
 ];
-/** Escala Monk de tom de pele (Google, 2022), 10 tons. */
-const MONK = ['#f6ede4', '#f3e7db', '#f7ead0', '#eadaba', '#d7bd96', '#a07e56', '#825c43', '#604134', '#3a312a', '#292420'];
 
 export function FairnessScreen() {
   const { state } = useApp();
@@ -228,31 +226,6 @@ export function FairnessScreen() {
             {GLASSES.map(([v, label]) => (
               <Chip key={label} label={label} on={profile.glasses === v} onPress={() => toggle('glasses', v)} />
             ))}
-          </View>
-
-          <Txt s={12} w={700} c={T.t1} style={{ marginTop: 14, marginBottom: 8 }}>
-            Tom de pele (escala Monk)
-          </Txt>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            {MONK.map((color, i) => {
-              const on = profile.skinTone === i + 1;
-              return (
-                <Touchable
-                  key={color}
-                  onPress={() => toggle('skinTone', i + 1)}
-                  accessibilityLabel={`Tom ${i + 1} de 10`}
-                  accessibilityState={{ selected: on }}
-                  style={{
-                    flex: 1,
-                    aspectRatio: 1,
-                    borderRadius: 999,
-                    backgroundColor: color,
-                    borderWidth: on ? 3 : 1,
-                    borderColor: on ? T.pri : T.bd,
-                  }}
-                />
-              );
-            })}
           </View>
 
           <Txt s={12} w={700} c={T.t1} style={{ marginTop: 14, marginBottom: 8 }}>

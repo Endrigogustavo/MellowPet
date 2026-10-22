@@ -4,25 +4,23 @@
  *
  * Dois níveis:
  * - pessoal: por emoção lida ("quando a câmera diz bravo, você concorda X%");
- * - comunidade: por grupo autodeclarado (óculos, tom de pele, idade, barba),
+ * - comunidade: por grupo autodeclarado (óculos, idade, barba),
  *   vindo de uma RPC que só devolve grupos com k ≥ 5 pessoas.
  *
  * Sem IO aqui — testável e reaproveitável.
  */
-export type AuditAttribute = 'oculos' | 'tom_de_pele' | 'idade' | 'barba';
+export type AuditAttribute = 'oculos' | 'idade' | 'barba';
 
 export type AuditProfile = {
   glasses: 'sim' | 'nao' | 'as_vezes' | null;
-  skinTone: number | null;
   ageBand: '<18' | '18-24' | '25-34' | '35-49' | '50+' | null;
   facialHair: 'sim' | 'nao' | null;
 };
 
-export const EMPTY_PROFILE: AuditProfile = { glasses: null, skinTone: null, ageBand: null, facialHair: null };
+export const EMPTY_PROFILE: AuditProfile = { glasses: null, ageBand: null, facialHair: null };
 
 export const ATTRIBUTE_LABEL: Record<AuditAttribute, string> = {
   oculos: 'Óculos',
-  tom_de_pele: 'Tom de pele (escala Monk)',
   idade: 'Idade',
   barba: 'Barba',
 };
@@ -94,9 +92,4 @@ export function analyzeGroups(rows: GroupRow[]): GroupResult[] {
     const thin = r.samples < MIN_SAMPLES;
     return { ...r, rate: own, thin, flagged: !thin && othersRate - own >= GAP_ALERT };
   });
-}
-
-/** Faixa da escala Monk usada no relatório (a mesma da RPC). */
-export function skinBand(tone: number): '1-3' | '4-6' | '7-10' {
-  return tone <= 3 ? '1-3' : tone <= 6 ? '4-6' : '7-10';
 }
