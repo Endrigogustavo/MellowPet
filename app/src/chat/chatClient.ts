@@ -15,7 +15,7 @@ export async function sendChatMessage(
   emotion: string,
   confidence: number,
   history: { role: 'user' | 'bot'; content: string }[]
-): Promise<string> {
+): Promise<{ content: string; provider: string }> {
   if (!API_BASE_URL) {
     throw new ChatError('API não configurada neste build (EXPO_PUBLIC_API_BASE_URL ausente).');
   }
@@ -41,6 +41,11 @@ export async function sendChatMessage(
   if (!response.ok) {
     throw new ChatError(`http_${response.status}`);
   }
-  const data = (await response.json()) as { response: string };
-  return data.response;
+  const data = (await response.json()) as { response: string; provider?: string };
+  // "fallback" = o servidor está de pé mas sem token de IA; o app troca para o
+  // modelo no aparelho quando houver um baixado.
+  return { content: data.response, provider: data.provider ?? 'unknown' };
 }
+
+/** Há URL de API neste build? */
+export const SERVER_CONFIGURED = API_BASE_URL.length > 0;

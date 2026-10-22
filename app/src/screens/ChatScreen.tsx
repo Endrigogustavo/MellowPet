@@ -243,6 +243,11 @@ export function ChatScreen() {
                 >
                   {m.content}
                 </Txt>
+                {bot && m.source === 'device' ? (
+                  <Txt s={10} w={800} c={T.t3} ls={0.8} style={{ marginTop: 5 }}>
+                    NO APARELHO · NADA FOI ENVIADO
+                  </Txt>
+                ) : null}
               </View>
             </View>
           );

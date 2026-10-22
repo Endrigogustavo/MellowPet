@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, View } from 'react-native';
 
 import { acceptInvite, listLinks, revokeCareLink, type CaregiverLink } from '../care/careClient';
+import { OfflineMellowCard } from '../components/OfflineMellowCard';
 import { Field } from '../components/Field';
 import { PetFace } from '../components/PetFace';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
@@ -234,6 +235,11 @@ export function SettingsScreen() {
             })}
           </View>
         </Card>
+      </Section>
+
+      {/* IA no aparelho */}
+      <Section>
+        <OfflineMellowCard />
       </Section>
 
       {/* encontros entre pets */}

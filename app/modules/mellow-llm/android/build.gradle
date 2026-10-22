@@ -1,0 +1,24 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.mellowpet.llm'
+version = '1.0.0'
+
+android {
+  namespace "com.mellowpet.llm"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  // MediaPipe LLM Inference: roda um modelo de linguagem pequeno no próprio
+  // aparelho. O modelo NÃO vem no APK — é baixado sob demanda (centenas de MB).
+  implementation 'com.google.mediapipe:tasks-genai:0.10.35'
+}

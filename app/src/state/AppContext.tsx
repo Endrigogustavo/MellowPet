@@ -26,7 +26,7 @@ import {
   signup as apiSignup,
   subscribeToSignOut,
 } from '../auth/authClient';
-import { sendChatMessage } from '../chat/chatClient';
+import { SERVER_CONFIGURED, sendChatMessage } from '../chat/chatClient';
 import { fetchToolContent } from '../tools/toolsClient';
 import { listLinks } from '../care/careClient';
 import { bumpProfileStats, fetchProfileStats, levelFromXp } from '../profile/profileClient';
@@ -41,6 +41,10 @@ import {
 import { fetchStreak } from '../dashboard/streak';
 import type { EvidenceSignal } from '../vision/evidence';
 import { logManualEmotion } from '../vision/manualEmotion';
+import { afterServer, firstRoute } from '../chat/chatRouter';
+import { CRISIS_REPLY, detectCrisis } from '../chat/crisis';
+import { generateLocal, loadLocalChoice, localReady } from '../chat/localLlm';
+import { buildQwenPrompt, systemPrompt, tidyReply } from '../chat/prompt';
 import { pushStateToWatch, syncWatchCheckins } from '../wear/wearBridge';
 import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
 import { loadDensity, loadEncountersEnabled, saveDensity, saveEncountersEnabled } from './preferencesStore';
@@ -81,7 +85,12 @@ export type Role = 'user' | 'care';
 export type Density = 'simples' | 'completo';
 export type ThemeName = 'light' | 'dark';
 
-export type ChatMessage = { role: 'user' | 'bot'; content: string };
+export type ChatMessage = {
+  role: 'user' | 'bot';
+  content: string;
+  /** De onde veio a resposta — o chat mostra um selo "no aparelho". */
+  source?: 'server' | 'device' | 'canned' | 'crisis';
+};
 export type JournalEntry = { text: string; tag: string; when: string };
 export type Heart = { id: number; x: number };
 
@@ -102,6 +111,10 @@ export type State = {
   encountersEnabled: boolean;
   /** Pet de outra pessoa que está visitando agora (some sozinho). */
   visitor: PetCard | null;
+  /** Modelo de IA baixado para rodar no aparelho (null = nenhum). */
+  localModel: 'leve' | 'melhor' | null;
+  /** "Nada sai do aparelho": o chat nunca fala com o servidor. */
+  privateMode: boolean;
   /** Leitura facial observada; nunca representa automaticamente o estado interno. */
   observedExpression: EmotionKey;
   /** Estado visual do bichinho, separado da leitura da pessoa. */
@@ -212,6 +225,8 @@ const INITIAL: State = {
   growthEvent: null,
   encountersEnabled: false,
   visitor: null,
+  localModel: null,
+  privateMode: false,
   observedExpression: VISION_MODE === 'demo' ? 'neutral' : 'unknown',
   petMood: 'neutral',
   visionMode: VISION_MODE,
@@ -377,6 +392,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     loadEncountersEnabled()
       .then((encountersEnabled) => dispatch({ encountersEnabled }))
+      .catch(() => undefined);
+    loadLocalChoice()
+      .then(({ modelId, privateMode }) => dispatch({ localModel: modelId, privateMode }))
       .catch(() => undefined);
   }, []);
 
@@ -692,17 +710,55 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           chatInput: '',
           typing: true,
         });
+
+        const reply = (content: string, source: ChatMessage['source']) =>
+          dispatch((cur) => ({ typing: false, messages: [...cur.messages, { role: 'bot', content, source }] }));
+        const canned = () => reply(REPLIES[emotion], 'canned');
+
+        // Escreve a resposta do modelo local aos poucos, conforme é gerada.
+        const runDevice = () => {
+          const modelId = s.localModel!;
+          const prompt = buildQwenPrompt(
+            systemPrompt(EMOTIONS[emotion].label.toLowerCase(), Math.round(confidence * 100)),
+            history,
+            text
+          );
+          dispatch((cur) => ({
+            typing: false,
+            messages: [...cur.messages, { role: 'bot', content: '…', source: 'device' }],
+          }));
+          const setLast = (content: string) =>
+            dispatch((cur) => {
+              const messages = [...cur.messages];
+              messages[messages.length - 1] = { role: 'bot', content, source: 'device' };
+              return { messages };
+            });
+          generateLocal(modelId, prompt, (partial) => setLast(tidyReply(partial) || '…'))
+            .then((full) => setLast(tidyReply(full) || REPLIES[emotion]))
+            .catch(() => setLast(REPLIES[emotion]));
+        };
+
+        const ready = localReady(s.localModel);
+        const route = firstRoute({
+          crisis: detectCrisis(text) === 'risk',
+          privateMode: s.privateMode,
+          localReady: ready,
+          serverConfigured: SERVER_CONFIGURED,
+        });
+        if (route === 'crisis') return reply(CRISIS_REPLY, 'crisis');
+        if (route === 'device') return runDevice();
+        if (route === 'canned') return canned();
+
         sendChatMessage(text, emotion, confidence, history)
-          .then((content) => {
-            dispatch((cur) => ({ typing: false, messages: [...cur.messages, { role: 'bot', content }] }));
+          .then(({ content, provider }) => {
+            const next = afterServer(provider, ready);
+            if (next === 'device') runDevice();
+            else reply(content, 'server');
           })
           .catch(() => {
-            // Sem API configurada ou rede indisponível: cai para uma resposta
-            // de apoio local em vez de deixar a pessoa sem resposta nenhuma.
-            dispatch((cur) => ({
-              typing: false,
-              messages: [...cur.messages, { role: 'bot', content: REPLIES[emotion] }],
-            }));
+            // Rede ou servidor fora: modelo local se houver, senão as fixas.
+            if (afterServer(null, ready) === 'device') runDevice();
+            else canned();
           });
       },
 
