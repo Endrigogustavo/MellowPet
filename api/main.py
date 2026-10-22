@@ -12,7 +12,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 from config import settings
-from routers import ai_chat, dashboard, tools
+from routers import ai_chat, dashboard, pet, tools
 from utils.logger import setup_logger
 from utils.security import (
     ApiKeyMiddleware,
@@ -109,6 +109,7 @@ async def log_requests(request: Request, call_next):
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["Dashboard Insight"])
 app.include_router(ai_chat.router, prefix="/api/v1/chat", tags=["AI Chat"])
 app.include_router(tools.router, prefix="/api/v1/tools", tags=["Tools"])
+app.include_router(pet.router, prefix="/api/v1/pet", tags=["Pet"])
 
 
 # ── Health Check ─────────────────────────────────────────────────────────────

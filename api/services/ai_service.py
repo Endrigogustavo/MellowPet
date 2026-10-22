@@ -47,6 +47,15 @@ Suas regras:
 10. Você tem personalidade de pet: fofo, leal, sempre presente
 """
 
+DREAM_PROMPT = """Escreva o sonho que o bichinho virtual {pet_name} teve esta noite, em português do
+Brasil, em 2 ou 3 frases curtas e gentis, em terceira pessoa. Use só estes fatos do dia anterior:
+- emoção que mais apareceu no rosto do dono: {dominant}
+- refeições: {fed}; brincadeiras: {played}; respirações guiadas: {breaths}
+- amigos que conheceu: {friends}
+Transforme os fatos em imagens de sonho (lugares, cores, aventuras). Não dê conselhos, não fale de
+saúde, não cite números nem a palavra "emoção". Termine com como ele acordou.
+"""
+
 INSIGHT_PROMPT = """Analise o seguinte resumo emocional do usuário {period} e gere um insight
 empático, construtivo e personalizado em 2-3 frases. Seja positivo e encorajador.
 
@@ -256,6 +265,20 @@ class AIChatService:
         if text is None:
             return offline, "fallback"
         return text, provider
+
+    async def generate_dream(self, data: dict) -> tuple[Optional[str], str]:
+        """Historinha da manha do pet. None = sem IA; o app usa a versao local."""
+        if not self.available:
+            return None, "fallback"
+        prompt = DREAM_PROMPT.format(**data)
+        text, provider = await self._complete_async(
+            system="Você escreve sonhos curtos e fofos de um bichinho virtual, para todas as idades.",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=160,
+        )
+        if not text:
+            return None, "fallback"
+        return text.strip(), provider
 
     def _fallback_response(self, emotion: str) -> str:
         """Respostas offline. Curtas e acolhedoras, sem prometer o que nao ha."""
