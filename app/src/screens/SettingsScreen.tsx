@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, View } from 'react-native';
 
 import { acceptInvite, listLinks, revokeCareLink, type CaregiverLink } from '../care/careClient';
+import { CalibrationCard } from '../components/CalibrationCard';
 import { OfflineMellowCard } from '../components/OfflineMellowCard';
 import { Field } from '../components/Field';
 import { PetFace } from '../components/PetFace';
@@ -235,6 +236,11 @@ export function SettingsScreen() {
             })}
           </View>
         </Card>
+      </Section>
+
+      {/* calibração da leitura facial */}
+      <Section>
+        <CalibrationCard />
       </Section>
 
       {/* IA no aparelho */}

@@ -42,6 +42,13 @@ import {
 import { fetchStreak } from '../dashboard/streak';
 import type { EvidenceSignal } from '../vision/evidence';
 import { logManualEmotion } from '../vision/manualEmotion';
+import {
+  DEFAULT_GAINS,
+  learnFromCheckin,
+  learnFromFeedback,
+  type PersonalGains,
+} from '../vision/personalCalibration';
+import { clearGains, loadGains, saveGains } from '../vision/personalCalibrationStore';
 import { afterServer, firstRoute } from '../chat/chatRouter';
 import { CRISIS_REPLY, detectCrisis } from '../chat/crisis';
 import { generateLocal, loadLocalChoice, localReady } from '../chat/localLlm';
@@ -122,6 +129,8 @@ export type State = {
   /** Modelo de IA baixado para rodar no aparelho (null = nenhum). */
   /** Refeições de hoje (limite diário em pet/feeding.ts). */
   meals: MealRecord | null;
+  /** Ganhos por emoção aprendidos com o feedback desta pessoa. */
+  personalGains: PersonalGains;
   localModel: 'leve' | 'melhor' | null;
   /** "Nada sai do aparelho": o chat nunca fala com o servidor. */
   privateMode: boolean;
@@ -236,6 +245,7 @@ const INITIAL: State = {
   encountersEnabled: false,
   visitor: null,
   meals: null,
+  personalGains: DEFAULT_GAINS,
   localModel: null,
   privateMode: false,
   observedExpression: VISION_MODE === 'demo' ? 'neutral' : 'unknown',
@@ -346,6 +356,9 @@ function loadPetIdentity(userId: string, apply: (patch: Partial<State>) => void)
   loadMeals(userId)
     .then((meals) => apply({ meals }))
     .catch(() => undefined);
+  loadGains(userId)
+    .then((personalGains) => apply({ personalGains }))
+    .catch(() => undefined);
 }
 
 export type Actions = {
@@ -367,6 +380,12 @@ export type Actions = {
   markCare: () => void;
   /** Alimenta o pet respeitando o limite diário. Devolve false se já comeu o bastante hoje. */
   feed: () => boolean;
+  /** Resposta a "essa leitura combinou?" — também ensina o motor. */
+  giveFeedback: (verdict: 'yes' | 'no' | 'unsure') => void;
+  /** Check-in salvo: o que a pessoa disse corrige o que a câmera leu. */
+  learnFromCheckin: (said: string, seen: string | null) => void;
+  /** Volta o motor aos pesos padrão. */
+  resetCalibration: () => void;
   /** Liga/desliga os encontros. Ao ligar pede as permissões; devolve se ficou ligado. */
   setEncounters: (enabled: boolean) => Promise<boolean>;
 };
@@ -914,6 +933,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       },
 
+
+      giveFeedback: (verdict) => {
+        const s = ref.current;
+        const gains = learnFromFeedback(s.personalGains, s.observedExpression, verdict);
+        dispatch({ feedback: verdict, personalGains: gains });
+        if (s.userId && gains !== s.personalGains) saveGains(s.userId, gains).catch(() => undefined);
+      },
+
+      learnFromCheckin: (said, seen) => {
+        const s = ref.current;
+        const gains = learnFromCheckin(s.personalGains, said, seen);
+        if (gains === s.personalGains) return;
+        dispatch({ personalGains: gains });
+        if (s.userId) saveGains(s.userId, gains).catch(() => undefined);
+      },
+
+      resetCalibration: () => {
+        const userId = ref.current.userId;
+        dispatch({ personalGains: DEFAULT_GAINS });
+        if (userId) clearGains(userId).catch(() => undefined);
+      },
 
       feed: () => {
         if (!consumeMeal()) return false;

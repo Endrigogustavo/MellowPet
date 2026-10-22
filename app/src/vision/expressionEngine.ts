@@ -282,6 +282,15 @@ export class ExpressionEngine {
   private evidenceEma: Scores | null = null;
   /** AUs do ultimo quadro pontuado, para explicar a leitura. */
   private lastActionUnits: ActionUnits | null = null;
+  /**
+   * Ajuste por pessoa (vision/personalCalibration.ts), injetado de fora para
+   * este modulo seguir sem dependencias de valor. Identidade por padrao.
+   */
+  private adjustScores: (scores: Scores) => Scores = (scores) => scores;
+
+  setScoreAdjuster(adjust: ((scores: Scores) => Scores) | null) {
+    this.adjustScores = adjust ?? ((scores) => scores);
+  }
   private current: ObservedExpression | null = null;
   private pending: ObservedExpression | null = null;
   private pendingCount = 0;
@@ -364,7 +373,7 @@ export class ExpressionEngine {
     const corrected = this.subtractBaseline(frame.blendshapes);
     const { scores: rawScores, evidence: rawEvidence, aus } = scoreBlendshapeDetails(corrected);
     this.lastActionUnits = aus;
-    const voted = this.vote(rawScores);
+    const voted = this.vote(this.adjustScores(rawScores));
     const topRaw = Math.max(...EXPRESSIONS.map((expression) => voted[expression]));
     const alpha = clip(0.38 + 0.34 * frame.qualityScore + 0.2 * topRaw);
     this.evidenceEma = this.evidenceEma

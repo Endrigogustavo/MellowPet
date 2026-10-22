@@ -502,7 +502,7 @@ export function HomeScreen() {
               Essa leitura combinou com o que você percebeu agora?
             </Txt>
             <Touchable
-              onPress={() => actions.set({ feedback: 'yes' })}
+              onPress={() => actions.giveFeedback('yes')}
               accessibilityLabel="Leitura correta"
               style={{
                 width: 34,
@@ -516,7 +516,7 @@ export function HomeScreen() {
               <Icon d={ICONS.check} size={16} color={OK} sw={2} />
             </Touchable>
             <Touchable
-              onPress={() => actions.set({ feedback: 'no' })}
+              onPress={() => actions.giveFeedback('no')}
               accessibilityLabel="Leitura incorreta"
               style={{
                 width: 34,
@@ -530,7 +530,7 @@ export function HomeScreen() {
               <Icon d={ICONS.close} size={16} color="#EF4444" sw={2} />
             </Touchable>
             <Touchable
-              onPress={() => actions.set({ feedback: 'unsure' })}
+              onPress={() => actions.giveFeedback('unsure')}
               accessibilityLabel="Não tenho certeza sobre a leitura"
               style={{
                 width: 34,

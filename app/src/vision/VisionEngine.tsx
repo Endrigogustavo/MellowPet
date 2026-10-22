@@ -10,6 +10,7 @@ import {
 } from '../../modules/mellow-vision';
 import { useApp } from '../state/AppContext';
 import { explainReading } from './evidence';
+import { applyGains } from './personalCalibration';
 import { loadCalibrationBaseline, saveCalibrationBaseline } from './calibrationStore';
 import { createVisionId, VisionEventRecorder } from './eventRecorder';
 import {
@@ -70,6 +71,12 @@ export function VisionEngine() {
   const { state, actions } = useApp();
   const [permission, requestPermission] = useCameraPermissions();
   const [engine] = useState(() => new ExpressionEngine());
+
+  // Calibração pessoal: cada mudança nos ganhos vale a partir do próximo quadro.
+  useEffect(() => {
+    const gains = state.personalGains;
+    engine.setScoreAdjuster((scores) => applyGains(scores, gains));
+  }, [engine, state.personalGains]);
   const [telemetry] = useState(() => new VisionTelemetry());
   const [eventRecorder] = useState(
     () =>
