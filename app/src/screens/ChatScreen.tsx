@@ -16,6 +16,7 @@ import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useApp, useTheme } from '../state/AppContext';
 import { font } from '../theme/type';
 import { ACTION_LABEL } from '../chat/actions';
+import { ChatModelPicker } from '../components/ChatModelPicker';
 
 /** Um dos três pontinhos de "digitando" — keyframe `mp-dots`. */
 function Dot({ delay, color }: { delay: number; color: string }) {
@@ -159,6 +160,8 @@ export function ChatScreen() {
         </Touchable>
       </View>
 
+      <ChatModelPicker />
+
       {/* conversa */}
       <ScrollView
         ref={scroll}
@@ -247,6 +250,10 @@ export function ChatScreen() {
                 {bot && m.source === 'device' ? (
                   <Txt s={10} w={800} c={T.t3} ls={0.8} style={{ marginTop: 5 }}>
                     NO APARELHO · NADA FOI ENVIADO
+                  </Txt>
+                ) : bot && m.source === 'server' ? (
+                  <Txt s={10} w={800} c={T.t3} ls={0.8} style={{ marginTop: 5 }}>
+                    NUVEM
                   </Txt>
                 ) : null}
                 {bot && m.source === 'crisis' ? (
