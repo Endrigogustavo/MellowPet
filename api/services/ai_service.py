@@ -18,9 +18,10 @@ from __future__ import annotations
 
 import os
 import asyncio
-from typing import Optional, Protocol
+from typing import AsyncIterator, Iterator, Optional, Protocol
 
 from config import settings
+from services.chat_actions import ACTIONS_RULE, split_action
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -45,6 +46,11 @@ Suas regras:
 8. Nunca dê diagnósticos médicos
 9. Em casos graves, sugira ajuda profissional com carinho
 10. Você tem personalidade de pet: fofo, leal, sempre presente
+""" + ACTIONS_RULE + "\n"
+
+MEMORY_BLOCK = """
+O que a pessoa pediu para você lembrar (use com naturalidade, sem listar):
+{notes}
 """
 
 DREAM_PROMPT = """Escreva o sonho que o bichinho virtual {pet_name} teve esta noite, em português do
@@ -107,6 +113,28 @@ class GeminiProvider:
         )
         return (response.text or "").strip()
 
+    def stream(self, system: str, messages: list[dict], max_tokens: int) -> Iterator[str]:
+        from google.genai import types
+
+        contents = [
+            types.Content(
+                role="model" if m["role"] == "assistant" else "user",
+                parts=[types.Part.from_text(text=m["content"])],
+            )
+            for m in messages
+        ]
+        for chunk in self._client.models.generate_content_stream(
+            model=self._model,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system,
+                max_output_tokens=max_tokens,
+                temperature=0.8,
+            ),
+        ):
+            if chunk.text:
+                yield chunk.text
+
 
 class AnthropicProvider:
     name = "anthropic"
@@ -126,6 +154,16 @@ class AnthropicProvider:
         )
         return response.content[0].text.strip()
 
+    def stream(self, system: str, messages: list[dict], max_tokens: int) -> Iterator[str]:
+        with self._client.messages.stream(
+            model=self._model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=messages,
+        ) as stream:
+            for text in stream.text_stream:
+                yield text
+
 
 class OpenAIProvider:
     name = "openai"
@@ -144,6 +182,17 @@ class OpenAIProvider:
             temperature=0.8,
         )
         return (response.choices[0].message.content or "").strip()
+
+    def stream(self, system: str, messages: list[dict], max_tokens: int) -> Iterator[str]:
+        for chunk in self._client.chat.completions.create(
+            model=self._model,
+            messages=[{"role": "system", "content": system}] + messages,
+            max_tokens=max_tokens,
+            temperature=0.8,
+            stream=True,
+        ):
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
 
 
 # Ordem de preferencia. AI_PROVIDER move um provedor para a frente da fila.
@@ -224,27 +273,95 @@ class AIChatService:
             logger.warning("Provedores de IA excederam o timeout de %.1fs", settings.ai_timeout_seconds)
             return None, "fallback"
 
+    def _chat_prompt(
+        self,
+        user_message: str,
+        emotion: str,
+        confidence: float,
+        conversation_history: Optional[list],
+        memory: Optional[list[str]],
+    ) -> tuple[str, list[dict]]:
+        system = SYSTEM_PROMPT.format(emotion=emotion, confidence=round(confidence * 100, 1))
+        notes = [n.replace("\n", " ").strip() for n in (memory or []) if n.strip()][:8]
+        if notes:
+            system += MEMORY_BLOCK.format(notes="\n".join(f"- {n}" for n in notes))
+        messages = [
+            {"role": m["role"], "content": m["content"]}
+            for m in (conversation_history or [])[-12:]
+        ]
+        messages.append({"role": "user", "content": user_message})
+        return system, messages
+
     async def generate_response(
         self,
         user_message: str,
         emotion: str,
         confidence: float,
         conversation_history: Optional[list] = None,
-    ) -> tuple[str, str]:
+        memory: Optional[list[str]] = None,
+    ) -> tuple[str, str, Optional[str]]:
+        """Devolve (texto_sem_etiqueta, provedor, ação_sugerida)."""
         if not self.available:
-            return self._fallback_response(emotion), "fallback"
+            return self._fallback_response(emotion), "fallback", None
 
-        system = SYSTEM_PROMPT.format(emotion=emotion, confidence=round(confidence * 100, 1))
-        messages = [
-            {"role": m["role"], "content": m["content"]}
-            for m in (conversation_history or [])[-12:]
-        ]
-        messages.append({"role": "user", "content": user_message})
-
+        system, messages = self._chat_prompt(user_message, emotion, confidence, conversation_history, memory)
         text, provider = await self._complete_async(system, messages, max_tokens=256)
         if text is None:
-            return self._fallback_response(emotion), "fallback"
-        return text, provider
+            return self._fallback_response(emotion), "fallback", None
+        clean, action = split_action(text)
+        return clean or self._fallback_response(emotion), provider, action
+
+    async def stream_response(
+        self,
+        user_message: str,
+        emotion: str,
+        confidence: float,
+        conversation_history: Optional[list] = None,
+        memory: Optional[list[str]] = None,
+    ) -> AsyncIterator[tuple[str, str]]:
+        """
+        Pedaços (provedor, texto) conforme o modelo gera. Um provedor que falha
+        antes do primeiro pedaço passa a vez ao próximo; depois do primeiro,
+        a resposta termina onde chegou (trocar de modelo no meio da frase
+        seria pior que uma frase curta).
+        """
+        if not self.available:
+            return
+        system, messages = self._chat_prompt(user_message, emotion, confidence, conversation_history, memory)
+        loop = asyncio.get_running_loop()
+        done = object()
+        for provider in self._providers:
+            stream_fn = getattr(provider, "stream", None)
+            if stream_fn is None:
+                continue
+            queue: asyncio.Queue = asyncio.Queue()
+
+            def worker(fn=stream_fn, q=queue):
+                try:
+                    for piece in fn(system, messages, 256):
+                        loop.call_soon_threadsafe(q.put_nowait, piece)
+                    loop.call_soon_threadsafe(q.put_nowait, done)
+                except Exception as exc:  # cota, rede, chave: tenta o próximo
+                    loop.call_soon_threadsafe(q.put_nowait, exc)
+
+            loop.run_in_executor(None, worker)
+            emitted = False
+            while True:
+                try:
+                    item = await asyncio.wait_for(queue.get(), timeout=settings.ai_timeout_seconds)
+                except asyncio.TimeoutError:
+                    item = TimeoutError("timeout")
+                if item is done:
+                    if emitted:
+                        return
+                    break
+                if isinstance(item, BaseException):
+                    logger.warning("Streaming de %s falhou: %s", provider.name, item)
+                    if emitted:
+                        return
+                    break
+                emitted = True
+                yield provider.name, item
 
     async def generate_insight(
         self,

@@ -68,6 +68,18 @@ Envie a chave compartilhada no header `X-API-Key` em todas as rotas `/api/v1/*`.
     openapi_url="/openapi.json" if settings.enable_docs else None,
 )
 
+class StreamFriendlyGZip(GZipMiddleware):
+    """GZip que não toca no streaming do chat: comprimir SSE em pedaços
+    pequenos faz o gzip segurar o texto até juntar bytes, e as palavras
+    chegariam todas de uma vez no fim."""
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http" and scope.get("path", "").endswith("/stream"):
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
+
+
 # ── Middleware ──────────────────────────────────────────────────────────────
 # A ordem importa: o Starlette executa na ordem inversa do registro, entao o
 # ultimo add_middleware e o primeiro a ver a requisicao. Queremos barrar corpo
@@ -76,7 +88,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(ApiKeyMiddleware)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.rate_limit_per_minute)
 app.add_middleware(RequestSizeLimitMiddleware)
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(StreamFriendlyGZip, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,
