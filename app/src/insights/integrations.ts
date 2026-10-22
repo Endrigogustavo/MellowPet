@@ -1,6 +1,5 @@
 /**
- * Núcleos puros das integrações: saúde × humor, folgas na agenda e a cor da
- * luz da casa. Sem IO — testáveis direto no Node.
+ * Núcleos puros das integrações: saúde × humor e folgas na agenda. Sem IO — testáveis direto no Node.
  */
 
 // ------------------------------------------------------------ saúde × humor
@@ -88,16 +87,3 @@ export function nextBreak(busy: Busy[], now: number, dayEnd: number, minMinutes 
   }
   return cursor > now && dayEnd - cursor >= minMinutes * 60_000 ? cursor : null;
 }
-
-// ------------------------------------------------------------ luz da casa
-
-/** Cor e brilho da luz para cada emoção: acolher, não espelhar. */
-export const LIGHT_FOR: Record<string, { rgb: [number, number, number]; brightness: number }> = {
-  happy: { rgb: [255, 200, 120], brightness: 80 },
-  neutral: { rgb: [255, 228, 196], brightness: 70 },
-  sad: { rgb: [255, 170, 110], brightness: 55 },
-  angry: { rgb: [120, 170, 255], brightness: 45 },
-  fearful: { rgb: [255, 190, 140], brightness: 60 },
-  surprised: { rgb: [255, 230, 200], brightness: 75 },
-  disgusted: { rgb: [170, 230, 190], brightness: 55 },
-};

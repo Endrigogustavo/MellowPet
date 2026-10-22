@@ -18,6 +18,7 @@ import {
   Txt,
 } from '../components/ui';
 import { NO_FACE_MINUTES, SETTING_TOGGLES } from '../data/content';
+import { NfcTapButton } from '../components/NfcTapButton';
 import { PET_TYPES } from '../data/pets';
 import { describeEncounterStatus } from '../pet/encounters';
 import { fetchSettings, saveSettings, type EmergencyContact } from '../settings/settingsClient';
@@ -35,7 +36,6 @@ import {
   getBackgroundVision,
   setBackgroundVision,
 } from '../vision/backgroundVision';
-import { LightsCard } from '../components/LightsCard';
 
 export function SettingsScreen() {
   const { state, actions } = useApp();
@@ -259,11 +259,6 @@ export function SettingsScreen() {
         </Card>
       </Section>
 
-      {/* luzes da casa */}
-      <Section>
-        <LightsCard />
-      </Section>
-
       {/* memória e voz do Mellow */}
       <Section>
         <Card radius={24} padding={18}>
@@ -334,7 +329,7 @@ export function SettingsScreen() {
             sub={
               state.encountersEnabled
                 ? 'Com o app aberto na Home, seu pet conhece os pets de quem está perto. Só o nome, a espécie e o estágio do pet são trocados — nenhuma emoção.'
-                : 'Desligado. Ao ligar, o Android pede acesso a dispositivos próximos e à localização aproximada.'
+                : 'Desligado. Ao ligar, o Android pede dispositivos próximos e localização — escolha "Precisa".'
             }
             on={state.encountersEnabled}
             onPress={() => {
@@ -360,6 +355,7 @@ export function SettingsScreen() {
             e Bluetooth, Wi-Fi e localização ativados. O app não usa sua localização — o Android só exige a
             permissão para achar aparelhos por perto.
           </Txt>
+          <NfcTapButton />
           <Touchable
             onPress={() => actions.go('friends')}
             accessibilityLabel="Abrir amigos do Mellow"

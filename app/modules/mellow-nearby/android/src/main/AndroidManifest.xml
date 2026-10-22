@@ -14,16 +14,37 @@
     ainda recusa startDiscovery() sem ACCESS_COARSE_LOCATION, inclusive no
     Android 16 ("Missing required permissions, aborting call to
     startDiscovery()"). Sem ela o aparelho anunciava o pet mas nunca achava os
-    outros. FINE só é necessária no Android 10/11 para busca por Bluetooth.
+    outros. E com só a aproximada ele ainda recusa: o log seguinte foi
+    "does not have required permission ACCESS_FINE_LOCATION". NFC é permissão
+    automática (não aparece para a pessoa), mas sem declarar ele também reclama.
   -->
   <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
   <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.NFC" />
+  <!-- NFC é opcional: sem ele o encontro continua por Bluetooth/Wi-Fi. -->
+  <uses-feature android:name="android.hardware.nfc" android:required="false" />
+  <uses-feature android:name="android.hardware.nfc.hce" android:required="false" />
   <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
   <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
   <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
   <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
   <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+
+  <application>
+    <!-- Encontro por NFC: este celular responde como cartão com o pet. -->
+    <service
+      android:name="com.mellowpet.nearby.PetCardApduService"
+      android:exported="true"
+      android:permission="android.permission.BIND_NFC_SERVICE">
+      <intent-filter>
+        <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+      </intent-filter>
+      <meta-data
+        android:name="android.nfc.cardemulation.host_apdu_service"
+        android:resource="@xml/apduservice" />
+    </service>
+  </application>
 </manifest>

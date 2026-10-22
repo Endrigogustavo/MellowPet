@@ -1,6 +1,8 @@
 package com.mellowpet.nearby
 
 import android.os.Handler
+import android.nfc.NfcAdapter
+import android.nfc.tech.IsoDep
 import android.os.Looper
 import android.util.Log
 import com.google.android.gms.common.api.ApiException
@@ -18,6 +20,7 @@ import com.google.android.gms.nearby.connection.Payload
 import com.google.android.gms.nearby.connection.PayloadCallback
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate
 import com.google.android.gms.nearby.connection.Strategy
+import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -62,6 +65,9 @@ class MellowNearbyModule : Module() {
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
       stopInternal()
       payload = payloadJson.toByteArray(Charsets.UTF_8)
+      // NFC: o mesmo cartão vale para quem encostar (até 250 bytes, cabe numa APDU).
+      NfcCards.ownCard = payload.takeIf { it.size <= 250 }
+      NfcCards.onReceived = { card -> received(card, "nfc") }
       localName = UUID.randomUUID().toString().take(8)
       val c = Nearby.getConnectionsClient(context)
       client = c
@@ -81,6 +87,73 @@ class MellowNearbyModule : Module() {
       ).addOnSuccessListener { status("searching") }
         .addOnFailureListener { status("discovery_failed:${code(it)}") }
       true
+    }
+
+    /** Só o NFC (sem Bluetooth/Wi-Fi): não depende de permissão de localização. */
+    Function("startNfc") { payloadJson: String ->
+      payload = payloadJson.toByteArray(Charsets.UTF_8)
+      NfcCards.ownCard = payload.takeIf { it.size <= 250 }
+      NfcCards.onReceived = { card -> received(card, "nfc") }
+      true
+    }
+
+    /** "ok", "disabled" (NFC desligado nas configurações) ou "none" (sem NFC/HCE). */
+    Function("nfcStatus") {
+      val context = appContext.reactContext ?: return@Function "none"
+      val adapter = NfcAdapter.getDefaultAdapter(context) ?: return@Function "none"
+      if (!context.packageManager.hasSystemFeature("android.hardware.nfc.hce")) return@Function "none"
+      if (adapter.isEnabled) "ok" else "disabled"
+    }
+
+    /**
+     * Modo leitor por até 30 s: ao encostar no outro celular (com o MellowPet
+     * aberto), manda o nosso cartão e recebe o dele. Resolve true se trocou.
+     */
+    AsyncFunction("nfcTap") { promise: Promise ->
+      val activity = appContext.currentActivity
+      val adapter = activity?.let { NfcAdapter.getDefaultAdapter(it) }
+      val card = NfcCards.ownCard
+      if (activity == null || adapter == null || !adapter.isEnabled || card == null) {
+        promise.resolve(false)
+        return@AsyncFunction
+      }
+      var done = false
+      val finish = { ok: Boolean ->
+        if (!done) {
+          done = true
+          main.post { try { adapter.disableReaderMode(activity) } catch (_: Exception) {} }
+          promise.resolve(ok)
+        }
+      }
+      adapter.enableReaderMode(
+        activity,
+        { tag ->
+          val iso = IsoDep.get(tag)
+          if (iso == null) return@enableReaderMode
+          try {
+            iso.connect()
+            iso.timeout = 3000
+            val aid = PetCardApduService.AID
+            val select = byteArrayOf(0x00, 0xA4.toByte(), 0x04, 0x00, aid.size.toByte()) + aid
+            val sel = iso.transceive(select)
+            if (!sel.endsWithOk()) return@enableReaderMode
+            val exchange = byteArrayOf(0x80.toByte(), PetCardApduService.INS_EXCHANGE, 0x00, 0x00, card.size.toByte()) + card + byteArrayOf(0x00)
+            val res = iso.transceive(exchange)
+            if (res.endsWithOk() && res.size > 2) {
+              received(String(res, 0, res.size - 2, Charsets.UTF_8), "nfc")
+              finish(true)
+            }
+          } catch (e: Exception) {
+            Log.w(TAG, "NFC: falhou a troca (${e.message}); tente encostar de novo")
+          } finally {
+            try { iso.close() } catch (_: Exception) {}
+          }
+        },
+        NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
+        null,
+      )
+      status("nfc_waiting")
+      main.postDelayed({ finish(false) }, 30_000)
     }
 
     Function("stop") {
@@ -121,7 +194,20 @@ class MellowNearbyModule : Module() {
       }
   }
 
+  private fun ByteArray.endsWithOk() =
+    size >= 2 && this[size - 2] == 0x90.toByte() && this[size - 1] == 0x00.toByte()
+
+  /** Cartão recebido por qualquer meio (proximidade ou NFC). */
+  private fun received(card: String, via: String) {
+    if (card.toByteArray(Charsets.UTF_8).size > 1024) return
+    status("exchanged")
+    Log.i(TAG, "cartão recebido via $via")
+    sendEvent("onEncounter", mapOf("payload" to card))
+  }
+
   private fun stopInternal() {
+    NfcCards.ownCard = null
+    NfcCards.onReceived = null
     main.removeCallbacksAndMessages(null)
     attempts.clear()
     client?.apply {
@@ -154,8 +240,7 @@ class MellowNearbyModule : Module() {
       // Limite de tamanho: o pacote legítimo tem poucas dezenas de bytes.
       if (bytes.size > 1024) return
       attempts.remove(endpointId)
-      status("exchanged")
-      sendEvent("onEncounter", mapOf("payload" to String(bytes, Charsets.UTF_8)))
+      received(String(bytes, Charsets.UTF_8), "nearby")
       main.postDelayed({ client?.disconnectFromEndpoint(endpointId) }, LINGER_MS)
     }
 

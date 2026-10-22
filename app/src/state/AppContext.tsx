@@ -91,7 +91,6 @@ import {
 } from '../pet/habits';
 import { ritualDay, type Ritual } from '../pet/rituals';
 import { recordEncounter, requestEncounterPermissions, startEncounters } from '../pet/encounters';
-import { loadLights, setLightForEmotion } from '../integrations/homeLights';
 
 export type Screen =
   | 'splash'
@@ -607,23 +606,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (target !== 'home') dispatch((s) => ({ screen: target, navSeq: s.navSeq + 1 }));
   }, [state.userId, state.screen]);
 
-  const lightsSent = useRef({ at: 0, emotion: '' });
-  useEffect(() => {
-    const emotion = state.observedExpression;
-    if (state.signalStatus !== 'ready' || emotion === lightsSent.current.emotion) return;
-    if (Date.now() - lightsSent.current.at < 5 * 60_000) return;
-    loadLights()
-      .then((c) => {
-        if (!c?.enabled) return;
-        lightsSent.current = { at: Date.now(), emotion };
-        return setLightForEmotion(c, emotion);
-      })
-      .catch(() => undefined);
-  }, [state.observedExpression, state.signalStatus]);
-
   const encounterStage = stageForDays(state.careDays);
   useEffect(() => {
-    if (!state.userId || !state.encountersEnabled || !foreground || state.screen !== 'home') return;
+    // Ajustes também: é de lá que se dispara o encontro por NFC.
+    const encounterScreen = state.screen === 'home' || state.screen === 'settings';
+    if (!state.userId || !state.encountersEnabled || !foreground || !encounterScreen) return;
     const userId = state.userId;
     let stop: (() => void) | null = null;
     let cancelled = false;

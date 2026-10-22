@@ -31,8 +31,8 @@ async function token(): Promise<string> {
 
 /**
  * Permissões que o Nearby exige nesta versão do Android. A localização
- * aproximada entra em todas: o Google Play Services recusa startDiscovery()
- * sem ela mesmo no Android 16 — o app não lê localização nenhuma.
+ * (aproximada E precisa) entra em todas: o Google Play Services recusa
+ * startDiscovery() sem elas mesmo no Android 16 — o app não lê localização.
  */
 function encounterPermissions(): string[] {
   const api = Number(Platform.Version);
@@ -43,6 +43,8 @@ function encounterPermissions(): string[] {
     PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
     ...(api >= 33 ? [PermissionsAndroid.PERMISSIONS.NEARBY_WIFI_DEVICES] : []),
     PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+    // Só a aproximada não basta: o Nearby recusa a busca sem a precisa.
+    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
   ];
 }
 
@@ -59,10 +61,31 @@ export async function hasEncounterPermissions(): Promise<boolean> {
   return checks.every(Boolean);
 }
 
+/** NFC deste aparelho para o encontro por encostar. */
+export function nfcStatus(): 'ok' | 'disabled' | 'none' {
+  try {
+    return MellowNearby?.nfcStatus() ?? 'none';
+  } catch {
+    return 'none';
+  }
+}
+
+/**
+ * Encontro por NFC: este celular vira leitor por até 30 s. O outro precisa
+ * estar com o MellowPet aberto na Home (ele responde como "cartão"). O cartão
+ * recebido chega pelo mesmo evento dos encontros por proximidade.
+ */
+export async function tapEncounter(): Promise<boolean> {
+  if (!MellowNearby) return false;
+  return MellowNearby.nfcTap();
+}
+
 /** Texto para a pessoa a partir do status cru do módulo nativo. */
 export function describeEncounterStatus(status: string | null): string | null {
   if (!status) return null;
-  if (status === 'permission') return 'Falta permissão de dispositivos próximos/localização aproximada. Toque para permitir.';
+  if (status === 'permission')
+    return 'Falta permissão. Toque aqui e, na localização, escolha "Precisa" — com "Aproximada" o Android não deixa achar outros celulares.';
+  if (status === 'nfc_waiting') return 'Encoste a parte de trás do seu celular na do outro…';
   if (status === 'searching') return 'Procurando pets por perto enquanto a Home está aberta.';
   if (status === 'found') return 'Achou um pet por perto! Conectando…';
   if (status === 'connected' || status === 'exchanged') return 'Encontro feito.';
@@ -85,12 +108,11 @@ export async function startEncounters(
 ): Promise<() => void> {
   const nearby = MellowNearby;
   if (!nearby) return () => undefined;
-  // Sem as permissões o Nearby falha calado; melhor dizer o que falta.
-  if (!(await hasEncounterPermissions())) {
-    onStatus('permission');
-    return () => undefined;
-  }
   const own = await token();
+  // Sem as permissões o Nearby falha calado; melhor dizer o que falta. O NFC
+  // não precisa delas, então continua valendo.
+  const radiosOk = await hasEncounterPermissions();
+  if (!radiosOk) onStatus('permission');
   const statusSub = nearby.addListener('onStatus', ({ status }) => onStatus(status));
   const sub = nearby.addListener('onEncounter', ({ payload }) => {
     const card = parseCard(payload);
@@ -100,7 +122,9 @@ export async function startEncounters(
     if (decision.accepted) onEncounter(card);
   });
   try {
-    nearby.start(buildCard(me.petName, me.petType, me.stage, own));
+    const card = buildCard(me.petName, me.petType, me.stage, own);
+    if (radiosOk) nearby.start(card);
+    else nearby.startNfc(card);
   } catch {
     sub.remove();
     statusSub.remove();
