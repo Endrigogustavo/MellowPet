@@ -89,51 +89,90 @@ class GeminiProvider:
 
         self._client = genai.Client(api_key=api_key)
         self._model = model or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        # Modelos 2.5 "pensam" antes de responder: o pensamento consome o
+        # limite de tokens (a resposta chegava cortada no meio) e, no
+        # streaming, vazava texto do raciocinio em ingles. Desligamos; se o
+        # modelo nao aceitar a opcao, cai para a configuracao sem ela.
+        self._thinking_ok = True
 
-    def complete(self, system: str, messages: list[dict], max_tokens: int) -> str:
+    def _contents(self, messages: list[dict]):
         from google.genai import types
 
         # O Gemini usa "model" no lugar de "assistant" e recebe a instrucao de
         # sistema fora da lista de mensagens.
-        contents = [
+        return [
             types.Content(
                 role="model" if m["role"] == "assistant" else "user",
                 parts=[types.Part.from_text(text=m["content"])],
             )
             for m in messages
         ]
-        response = self._client.models.generate_content(
-            model=self._model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                max_output_tokens=max_tokens,
-                temperature=0.8,
-            ),
-        )
-        return (response.text or "").strip()
 
-    def stream(self, system: str, messages: list[dict], max_tokens: int) -> Iterator[str]:
+    def _config(self, system: str, max_tokens: int):
         from google.genai import types
 
-        contents = [
-            types.Content(
-                role="model" if m["role"] == "assistant" else "user",
-                parts=[types.Part.from_text(text=m["content"])],
+        extra = {}
+        if self._thinking_ok:
+            extra["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+        return types.GenerateContentConfig(
+            system_instruction=system,
+            max_output_tokens=max_tokens,
+            temperature=0.8,
+            **extra,
+        )
+
+    @staticmethod
+    def _answer_text(response) -> str:
+        """So o texto da resposta, nunca as partes marcadas como pensamento."""
+        try:
+            parts = response.candidates[0].content.parts or []
+        except (AttributeError, IndexError, TypeError):
+            return ""
+        return "".join(p.text for p in parts if getattr(p, "text", None) and not getattr(p, "thought", False))
+
+    def _retry_without_thinking(self, exc: Exception) -> bool:
+        if self._thinking_ok and "think" in str(exc).lower():
+            logger.warning("Modelo %s nao aceita thinking_config; seguindo sem", self._model)
+            self._thinking_ok = False
+            return True
+        return False
+
+    def complete(self, system: str, messages: list[dict], max_tokens: int) -> str:
+        try:
+            response = self._client.models.generate_content(
+                model=self._model, contents=self._contents(messages), config=self._config(system, max_tokens)
             )
-            for m in messages
-        ]
-        for chunk in self._client.models.generate_content_stream(
-            model=self._model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                max_output_tokens=max_tokens,
-                temperature=0.8,
-            ),
-        ):
-            if chunk.text:
-                yield chunk.text
+        except Exception as exc:
+            if not self._retry_without_thinking(exc):
+                raise
+            response = self._client.models.generate_content(
+                model=self._model, contents=self._contents(messages), config=self._config(system, max_tokens)
+            )
+        return self._answer_text(response).strip()
+
+    def stream(self, system: str, messages: list[dict], max_tokens: int) -> Iterator[str]:
+        try:
+            chunks = self._client.models.generate_content_stream(
+                model=self._model, contents=self._contents(messages), config=self._config(system, max_tokens)
+            )
+            first = next(chunks, None)
+        except Exception as exc:
+            if not self._retry_without_thinking(exc):
+                raise
+            chunks = self._client.models.generate_content_stream(
+                model=self._model, contents=self._contents(messages), config=self._config(system, max_tokens)
+            )
+            first = next(chunks, None)
+        if first is None:
+            return
+        for chunk in [first]:
+            text = self._answer_text(chunk)
+            if text:
+                yield text
+        for chunk in chunks:
+            text = self._answer_text(chunk)
+            if text:
+                yield text
 
 
 class AnthropicProvider:
@@ -305,7 +344,7 @@ class AIChatService:
             return self._fallback_response(emotion), "fallback", None
 
         system, messages = self._chat_prompt(user_message, emotion, confidence, conversation_history, memory)
-        text, provider = await self._complete_async(system, messages, max_tokens=256)
+        text, provider = await self._complete_async(system, messages, max_tokens=400)
         if text is None:
             return self._fallback_response(emotion), "fallback", None
         clean, action = split_action(text)
@@ -338,7 +377,7 @@ class AIChatService:
 
             def worker(fn=stream_fn, q=queue):
                 try:
-                    for piece in fn(system, messages, 256):
+                    for piece in fn(system, messages, 400):
                         loop.call_soon_threadsafe(q.put_nowait, piece)
                     loop.call_soon_threadsafe(q.put_nowait, done)
                 except Exception as exc:  # cota, rede, chave: tenta o próximo
