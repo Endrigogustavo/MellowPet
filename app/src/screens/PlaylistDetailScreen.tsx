@@ -200,6 +200,7 @@ export function PlaylistDetailScreen() {
       return;
     }
     spotify.playTracks(uris, playlist.id);
+    actions.habit('music');
   };
 
   /* ── render ──────────────────────────────────────────────────────────── */

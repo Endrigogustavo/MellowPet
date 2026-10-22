@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
+import { parseHabits, type Habits } from '../pet/habits';
 import type { Density } from './AppContext';
 
 /**
@@ -60,4 +61,19 @@ export async function loadEmaEnabled(): Promise<boolean> {
 
 export async function saveEmaEnabled(enabled: boolean): Promise<void> {
   await SecureStore.setItemAsync(EMA_KEY, enabled ? 'on' : 'off');
+}
+
+/** Diário de hábitos do pet (personalidade, acessórios, rituais), por conta. */
+const habitsKey = (userId: string) => `mellowpet.habits.v1.${encodeURIComponent(userId).slice(0, 120)}`;
+
+export async function loadHabits(userId: string): Promise<Habits> {
+  try {
+    return parseHabits(await SecureStore.getItemAsync(habitsKey(userId)));
+  } catch {
+    return parseHabits(null);
+  }
+}
+
+export async function saveHabits(userId: string, habits: Habits): Promise<void> {
+  await SecureStore.setItemAsync(habitsKey(userId), JSON.stringify(habits));
 }

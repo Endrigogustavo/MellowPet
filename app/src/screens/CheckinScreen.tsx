@@ -222,6 +222,7 @@ export function CheckinScreen() {
       });
       setJustSaved(created);
       actions.markCare();
+      actions.habit('checkin');
       actions.learnFromCheckin(created.emotion, created.detectedEmotion);
       setRecent((prev) => [created, ...prev]);
       actions.set((s) => ({ xp: s.xp + CHECKIN_XP }));

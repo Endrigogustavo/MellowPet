@@ -282,6 +282,15 @@ export function VisionEngine() {
         actions.set({ heart: null });
       }
 
+      // Jogo de ninar: a tensão precisa chegar mais fina que o rótulo.
+      if (stateRef.current.screen === 'lullaby') {
+        const t = result.signalStatus === 'ready' ? result.tensionSignal : null;
+        const prev = stateRef.current.tension;
+        if ((t === null) !== (prev === null) || (t !== null && prev !== null && Math.abs(t - prev) >= 0.03)) {
+          actions.set({ tension: t });
+        }
+      }
+
       telemetry.record(nativeEvent, result);
       const intervalEvents = eventRecorder.record(result);
       if (intervalEvents.length > 0) {

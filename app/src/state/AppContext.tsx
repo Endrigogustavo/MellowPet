@@ -63,13 +63,26 @@ import {
   loadDensity,
   loadEmaEnabled,
   loadEncountersEnabled,
+  loadHabits,
   loadMeals,
   saveDensity,
   saveEmaEnabled,
   saveEncountersEnabled,
+  saveHabits,
   saveMeals,
 } from './preferencesStore';
 import type { PetCard } from '../pet/encounterPayload';
+import {
+  EMPTY_HABITS,
+  dismissRitual as dismissRitualIn,
+  isUnlocked,
+  newlyUnlocked,
+  recordHabit,
+  type AccessoryId,
+  type HabitKind,
+  type Habits,
+} from '../pet/habits';
+import { ritualDay, type Ritual } from '../pet/rituals';
 import { recordEncounter, requestEncounterPermissions, startEncounters } from '../pet/encounters';
 
 export type Screen =
@@ -90,6 +103,8 @@ export type Screen =
   | 'heatmap'
   | 'friends'
   | 'fairness'
+  | 'lullaby'
+  | 'wardrobe'
   | 'care'
   | 'carealerts'
   | 'careaudit'
@@ -137,6 +152,12 @@ export type State = {
   meals: MealRecord | null;
   /** Microcheck-ins em horários sorteados (opt-in deste aparelho). */
   emaEnabled: boolean;
+  /** Diário de hábitos: personalidade, acessórios e rituais. */
+  habits: Habits;
+  /** Acessório recém-liberado, para comemorar uma vez. */
+  unlockEvent: AccessoryId | null;
+  /** Tensão facial atual (0–1), para o jogo de ninar. null sem leitura. */
+  tension: number | null;
   /** Ganhos por emoção aprendidos com o feedback desta pessoa. */
   personalGains: PersonalGains;
   /** Lembrete vindo de sinal sustentado (tensão, fadiga, olhar no foco). */
@@ -261,6 +282,9 @@ const INITIAL: State = {
   visitor: null,
   meals: null,
   emaEnabled: false,
+  habits: EMPTY_HABITS,
+  unlockEvent: null,
+  tension: null,
   personalGains: DEFAULT_GAINS,
   nudge: null,
   affect: null,
@@ -378,6 +402,9 @@ function loadPetIdentity(userId: string, apply: (patch: Partial<State>) => void)
   loadGains(userId)
     .then((personalGains) => apply({ personalGains }))
     .catch(() => undefined);
+  loadHabits(userId)
+    .then((habits) => apply({ habits }))
+    .catch(() => undefined);
 }
 
 export type Actions = {
@@ -409,6 +436,12 @@ export type Actions = {
   setEncounters: (enabled: boolean) => Promise<boolean>;
   /** Liga/desliga os microcheck-ins; devolve quantos ficaram agendados. */
   setEma: (enabled: boolean) => Promise<number>;
+  /** Anota um hábito no diário do pet (personalidade e acessórios). */
+  habit: (kind: HabitKind) => void;
+  /** Veste um acessório já liberado (null tira). */
+  equip: (id: AccessoryId | null) => void;
+  /** "Agora não" num ritual: some até a próxima janela, sem contar. */
+  dismissRitual: (ritual: Ritual) => void;
 };
 
 type Ctx = { state: State; actions: Actions };
@@ -435,11 +468,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const consumeMeal = (): MealRecord | null => {
     const next = registerMeal(ref.current.meals, localDay());
     if (!next) return null;
+    updateHabits((h) => recordHabit(h, 'feed', localDay()));
     ref.current = { ...ref.current, meals: next };
     dispatch({ meals: next });
     const userId = ref.current.userId;
     if (userId) saveMeals(userId, next).catch(() => undefined);
     return next;
+  };
+
+  /**
+   * Toda escrita no diário passa aqui: atualiza `ref` na hora (dois toques
+   * seguidos não se perdem), persiste e detecta acessório recém-liberado.
+   */
+  const updateHabits = (fn: (h: Habits) => Habits) => {
+    const before = ref.current.habits;
+    const after = fn(before);
+    if (after === before) return;
+    const unlocked = newlyUnlocked(before, after);
+    ref.current = { ...ref.current, habits: after };
+    dispatch(unlocked ? { habits: after, unlockEvent: unlocked } : { habits: after });
+    const userId = ref.current.userId;
+    if (userId) saveHabits(userId, after).catch(() => undefined);
   };
 
   /** Timers pendentes, limpos ao desmontar. */
@@ -522,6 +571,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       (card) => {
         Vibration.vibrate([0, 40, 60, 40]);
         dispatch((s) => ({ visitor: card, xp: s.xp + 3 }));
+        updateHabits((h) => recordHabit(h, 'encounter', localDay()));
         bumpProfileStats({ xp: 3 }).catch(() => undefined);
         actions.markCare();
         recordEncounter(userId, card).catch(() => undefined);
@@ -702,6 +752,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             dispatch((s) => ({ screen: 'home', navSeq: s.navSeq + 1 }));
             return;
           }
+          if (action !== 'feed') updateHabits((h) => recordHabit(h, action === 'play' ? 'play' : 'rest', localDay()));
           const mood: Partial<State> =
             action === 'feed'
               ? { petMood: 'happy' }
@@ -891,6 +942,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // "Pausa de água" agenda um lembrete de verdade, além da conversa.
         if (title === 'Pausa de água') scheduleWaterBreak().catch(() => undefined);
         if (act === 'breath') {
+          updateHabits((h) => recordHabit(h, 'breath', localDay()));
           dispatch((s) => ({
             screen: 'home',
             navSeq: s.navSeq + 1,
@@ -1026,6 +1078,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         return true;
       },
+
+      habit: (kind) => updateHabits((h) => recordHabit(h, kind, localDay())),
+
+      equip: (id) => updateHabits((h) => (id === null || isUnlocked(h, id) ? { ...h, equipped: id } : h)),
+
+      dismissRitual: (ritual) => updateHabits((h) => dismissRitualIn(h, ritual, ritualDay(new Date(), ritual))),
 
       setEma: async (enabled: boolean) => {
         const scheduled = await rescheduleEma(enabled).catch(() => 0);

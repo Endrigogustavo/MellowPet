@@ -6,13 +6,15 @@ import { Icon } from '../components/Icon';
 import { MellowMark } from '../components/PetFace';
 import { PetStage } from '../components/PetStage';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Bar, Card, Touchable, Txt } from '../components/ui';
+import { Bar, Card, PrimaryButton, Touchable, Txt } from '../components/ui';
 import { FACE_ICON, INTENSITY } from '../data/emotions';
 import { ICONS } from '../data/content';
 import { bumpProfileStats, levelFromXp } from '../profile/profileClient';
 import { AffectCircle } from '../components/AffectCircle';
 import { GrowthCeremony } from '../components/GrowthCeremony';
 import { NudgeCard } from '../components/NudgeCard';
+import { RitualCard } from '../components/RitualCard';
+import { ACCESSORIES, TRAIT_LABEL, TRAIT_LINE, personality } from '../pet/habits';
 import { growthProgress, localDay, STAGE_LABEL } from '../pet/growth';
 import { MEALS_PER_DAY, mealsLeft } from '../pet/feeding';
 import { useApp, useTheme } from '../state/AppContext';
@@ -259,7 +261,10 @@ export function HomeScreen() {
         </Touchable>
         <Touchable
           onPress={() => {
-            if (!state.breathing) actions.markCare();
+            if (!state.breathing) {
+              actions.markCare();
+              actions.habit('breath');
+            }
             actions.set((s) => ({ breathing: !s.breathing, breathTick: 0, focus: false }));
           }
           }
@@ -274,6 +279,36 @@ export function HomeScreen() {
 
       <PetStage />
       <NudgeCard />
+      <Section top={10}>
+        <RitualCard />
+      </Section>
+      {state.unlockEvent ? (
+        <Section top={10}>
+          <Card radius={22} padding={16}>
+            <Txt s={14.5} w={800} c={T.t1}>
+              {state.petName} ganhou: {ACCESSORIES.find((a) => a.id === state.unlockEvent)?.label} 🎁
+            </Txt>
+            <Txt s={12.5} lh={1.5} c={T.t2} style={{ marginTop: 4 }}>
+              Prêmio pela constância de vocês. Quer vestir agora?
+            </Txt>
+            <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center', marginTop: 12 }}>
+              <PrimaryButton
+                label="Vestir"
+                onPress={() => {
+                  if (state.unlockEvent) actions.equip(state.unlockEvent);
+                  actions.set({ unlockEvent: null });
+                }}
+                style={{ flex: 1 }}
+              />
+              <Touchable onPress={() => actions.set({ unlockEvent: null })} accessibilityLabel="Depois">
+                <Txt s={12.5} w={800} c={T.t3}>
+                  Depois
+                </Txt>
+              </Touchable>
+            </View>
+          </Card>
+        </Section>
+      ) : null}
       {state.growthEvent ? (
         <GrowthCeremony stage={state.growthEvent} onDone={() => actions.set({ growthEvent: null })} />
       ) : null}
@@ -334,9 +369,9 @@ export function HomeScreen() {
           <View style={{ padding: 12, paddingHorizontal: 15, borderRadius: 16, backgroundColor: emoLight }}>
             <Txt s={12.5} c={T.t2}>
               {state.feedback === 'yes'
-                ? 'Obrigado — essa confirmação entra na avaliação da leitura.'
+                ? 'Obrigado — a leitura reforça um pouco o que acertou no seu rosto.'
                 : state.feedback === 'no'
-                  ? 'Anotado. A correção será avaliada antes de qualquer ajuste no modelo.'
+                  ? 'Anotado. A leitura fica um pouco mais exigente com essa emoção no seu rosto.'
                   : 'Tudo bem não ter certeza. Nenhuma correção foi presumida.'}
             </Txt>
           </View>
@@ -361,12 +396,18 @@ export function HomeScreen() {
         <CareAction
           d={ICONS.play}
           label="Brincar"
-          onPress={() => bumpCare({ played: 1, xp: 4 }, { petMood: 'surprised' })}
+          onPress={() => {
+            actions.habit('play');
+            bumpCare({ played: 1, xp: 4 }, { petMood: 'surprised' });
+          }}
         />
         <CareAction
           d={ICONS.rest}
           label="Descansar"
-          onPress={() => bumpCare({ xp: 3 }, { petMood: 'neutral', breathing: true, breathTick: 0 })}
+          onPress={() => {
+            actions.habit('rest');
+            bumpCare({ xp: 3 }, { petMood: 'neutral', breathing: true, breathTick: 0 });
+          }}
         />
       </Section>
       {fedNotice ? (
@@ -412,6 +453,26 @@ export function HomeScreen() {
               </View>
             );
           })()}
+          {(() => {
+            const traits = personality(state.habits);
+            return traits ? (
+              <Txt s={12} lh={1.5} c={T.t2} style={{ marginTop: 10 }}>
+                {state.petName} é {traits.map((t) => TRAIT_LABEL[t]).join(' e ')} — {TRAIT_LINE[traits[0]]}
+              </Txt>
+            ) : null;
+          })()}
+          <View style={{ flexDirection: 'row', gap: 16, marginTop: 10 }}>
+            <Touchable onPress={() => actions.go('wardrobe')} accessibilityLabel="Abrir guarda-roupa">
+              <Txt s={12.5} w={800} c={T.pri}>
+                Guarda-roupa
+              </Txt>
+            </Touchable>
+            <Touchable onPress={() => actions.go('lullaby')} accessibilityLabel="Ninar o pet">
+              <Txt s={12.5} w={800} c={T.pri}>
+                Ninar {state.petName}
+              </Txt>
+            </Touchable>
+          </View>
         </Card>
       </Section>
 

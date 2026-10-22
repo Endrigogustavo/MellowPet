@@ -322,7 +322,10 @@ export function SpotifyPlayerScreen() {
                           .slice(index)
                           .map((t) => t.spotifyUri)
                           .filter((u): u is string => Boolean(u));
-                        if (uris.length > 0) spotify.playTracks(uris, queue.id);
+                        if (uris.length > 0) {
+                          spotify.playTracks(uris, queue.id);
+                          actions.habit('music');
+                        }
                       }}
                       accessibilityLabel={'Tocar ' + track.title}
                       style={{

@@ -82,7 +82,10 @@ export function MusicScreen() {
   const playUserPlaylist = (p: UserPlaylist) => {
     const uris = p.tracks.map((t) => t.spotifyUri).filter((u): u is string => Boolean(u));
     if (p.spotifyUri) spotify.playUri(p.spotifyUri);
-    else if (uris.length > 0) spotify.playTracks(uris, p.id);
+    else if (uris.length > 0) {
+      spotify.playTracks(uris, p.id);
+      actions.habit('music');
+    }
   };
 
   const isSounding = (p: Playlist) =>

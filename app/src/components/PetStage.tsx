@@ -215,6 +215,7 @@ export function PetStage() {
             whisker={pet.whisker}
             blush={pet.blush}
             stage={stageForDays(state.careDays)}
+            accessory={state.habits.equipped}
           />
         </Animated.View>
       </Pressable>

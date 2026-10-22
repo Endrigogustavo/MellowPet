@@ -19,6 +19,7 @@ export function NudgeCard() {
     if (kind === 'tension') {
       actions.set({ nudge: null, breathing: true, breathTick: 0, focus: false });
       actions.markCare();
+      actions.habit('breath');
     } else if (kind === 'fatigue') {
       scheduleWaterBreak(0.2).catch(() => undefined);
       close();

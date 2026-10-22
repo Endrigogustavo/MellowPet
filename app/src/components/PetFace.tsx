@@ -5,6 +5,7 @@ import { BROWS, EYES, MOUTH, type EmotionKey } from '../data/emotions';
 import { DET, EARS, HEAD, PATCH_FILL, PET_BODY, type PetKey } from '../data/pets';
 import { mix } from '../theme/palette';
 import { STAGE_SHAPE, type PetStage } from '../pet/growth';
+import type { AccessoryId } from '../pet/habits';
 
 /**
  * O viewBox original do design é 100×100 com `overflow:visible`, porque a orelha
@@ -38,6 +39,8 @@ export type PetFaceProps = {
   blush?: number;
   /** Estágio de crescimento: muda proporções (filhote tem olhos maiores). */
   stage?: PetStage;
+  /** Acessório conquistado por hábito (cachecol, fones…). */
+  accessory?: AccessoryId | null;
 };
 
 export function PetFace({
@@ -49,6 +52,7 @@ export function PetFace({
   whisker = 'rgba(107,100,112,0.75)',
   blush = 0.55,
   stage = 'jovem',
+  accessory = null,
 }: PetFaceProps) {
   const shape = STAGE_SHAPE[stage];
   const body = bodyProp ?? PET_BODY[petType];
@@ -166,8 +170,70 @@ export function PetFace({
       {det.b ? <Path d={det.b} fill={beakFill} /> : null}
       {!det.b ? <Ellipse cx={50} cy={64} rx={4.6} ry={3.8} fill={LINE} /> : null}
       <Path d={mouth} fill="none" stroke={LINE} strokeWidth={2.6} strokeLinecap="round" />
+
+      {accessory ? <Accessory id={accessory} /> : null}
     </Svg>
   );
+}
+
+/** Pontos da coroa: arco de raio 40 no alto da cabeça (centro 50,50). */
+const CROWN = [-140, -115, -90, -65, -40].map((deg) => {
+  const a = (deg * Math.PI) / 180;
+  return [50 + 40 * Math.cos(a), 50 + 40 * Math.sin(a)] as const;
+});
+const PETALS = ['#F49AB6', '#FFD36E', '#A9D8FF', '#FFD36E', '#F49AB6'];
+
+/** Desenhados por cima do rosto, no mesmo viewBox da cabeça (círculo r 42). */
+function Accessory({ id }: { id: AccessoryId }) {
+  switch (id) {
+    case 'cachecol':
+      return (
+        <G>
+          <Path d="M 22 82 Q 50 96 78 82 L 80 89 Q 50 103 20 89 Z" fill="#E25C5C" />
+          <Path d="M 63 90 l 4 8 l 7 -3 l -3 -7 Z" fill="#C94848" />
+          <Path d="M 30 88 l 2 -5 M 40 91 l 2 -5 M 50 92 l 2 -5 M 60 91 l 2 -5 M 70 88 l 2 -5" stroke="#F7B2B2" strokeWidth={1.6} />
+        </G>
+      );
+    case 'fones':
+      return (
+        <G>
+          <Path d="M 12 52 A 38 38 0 0 1 88 52" fill="none" stroke="#3B3550" strokeWidth={5} strokeLinecap="round" />
+          <Ellipse cx={10} cy={58} rx={7} ry={11} fill="#7B6CF6" />
+          <Ellipse cx={90} cy={58} rx={7} ry={11} fill="#7B6CF6" />
+          <Ellipse cx={10} cy={58} rx={3} ry={6} fill="#A99FFA" />
+          <Ellipse cx={90} cy={58} rx={3} ry={6} fill="#A99FFA" />
+        </G>
+      );
+    case 'coroa':
+      return (
+        <G>
+          <Path d="M 19 24 Q 50 0 81 24" fill="none" stroke="#6BAF6B" strokeWidth={2.4} />
+          {CROWN.map(([x, y], i) => (
+            <G key={i}>
+              <Circle cx={x} cy={y} r={5} fill={PETALS[i]} />
+              <Circle cx={x} cy={y} r={1.8} fill="#FFF4C2" />
+            </G>
+          ))}
+        </G>
+      );
+    case 'faixa':
+      return (
+        <G>
+          <Path d="M 11 36 Q 50 16 89 36" fill="none" stroke="#5CC8B0" strokeWidth={6} strokeLinecap="round" />
+          <Path d="M 50 21 q 5 -7 10 -2 q -4 6 -10 2 Z" fill="#3E9C86" />
+        </G>
+      );
+    case 'laco':
+      return (
+        <G>
+          <Path d="M 74 16 l -11 -7 l 0 14 Z" fill="#F07AA5" />
+          <Path d="M 74 16 l 11 -7 l 0 14 Z" fill="#F07AA5" />
+          <Circle cx={74} cy={16} r={3} fill="#D9578A" />
+        </G>
+      );
+    default:
+      return null;
+  }
 }
 
 /** Cabeça simplificada usada em avatares pequenos (chat, cabeçalhos). */
