@@ -29,22 +29,47 @@ async function token(): Promise<string> {
   return sessionToken;
 }
 
+/**
+ * Permissões que o Nearby exige nesta versão do Android. A localização
+ * aproximada entra em todas: o Google Play Services recusa startDiscovery()
+ * sem ela mesmo no Android 16 — o app não lê localização nenhuma.
+ */
+function encounterPermissions(): string[] {
+  const api = Number(Platform.Version);
+  if (api <= 30) return [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
+  return [
+    PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+    PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+    PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+    ...(api >= 33 ? [PermissionsAndroid.PERMISSIONS.NEARBY_WIFI_DEVICES] : []),
+    PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+  ];
+}
+
 /** Pede as permissões de "dispositivos próximos" da versão do Android. */
 export async function requestEncounterPermissions(): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
-  const api = Number(Platform.Version);
-  const wanted: string[] =
-    api >= 31
-      ? [
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-          ...(api >= 33 ? [PermissionsAndroid.PERMISSIONS.NEARBY_WIFI_DEVICES] : []),
-          ...(api <= 32 ? [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] : []),
-        ]
-      : [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
-  const result = await PermissionsAndroid.requestMultiple(wanted as never[]);
+  const result = await PermissionsAndroid.requestMultiple(encounterPermissions() as never[]);
   return Object.values(result).every((r) => r === PermissionsAndroid.RESULTS.GRANTED);
+}
+
+export async function hasEncounterPermissions(): Promise<boolean> {
+  if (Platform.OS !== 'android') return false;
+  const checks = await Promise.all(encounterPermissions().map((p) => PermissionsAndroid.check(p as never)));
+  return checks.every(Boolean);
+}
+
+/** Texto para a pessoa a partir do status cru do módulo nativo. */
+export function describeEncounterStatus(status: string | null): string | null {
+  if (!status) return null;
+  if (status === 'permission') return 'Falta permissão de dispositivos próximos/localização aproximada. Toque para permitir.';
+  if (status === 'searching') return 'Procurando pets por perto enquanto a Home está aberta.';
+  if (status === 'found') return 'Achou um pet por perto! Conectando…';
+  if (status === 'connected' || status === 'exchanged') return 'Encontro feito.';
+  if (status.startsWith('discovery_failed') || status.startsWith('advertise_failed'))
+    return `Não deu para procurar (${status.split(':')[1] ?? '?'}). Confira se Bluetooth, Wi-Fi e localização estão ligados.`;
+  if (status.startsWith('connect_failed')) return 'Achou um pet, mas a conexão falhou. Aproximem os celulares.';
+  return null;
 }
 
 export type EncounterHandler = (card: PetCard) => void;
@@ -55,11 +80,18 @@ export type EncounterHandler = (card: PetCard) => void;
  */
 export async function startEncounters(
   me: { petName: string; petType: PetKey; stage: PetStage },
-  onEncounter: EncounterHandler
+  onEncounter: EncounterHandler,
+  onStatus: (status: string) => void = () => undefined
 ): Promise<() => void> {
   const nearby = MellowNearby;
   if (!nearby) return () => undefined;
+  // Sem as permissões o Nearby falha calado; melhor dizer o que falta.
+  if (!(await hasEncounterPermissions())) {
+    onStatus('permission');
+    return () => undefined;
+  }
   const own = await token();
+  const statusSub = nearby.addListener('onStatus', ({ status }) => onStatus(status));
   const sub = nearby.addListener('onEncounter', ({ payload }) => {
     const card = parseCard(payload);
     if (!card) return;
@@ -71,10 +103,13 @@ export async function startEncounters(
     nearby.start(buildCard(me.petName, me.petType, me.stage, own));
   } catch {
     sub.remove();
+    statusSub.remove();
+    onStatus('discovery_failed:start');
     return () => undefined;
   }
   return () => {
     sub.remove();
+    statusSub.remove();
     try {
       nearby.stop();
     } catch {

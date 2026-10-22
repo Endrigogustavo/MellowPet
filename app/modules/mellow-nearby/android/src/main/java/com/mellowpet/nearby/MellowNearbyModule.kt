@@ -2,6 +2,8 @@ package com.mellowpet.nearby
 
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
+import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
 import com.google.android.gms.nearby.connection.ConnectionInfo
@@ -36,6 +38,10 @@ import java.util.UUID
 private const val SERVICE_ID = "com.mellowpet.encounter"
 /** Tempo para os dois lados terminarem de trocar antes de desconectar. */
 private const val LINGER_MS = 2500L
+/** Pedido de conexão que falhou (rádio ocupado, os dois pediram juntos…) é refeito. */
+private const val RETRY_MS = 3000L
+private const val MAX_RETRIES = 4
+private const val TAG = "MellowNearby"
 
 class MellowNearbyModule : Module() {
 
@@ -44,6 +50,8 @@ class MellowNearbyModule : Module() {
   /** Nome anunciado. Aleatório por sessão: não identifica a pessoa. */
   private var localName: String = ""
   private val main = Handler(Looper.getMainLooper())
+  /** Tentativas por endpoint achado; some quando a troca termina ou ele some. */
+  private val attempts = HashMap<String, Int>()
 
   override fun definition() = ModuleDefinition {
     Name("MellowNearby")
@@ -63,14 +71,15 @@ class MellowNearbyModule : Module() {
         SERVICE_ID,
         lifecycle,
         AdvertisingOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build(),
-      ).addOnFailureListener { status("advertise_failed:${it.message}") }
+      ).addOnSuccessListener { Log.i(TAG, "anunciando como $localName") }
+        .addOnFailureListener { status("advertise_failed:${code(it)}") }
 
       c.startDiscovery(
         SERVICE_ID,
         discovery,
         DiscoveryOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build(),
       ).addOnSuccessListener { status("searching") }
-        .addOnFailureListener { status("discovery_failed:${it.message}") }
+        .addOnFailureListener { status("discovery_failed:${code(it)}") }
       true
     }
 
@@ -83,9 +92,38 @@ class MellowNearbyModule : Module() {
     OnDestroy { stopInternal() }
   }
 
-  private fun status(value: String) = sendEvent("onStatus", mapOf("status" to value))
+  private fun status(value: String) {
+    Log.i(TAG, value)
+    sendEvent("onStatus", mapOf("status" to value))
+  }
+
+  /** Código numérico do Nearby (ex.: 8034 = falta permissão) ou a mensagem. */
+  private fun code(e: Exception): String =
+    if (e is ApiException) "${e.statusCode}" else (e.message ?: "erro")
+
+  private fun request(endpointId: String) {
+    val c = client ?: return
+    val tries = attempts[endpointId] ?: return
+    c.requestConnection(localName, endpointId, lifecycle)
+      .addOnSuccessListener { Log.i(TAG, "pedido de conexão enviado a $endpointId") }
+      .addOnFailureListener { e ->
+        val failed = code(e)
+        // 8003 = já conectado: a troca segue pelo caminho normal.
+        if (failed == "${ConnectionsStatusCodes.STATUS_ALREADY_CONNECTED_TO_ENDPOINT}") return@addOnFailureListener
+        if (tries + 1 >= MAX_RETRIES) {
+          attempts.remove(endpointId)
+          status("connect_failed:$failed")
+          return@addOnFailureListener
+        }
+        attempts[endpointId] = tries + 1
+        Log.w(TAG, "conexão com $endpointId falhou ($failed); tentando de novo")
+        main.postDelayed({ request(endpointId) }, RETRY_MS)
+      }
+  }
 
   private fun stopInternal() {
+    main.removeCallbacksAndMessages(null)
+    attempts.clear()
     client?.apply {
       stopAdvertising()
       stopDiscovery()
@@ -97,13 +135,17 @@ class MellowNearbyModule : Module() {
   private val discovery = object : EndpointDiscoveryCallback() {
     override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
       if (info.serviceId != SERVICE_ID) return
-      // Desempate: só um dos dois pede a conexão.
-      if (localName < info.endpointName) {
-        client?.requestConnection(localName, endpointId, lifecycle)
+      status("found")
+      // Desempate: só um dos dois pede a conexão. O outro espera o pedido.
+      if (localName < info.endpointName && !attempts.containsKey(endpointId)) {
+        attempts[endpointId] = 0
+        request(endpointId)
       }
     }
 
-    override fun onEndpointLost(endpointId: String) = Unit
+    override fun onEndpointLost(endpointId: String) {
+      attempts.remove(endpointId)
+    }
   }
 
   private val payloads = object : PayloadCallback() {
@@ -111,6 +153,8 @@ class MellowNearbyModule : Module() {
       val bytes = received.asBytes() ?: return
       // Limite de tamanho: o pacote legítimo tem poucas dezenas de bytes.
       if (bytes.size > 1024) return
+      attempts.remove(endpointId)
+      status("exchanged")
       sendEvent("onEncounter", mapOf("payload" to String(bytes, Charsets.UTF_8)))
       main.postDelayed({ client?.disconnectFromEndpoint(endpointId) }, LINGER_MS)
     }
@@ -127,7 +171,10 @@ class MellowNearbyModule : Module() {
 
     override fun onConnectionResult(endpointId: String, resolution: ConnectionResolution) {
       if (resolution.status.statusCode == ConnectionsStatusCodes.STATUS_OK) {
+        status("connected")
         client?.sendPayload(endpointId, Payload.fromBytes(payload))
+      } else {
+        Log.w(TAG, "conexão recusada/falhou: ${resolution.status.statusCode}")
       }
     }
 

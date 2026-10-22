@@ -19,6 +19,7 @@ import {
 } from '../components/ui';
 import { NO_FACE_MINUTES, SETTING_TOGGLES } from '../data/content';
 import { PET_TYPES } from '../data/pets';
+import { describeEncounterStatus } from '../pet/encounters';
 import { fetchSettings, saveSettings, type EmergencyContact } from '../settings/settingsClient';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK, WARN, hexA, mix } from '../theme/palette';
@@ -274,13 +275,32 @@ export function SettingsScreen() {
             sub={
               state.encountersEnabled
                 ? 'Com o app aberto na Home, seu pet conhece os pets de quem está perto. Só o nome, a espécie e o estágio do pet são trocados — nenhuma emoção.'
-                : 'Desligado. Ao ligar, o Android pede acesso a dispositivos próximos (Bluetooth).'
+                : 'Desligado. Ao ligar, o Android pede acesso a dispositivos próximos e à localização aproximada.'
             }
             on={state.encountersEnabled}
             onPress={() => {
               actions.setEncounters(!state.encountersEnabled).catch(() => undefined);
             }}
           />
+          {state.encountersEnabled && describeEncounterStatus(state.encounterStatus) ? (
+            <Touchable
+              disabled={state.encounterStatus !== 'permission'}
+              onPress={() => {
+                actions.setEncounters(true).catch(() => undefined);
+              }}
+              accessibilityLabel="Status dos encontros"
+              style={{ marginTop: 10, padding: 10, borderRadius: 12, backgroundColor: T.priL }}
+            >
+              <Txt s={12} lh={1.45} w={700} c={T.pri}>
+                {describeEncounterStatus(state.encounterStatus)}
+              </Txt>
+            </Touchable>
+          ) : null}
+          <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 10 }}>
+            Para se encontrarem, os dois celulares precisam estar com o MellowPet aberto na Home, encontros ligados,
+            e Bluetooth, Wi-Fi e localização ativados. O app não usa sua localização — o Android só exige a
+            permissão para achar aparelhos por perto.
+          </Txt>
           <Touchable
             onPress={() => actions.go('friends')}
             accessibilityLabel="Abrir amigos do Mellow"

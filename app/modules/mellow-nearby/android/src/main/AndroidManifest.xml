@@ -10,13 +10,16 @@
     "dispositivos próximos". Os maxSdkVersion evitam pedir o que a versão do
     aparelho não precisa.
 
-    O app NÃO usa localização para nada: ela só aparece porque o Android antigo
-    exige essa permissão para buscar aparelhos por Bluetooth.
+    O app NÃO usa localização para nada. Mas o Nearby do Google Play Services
+    ainda recusa startDiscovery() sem ACCESS_COARSE_LOCATION, inclusive no
+    Android 16 ("Missing required permissions, aborting call to
+    startDiscovery()"). Sem ela o aparelho anunciava o pet mas nunca achava os
+    outros. FINE só é necessária no Android 10/11 para busca por Bluetooth.
   -->
   <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
   <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
-  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="32" />
-  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="32" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
   <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
   <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />

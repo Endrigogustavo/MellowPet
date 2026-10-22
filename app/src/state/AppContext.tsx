@@ -146,6 +146,8 @@ export type State = {
   growthEvent: PetStage | null;
   /** Opt-in deste aparelho para encontros por proximidade. */
   encountersEnabled: boolean;
+  /** Último status da busca por proximidade (ver describeEncounterStatus). */
+  encounterStatus: string | null;
   /** Pet de outra pessoa que está visitando agora (some sozinho). */
   visitor: PetCard | null;
   /** Refeições de hoje (limite diário em pet/feeding.ts). */
@@ -279,6 +281,7 @@ const INITIAL: State = {
   careDays: 0,
   growthEvent: null,
   encountersEnabled: false,
+  encounterStatus: null,
   visitor: null,
   meals: null,
   emaEnabled: false,
@@ -578,7 +581,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (visitTimer) clearTimeout(visitTimer);
         // A visita dura o bastante para ser vista e some sozinha.
         visitTimer = setTimeout(() => dispatch({ visitor: null }), 12_000);
-      }
+      },
+      (encounterStatus) => dispatch({ encounterStatus })
     ).then((fn) => {
       if (cancelled) fn();
       else stop = fn;
@@ -1099,7 +1103,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           dispatch({ encountersEnabled: false });
           return false;
         }
-        dispatch({ encountersEnabled: enabled });
+        dispatch({ encountersEnabled: enabled, encounterStatus: null });
         await saveEncountersEnabled(enabled).catch(() => undefined);
         return enabled;
       },
