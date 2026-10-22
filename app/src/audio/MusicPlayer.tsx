@@ -24,19 +24,25 @@ type MusicValue = {
   togglePlayback: () => void;
   /** Pula para a próxima faixa. */
   skip: () => void;
+  /** Toca uma fila montada na hora (jornada ISO). */
+  startQueue: (name: string, tracks: Track[]) => void;
 };
 
 const MusicContext = createContext<MusicValue | null>(null);
+
+/** Id da fila montada na hora; não colide com as playlists fixas. */
+const QUEUE_ID = 'fila';
 
 export function MusicProvider({ children }: { children: React.ReactNode }) {
   const [playlistId, setPlaylistId] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   /** Intenção do usuário: sem isto, a faixa seguinte carregaria em pausa. */
   const [wantPlaying, setWantPlaying] = useState(false);
+  const [queue, setQueue] = useState<Playlist | null>(null);
 
   const playlist = useMemo(
-    () => PLAYLISTS.find((p) => p.id === playlistId) ?? null,
-    [playlistId]
+    () => (playlistId === QUEUE_ID ? queue : (PLAYLISTS.find((p) => p.id === playlistId) ?? null)),
+    [playlistId, queue]
   );
   const track = playlist ? (playlist.tracks[index] ?? null) : null;
 
@@ -69,6 +75,14 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
 
   const start = useCallback((id: string) => {
     setPlaylistId(id);
+    setIndex(0);
+    setWantPlaying(true);
+  }, []);
+
+  const startQueue = useCallback((name: string, tracks: Track[]) => {
+    if (tracks.length === 0) return;
+    setQueue({ id: QUEUE_ID, name, why: 'Jornada ISO', c: '#7B6CF6', spotifyUri: '', tracks });
+    setPlaylistId(QUEUE_ID);
     setIndex(0);
     setWantPlaying(true);
   }, []);
@@ -113,6 +127,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
       toggle,
       togglePlayback,
       skip,
+      startQueue,
     }),
     [
       playlist,
@@ -128,6 +143,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
       toggle,
       togglePlayback,
       skip,
+      startQueue,
     ]
   );
 

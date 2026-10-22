@@ -1,17 +1,28 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Linking, View } from 'react-native';
 
 import { useMusic } from '../audio/MusicPlayer';
 import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { NowPlayingPulse } from '../components/NowPlayingPulse';
-import { Card, ScreenTitle, Toggle, Touchable, Txt } from '../components/ui';
+import { Card, Chip, ScreenTitle, Toggle, Touchable, Txt } from '../components/ui';
 import { EMO_PLAYLIST, ICONS, MUSIC_RULES, PLAYLISTS, playlistMeta, type Playlist } from '../data/content';
 import { FACE_ICON } from '../data/emotions';
 import { listUserPlaylists, type UserPlaylist } from '../playlists/playlistClient';
 import { useSpotify } from '../spotify/spotifyClient';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, hexA } from '../theme/palette';
+import { EMOTION_MOOD, GOALS, isoJourney, type IsoGoal } from '../music/iso';
+
+/** Busca equivalente a cada playlist nos apps sem API pública. */
+const MOOD_QUERY: Record<string, string> = {
+  acolhimento: 'músicas para dias tristes acolhedoras',
+  quebra: 'chill hits relaxar',
+  sono: 'piano calmo para dormir',
+  descarga: 'músicas para treinar energia',
+  embalo: 'músicas alto astral',
+  foco: 'deep focus instrumental',
+};
 
 export function MusicScreen() {
   const { state, actions } = useApp();
@@ -96,6 +107,62 @@ export function MusicScreen() {
   return (
     <ScreenScroll>
       <ScreenTitle label="MÚSICA" title={'Som para o\nseu momento'} />
+
+      {/* jornada ISO: do humor atual ao desejado */}
+      <Section top={4}>
+        <Card radius={24} padding={18}>
+          <Txt s={14} w={800} c={T.t1}>
+            Jornada de humor
+          </Txt>
+          <Txt s={12} lh={1.5} c={T.t3} style={{ marginTop: 4 }}>
+            Começa com uma música que combina com como você está agora e vai mudando, faixa a faixa, até onde você
+            quer chegar. Pular direto para a música "certa" costuma não funcionar.
+          </Txt>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+            {(Object.keys(GOALS) as IsoGoal[]).map((goal) => (
+              <Chip
+                key={goal}
+                label={GOALS[goal].label}
+                on={false}
+                variant="solid"
+                onPress={() => {
+                  const from = state.affect
+                    ? { valence: state.affect.valence, energy: state.affect.arousal }
+                    : (EMOTION_MOOD[state.observedExpression] ?? EMOTION_MOOD.neutral);
+                  const steps = isoJourney(from, GOALS[goal].mood, PLAYLISTS, 5);
+                  music.startQueue(`Jornada: ${GOALS[goal].label.toLowerCase()}`, steps.map((s) => s.track));
+                  actions.habit('music');
+                }}
+              />
+            ))}
+          </View>
+          {/* YouTube Music e Deezer não têm API pública para tocar de dentro do
+              app; o link abre a busca do mesmo clima no app deles (ou no site). */}
+          <Txt s={11.5} c={T.t3} style={{ marginTop: 14 }}>
+            Prefere outro app? Abra "{suggested.name}" lá:
+          </Txt>
+          <View style={{ flexDirection: 'row', gap: 16, marginTop: 6 }}>
+            {[
+              ['YouTube Music', 'https://music.youtube.com/search?q='],
+              ['Deezer', 'https://www.deezer.com/search/'],
+            ].map(([label, base]) => (
+              <Touchable
+                key={label}
+                onPress={() => {
+                  Linking.openURL(base + encodeURIComponent(MOOD_QUERY[suggested.id] ?? suggested.name)).catch(
+                    () => undefined
+                  );
+                }}
+                accessibilityLabel={`Abrir no ${label}`}
+              >
+                <Txt s={12.5} w={800} c={T.pri}>
+                  {label} ↗
+                </Txt>
+              </Touchable>
+            ))}
+          </View>
+        </Card>
+      </Section>
 
       {/* conexão com o Spotify */}
       <Section top={0} style={{ marginBottom: 10 }}>
