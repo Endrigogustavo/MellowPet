@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Accelerometer } from 'expo-sensors';
 
@@ -11,7 +11,8 @@ import { FACE_ICON, INTENSITY } from '../data/emotions';
 import { ICONS } from '../data/content';
 import { bumpProfileStats, levelFromXp } from '../profile/profileClient';
 import { GrowthCeremony } from '../components/GrowthCeremony';
-import { growthProgress, STAGE_LABEL } from '../pet/growth';
+import { growthProgress, localDay, STAGE_LABEL } from '../pet/growth';
+import { MEALS_PER_DAY, mealsLeft } from '../pet/feeding';
 import { useApp, useTheme } from '../state/AppContext';
 import { OK } from '../theme/palette';
 
@@ -57,12 +58,28 @@ function Stat({ label, value, sub, color }: { label: string; value: string; sub:
 }
 
 /** Ação de cuidado (alimentar, brincar, descansar). */
-function CareAction({ d, label, onPress }: { d: string; label: string; onPress: () => void }) {
+function CareAction({
+  d,
+  label,
+  onPress,
+  sub,
+  dim,
+}: {
+  d: string;
+  label: string;
+  onPress: () => void;
+  /** Linha extra (ex.: refeições restantes). */
+  sub?: string;
+  /** Visualmente apagado quando a ação não rende mais hoje. */
+  dim?: boolean;
+}) {
   const { T } = useTheme();
   return (
     <Touchable
       onPress={onPress}
+      accessibilityLabel={sub ? `${label}, ${sub}` : label}
       style={{
+        opacity: dim ? 0.5 : 1,
         flex: 1,
         paddingVertical: 12,
         borderRadius: 16,
@@ -77,6 +94,11 @@ function CareAction({ d, label, onPress }: { d: string; label: string; onPress: 
       <Txt s={11} w={700} c={T.t2}>
         {label}
       </Txt>
+      {sub ? (
+        <Txt s={9.5} c={T.t3}>
+          {sub}
+        </Txt>
+      ) : null}
     </Touchable>
   );
 }
@@ -86,6 +108,13 @@ export function HomeScreen() {
   const { T, isDark, full, emo, emoColor, emoLight } = useTheme();
 
   const [intLabel, intColor] = INTENSITY[emo.intensity];
+  const left = mealsLeft(state.meals, localDay());
+  const [fedNotice, setFedNotice] = useState(false);
+  useEffect(() => {
+    if (!fedNotice) return;
+    const t = setTimeout(() => setFedNotice(false), 4000);
+    return () => clearTimeout(t);
+  }, [fedNotice]);
   const confPct = Math.round(state.signalConfidence * 100);
   const qualityPct = Math.round(state.qualityScore * 100);
   const hasReliableReading = state.signalStatus === 'ready';
@@ -316,7 +345,15 @@ export function HomeScreen() {
         <CareAction
           d={ICONS.feed}
           label="Alimentar"
-          onPress={() => bumpCare({ fed: 1, xp: 6 }, { petMood: 'happy' })}
+          sub={left > 0 ? `${left} de ${MEALS_PER_DAY} hoje` : 'satisfeito hoje'}
+          dim={left === 0}
+          onPress={() => {
+            if (actions.feed()) {
+              actions.markCare();
+              return;
+            }
+            setFedNotice(true);
+          }}
         />
         <CareAction
           d={ICONS.play}
@@ -329,6 +366,13 @@ export function HomeScreen() {
           onPress={() => bumpCare({ xp: 3 }, { petMood: 'neutral', breathing: true, breathTick: 0 })}
         />
       </Section>
+      {fedNotice ? (
+        <Section top={6}>
+          <Txt s={12} lh={1.45} c={T.t2} style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">
+            {state.petName} já comeu {MEALS_PER_DAY} vezes hoje e está satisfeito. Brincar e descansar continuam valendo.
+          </Txt>
+        </Section>
+      ) : null}
 
       {/* nível e vínculo */}
       <Section>

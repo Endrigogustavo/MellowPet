@@ -1,3 +1,4 @@
+import * as Device from 'expo-device';
 import * as SecureStore from 'expo-secure-store';
 
 import MellowLlm, { isMellowLlmAvailable } from '../../modules/mellow-llm';
@@ -22,6 +23,8 @@ export type LocalModel = {
   url: string;
   sha256: string;
   bytes: number;
+  /** RAM total mínima, em GB, para rodar sem travar o celular. */
+  minRamGb: number;
 };
 
 const HF = 'https://huggingface.co/litert-community';
@@ -35,6 +38,7 @@ export const LOCAL_MODELS: LocalModel[] = [
     url: `${HF}/Qwen2.5-0.5B-Instruct/resolve/main/Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task`,
     sha256: 'e608953f169aeb1bd7b9155fec2559825e08453fc209b84eda3a781ed0452fd2',
     bytes: 546_660_344,
+    minRamGb: 3,
   },
   {
     id: 'melhor',
@@ -44,6 +48,7 @@ export const LOCAL_MODELS: LocalModel[] = [
     url: `${HF}/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task`,
     sha256: '8d867a7c93a6acf2892f08e0174e2f6f351ad256b7e3cfb6d6cd9c89794b42e0',
     bytes: 1_597_913_616,
+    minRamGb: 6,
   },
 ];
 
@@ -152,4 +157,30 @@ export async function generateLocal(
       reject(new Error('Não foi possível iniciar a geração.'));
     }
   });
+}
+
+/** RAM total do aparelho em GB (null se o sistema não informar). */
+export function deviceRamGb(): number | null {
+  return Device.totalMemory ? Device.totalMemory / 1024 ** 3 : null;
+}
+
+/**
+ * O aparelho aguenta este modelo? Modelos carregam inteiros na memória: abaixo
+ * do mínimo, a geração trava o celular ou o sistema fecha o app. Quando a RAM
+ * é desconhecida, deixa a pessoa decidir.
+ */
+export function fitsDevice(model: LocalModel): boolean {
+  const ram = deviceRamGb();
+  return ram == null || ram + 0.25 >= model.minRamGb;
+}
+
+/** Espaço ocupado pelo modelo baixado, em bytes (0 se não baixado). */
+export function installedBytes(model: LocalModel): number {
+  if (!MellowLlm) return 0;
+  try {
+    const s = MellowLlm.status(model.fileName);
+    return s.downloaded ? s.bytes : 0;
+  } catch {
+    return 0;
+  }
 }

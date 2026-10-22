@@ -20,6 +20,26 @@ export async function saveDensity(density: Density): Promise<void> {
   await SecureStore.setItemAsync(DENSITY_KEY, density);
 }
 
+/** Refeições de hoje, por conta. Local: é ritmo de uso, não dado da conta. */
+const mealsKey = (userId: string) => `mellowpet.meals.v1.${encodeURIComponent(userId).slice(0, 120)}`;
+
+export async function loadMeals(userId: string): Promise<{ day: string; count: number } | null> {
+  try {
+    const raw = await SecureStore.getItemAsync(mealsKey(userId));
+    const parsed = raw ? (JSON.parse(raw) as { day?: unknown; count?: unknown }) : null;
+    if (parsed && typeof parsed.day === 'string' && typeof parsed.count === 'number') {
+      return { day: parsed.day, count: parsed.count };
+    }
+  } catch {
+    // registro corrompido vale como dia novo
+  }
+  return null;
+}
+
+export async function saveMeals(userId: string, record: { day: string; count: number }): Promise<void> {
+  await SecureStore.setItemAsync(mealsKey(userId), JSON.stringify(record));
+}
+
 /** Encontros com outros pets: opt-in deste aparelho, desligado por padrão. */
 const ENCOUNTERS_KEY = 'mellowpet.encounters.v1';
 

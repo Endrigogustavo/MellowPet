@@ -64,7 +64,8 @@
           "useSQLCipher": true
         }
       ],
-      "./plugins/withSpotifyMavenRepo"
+      "./plugins/withSpotifyMavenRepo",
+      "./plugins/withLeanAbis"
     ]
   }
 }

@@ -30,7 +30,8 @@ import { SERVER_CONFIGURED, sendChatMessage } from '../chat/chatClient';
 import { fetchToolContent } from '../tools/toolsClient';
 import { listLinks } from '../care/careClient';
 import { bumpProfileStats, fetchProfileStats, levelFromXp } from '../profile/profileClient';
-import { grewUp, stageForDays, type PetStage } from '../pet/growth';
+import { grewUp, localDay, stageForDays, type PetStage } from '../pet/growth';
+import { registerMeal, type MealRecord } from '../pet/feeding';
 import { fetchCareDayCount, markCareDay } from '../pet/growthClient';
 import { fetchSettings } from '../settings/settingsClient';
 import {
@@ -47,7 +48,14 @@ import { generateLocal, loadLocalChoice, localReady } from '../chat/localLlm';
 import { buildQwenPrompt, systemPrompt, tidyReply } from '../chat/prompt';
 import { pushStateToWatch, syncWatchCheckins } from '../wear/wearBridge';
 import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
-import { loadDensity, loadEncountersEnabled, saveDensity, saveEncountersEnabled } from './preferencesStore';
+import {
+  loadDensity,
+  loadEncountersEnabled,
+  loadMeals,
+  saveDensity,
+  saveEncountersEnabled,
+  saveMeals,
+} from './preferencesStore';
 import type { PetCard } from '../pet/encounterPayload';
 import { recordEncounter, requestEncounterPermissions, startEncounters } from '../pet/encounters';
 
@@ -112,6 +120,8 @@ export type State = {
   /** Pet de outra pessoa que está visitando agora (some sozinho). */
   visitor: PetCard | null;
   /** Modelo de IA baixado para rodar no aparelho (null = nenhum). */
+  /** Refeições de hoje (limite diário em pet/feeding.ts). */
+  meals: MealRecord | null;
   localModel: 'leve' | 'melhor' | null;
   /** "Nada sai do aparelho": o chat nunca fala com o servidor. */
   privateMode: boolean;
@@ -225,6 +235,7 @@ const INITIAL: State = {
   growthEvent: null,
   encountersEnabled: false,
   visitor: null,
+  meals: null,
   localModel: null,
   privateMode: false,
   observedExpression: VISION_MODE === 'demo' ? 'neutral' : 'unknown',
@@ -332,6 +343,9 @@ function loadPetIdentity(userId: string, apply: (patch: Partial<State>) => void)
   fetchCareDayCount(userId)
     .then((careDays) => apply({ careDays }))
     .catch(() => undefined);
+  loadMeals(userId)
+    .then((meals) => apply({ meals }))
+    .catch(() => undefined);
 }
 
 export type Actions = {
@@ -351,6 +365,8 @@ export type Actions = {
   dismissCard: (id: string) => void;
   /** Registra que hoje houve cuidado. Idempotente por dia. */
   markCare: () => void;
+  /** Alimenta o pet respeitando o limite diário. Devolve false se já comeu o bastante hoje. */
+  feed: () => boolean;
   /** Liga/desliga os encontros. Ao ligar pede as permissões; devolve se ficou ligado. */
   setEncounters: (enabled: boolean) => Promise<boolean>;
 };
@@ -370,6 +386,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     ref.current = state;
   });
+
+  /**
+   * Única porta de entrada para alimentar o pet (Home e widget). Aplica o
+   * limite de refeições do dia; devolve o registro novo ou null se já comeu.
+   * Atualiza `ref` na hora para dois toques rápidos não passarem do limite.
+   */
+  const consumeMeal = (): MealRecord | null => {
+    const next = registerMeal(ref.current.meals, localDay());
+    if (!next) return null;
+    ref.current = { ...ref.current, meals: next };
+    dispatch({ meals: next });
+    const userId = ref.current.userId;
+    if (userId) saveMeals(userId, next).catch(() => undefined);
+    return next;
+  };
 
   /** Timers pendentes, limpos ao desmontar. */
   const pending = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -611,6 +642,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   ? { xp: 3 }
                   : null;
           if (!delta) return;
+          if (action === 'feed' && !consumeMeal()) {
+            // Já comeu o bastante hoje: abre a Home, que explica, sem dar XP.
+            dispatch((s) => ({ screen: 'home', navSeq: s.navSeq + 1 }));
+            return;
+          }
           const mood: Partial<State> =
             action === 'feed'
               ? { petMood: 'happy' }
@@ -878,6 +914,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       },
 
+
+      feed: () => {
+        if (!consumeMeal()) return false;
+        dispatch((s) => ({ fed: s.fed + 1, xp: s.xp + 6, streak: 0, petMood: 'happy' }));
+        if (ref.current.userId) {
+          bumpProfileStats({ fed: 1, xp: 6 })
+            .then((stats) => {
+              if (stats) dispatch(stats);
+            })
+            .catch(() => undefined);
+        }
+        return true;
+      },
 
       setEncounters: async (enabled: boolean) => {
         if (enabled && !(await requestEncounterPermissions())) {

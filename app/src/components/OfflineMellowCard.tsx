@@ -5,7 +5,10 @@ import * as Network from 'expo-network';
 import {
   cancelDownload,
   deleteModel,
+  deviceRamGb,
   downloadModel,
+  fitsDevice,
+  installedBytes,
   isDownloaded,
   isMellowLlmAvailable,
   LOCAL_MODELS,
@@ -36,6 +39,7 @@ export function OfflineMellowCard() {
   useEffect(() => () => cancelDownload(), []);
 
   if (!isMellowLlmAvailable()) return null;
+  const ram = deviceRamGb();
 
   const choose = async (model: LocalModel) => {
     setError(null);
@@ -81,14 +85,21 @@ export function OfflineMellowCard() {
         Mellow offline
       </Txt>
       <Txt s={12} lh={1.5} c={T.t3} style={{ marginTop: 4 }}>
-        Um modelo de IA que roda no seu celular. O chat usa ele quando o servidor está sem IA — ou sempre, se
-        você quiser que nada saia do aparelho.
+        Opcional. Um modelo de IA que roda no seu celular: o chat usa ele quando o servidor está sem IA — ou
+        sempre, se você quiser que nada saia do aparelho. Sem baixar, o app continua leve e o chat funciona
+        normalmente pelo servidor.
       </Txt>
+      {ram != null ? (
+        <Txt s={11} c={T.t3} style={{ marginTop: 6 }}>
+          Este celular tem {ram.toFixed(0)} GB de RAM.
+        </Txt>
+      ) : null}
 
       <View style={{ gap: 10, marginTop: 12 }}>
         {LOCAL_MODELS.map((m) => {
           const have = isDownloaded(m);
           const active = state.localModel === m.id && have;
+          const fits = fitsDevice(m);
           return (
             <View key={m.id} style={{ padding: 12, borderRadius: 16, borderWidth: 1, borderColor: active ? T.pri : T.bd }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -118,8 +129,12 @@ export function OfflineMellowCard() {
                     </Touchable>
                   </View>
                 </View>
+              ) : !fits && !have ? (
+                <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 8 }}>
+                  Pede {m.minRamGb} GB de RAM — não recomendado neste celular, para não deixá-lo lento.
+                </Txt>
               ) : (
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                   <Chip
                     label={active ? 'Selecionado' : have ? 'Usar este' : 'Baixar e usar'}
                     on={active}
@@ -127,7 +142,13 @@ export function OfflineMellowCard() {
                       if (!busy) choose(m).catch(() => undefined);
                     }}
                   />
-                  {have ? <Chip label="Apagar" on={false} onPress={() => remove(m).catch(() => undefined)} /> : null}
+                  {have ? (
+                    <Chip
+                      label={`Desinstalar · libera ${mb(installedBytes(m))}`}
+                      on={false}
+                      onPress={() => remove(m).catch(() => undefined)}
+                    />
+                  ) : null}
                 </View>
               )}
             </View>
