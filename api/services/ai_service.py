@@ -33,7 +33,7 @@ Você acabou de detectar a emoção do usuário através da câmera: {emotion} (
 Suas regras:
 1. Seja SEMPRE gentil, acolhedor e não-julgador
 2. Responda em português brasileiro, de forma natural e calorosa
-3. Use emojis com moderação (1-2 por resposta)
+3. NÃO use emojis nem símbolos decorativos; escreva só texto
 4. Adapte o tom à emoção detectada:
    - Feliz: celebre junto, energia positiva
    - Triste: acolhimento, validação emocional, sugestão de autocuidado
@@ -46,6 +46,7 @@ Suas regras:
 8. Nunca dê diagnósticos médicos
 9. Em casos graves, sugira ajuda profissional com carinho
 10. Você tem personalidade de pet: fofo, leal, sempre presente
+12. Responda direto à pessoa. Nunca escreva rótulos, listas de regras, planos ou notas sobre a resposta
 """ + ACTIONS_RULE + "\n"
 
 MEMORY_BLOCK = """
@@ -89,6 +90,9 @@ class GeminiProvider:
 
         self._client = genai.Client(api_key=api_key)
         self._model = model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        # Reserva quando o modelo configurado some (404), lota (503) ou
+        # estoura cota (429): o chat de apoio não pode ficar mudo por isso.
+        self._fallback_model = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
         # Modelos 2.5 "pensam" antes de responder: o pensamento consome o
         # limite de tokens (a resposta chegava cortada no meio) e, no
         # streaming, vazava texto do raciocinio em ingles.
@@ -115,14 +119,13 @@ class GeminiProvider:
         from google.genai import types
 
         extra = {}
-        limit = max_tokens
+        # Folga sempre: modelos novos (Gemini 3) pensam mesmo com orçamento 0
+        # e, sem folga, a resposta saía cortada em poucas palavras.
+        limit = max_tokens + 1024
         if self._thinking == "off":
             extra["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
         elif self._thinking == "min":
             extra["thinking_config"] = types.ThinkingConfig(thinking_budget=128)
-            limit = max_tokens + 1024
-        else:
-            limit = max_tokens + 1024
         return types.GenerateContentConfig(
             system_instruction=system,
             max_output_tokens=limit,
@@ -148,28 +151,62 @@ class GeminiProvider:
         logger.warning("Modelo %s recusou a config de pensamento; usando modo %s", self._model, self._thinking)
         return True
 
+    def _models(self) -> list[str]:
+        return [self._model] + ([self._fallback_model] if self._fallback_model != self._model else [])
+
+    @staticmethod
+    def _model_unavailable(exc: Exception) -> bool:
+        msg = str(exc)
+        return any(code in msg for code in ("404", "429", "503", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "NOT_FOUND"))
+
     def complete(self, system: str, messages: list[dict], max_tokens: int) -> str:
+        last: Exception | None = None
+        for model in self._models():
+            try:
+                return self._complete_with(model, system, messages, max_tokens)
+            except Exception as exc:
+                last = exc
+                if not self._model_unavailable(exc):
+                    raise
+                logger.warning("Gemini %s indisponível (%s); tentando o próximo", model, str(exc)[:80])
+        raise last or RuntimeError("Gemini indisponível")
+
+    def _complete_with(self, model: str, system: str, messages: list[dict], max_tokens: int) -> str:
         while True:
             try:
                 response = self._client.models.generate_content(
-                    model=self._model, contents=self._contents(messages), config=self._config(system, max_tokens)
+                    model=model, contents=self._contents(messages), config=self._config(system, max_tokens)
                 )
                 return self._answer_text(response).strip()
             except Exception as exc:
                 if not self._retry_without_thinking(exc):
                     raise
 
-    def stream(self, system: str, messages: list[dict], max_tokens: int) -> Iterator[str]:
+    def _open_stream(self, model: str, system: str, messages: list[dict], max_tokens: int):
         while True:
             try:
                 chunks = self._client.models.generate_content_stream(
-                    model=self._model, contents=self._contents(messages), config=self._config(system, max_tokens)
+                    model=model, contents=self._contents(messages), config=self._config(system, max_tokens)
                 )
-                first = next(chunks, None)
-                break
+                return chunks, next(chunks, None)
             except Exception as exc:
                 if not self._retry_without_thinking(exc):
                     raise
+
+    def stream(self, system: str, messages: list[dict], max_tokens: int) -> Iterator[str]:
+        chunks = first = None
+        last: Exception | None = None
+        for model in self._models():
+            try:
+                chunks, first = self._open_stream(model, system, messages, max_tokens)
+                break
+            except Exception as exc:
+                last = exc
+                if not self._model_unavailable(exc):
+                    raise
+                logger.warning("Gemini %s indisponível (%s); tentando o próximo", model, str(exc)[:80])
+        if chunks is None:
+            raise last or RuntimeError("Gemini indisponível")
         if first is None:
             return
         for chunk in [first]:
@@ -415,7 +452,7 @@ class AIChatService:
         period: str = "hoje",
     ) -> tuple[str, str]:
         """Insight comportamental a partir do historico emocional."""
-        offline = "Continue acompanhando suas emoções — o autoconhecimento é o primeiro passo! 🌱"
+        offline = "Continue acompanhando suas emoções — o autoconhecimento é o primeiro passo!"
         if not self.available:
             return "Análise de padrões emocionais disponível com IA configurada.", "fallback"
 
@@ -446,16 +483,16 @@ class AIChatService:
     def _fallback_response(self, emotion: str) -> str:
         """Respostas offline. Curtas e acolhedoras, sem prometer o que nao ha."""
         fallbacks = {
-            "happy": "Que energia incrível você está transmitindo! O Mellow está adorando! 🌟",
-            "sad": "Estou aqui com você. Momentos difíceis passam, e você não está sozinho(a) 💙",
-            "angry": "Respira fundo comigo. Um passo de cada vez, tudo vai se resolver 🌿",
-            "anxious": "Você está seguro(a) agora. Vamos respirar juntos: inspira 4s, expira 4s 💛",
-            "fearful": "Você está em segurança agora. Estou aqui com você 💛",
-            "neutral": "Como você está se sentindo hoje? Estou aqui para conversar! 🐾",
-            "surprised": "Uau! O que aconteceu? Conta pra mim! 😲",
-            "disgusted": "Caramba! Parece que algo não foi legal. Quer conversar? 💬",
+            "happy": "Que energia incrível você está transmitindo! O Mellow está adorando!",
+            "sad": "Estou aqui com você. Momentos difíceis passam, e você não está sozinho(a)",
+            "angry": "Respira fundo comigo. Um passo de cada vez, tudo vai se resolver",
+            "anxious": "Você está seguro(a) agora. Vamos respirar juntos: inspira 4s, expira 4s",
+            "fearful": "Você está em segurança agora. Estou aqui com você",
+            "neutral": "Como você está se sentindo hoje? Estou aqui para conversar!",
+            "surprised": "Uau! O que aconteceu? Conta pra mim!",
+            "disgusted": "Caramba! Parece que algo não foi legal. Quer conversar?",
         }
-        return fallbacks.get(emotion, "Estou aqui com você 🐾")
+        return fallbacks.get(emotion, "Estou aqui com você")
 
 
 ai_chat_service = AIChatService()
