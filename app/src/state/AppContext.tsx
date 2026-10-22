@@ -113,6 +113,7 @@ export type Screen =
   | 'fairness'
   | 'lullaby'
   | 'sos'
+  | 'groups'
   | 'crisisplan'
   | 'wardrobe'
   | 'care'

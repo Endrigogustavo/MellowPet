@@ -245,6 +245,20 @@ export function SettingsScreen() {
         <CalibrationCard />
       </Section>
 
+      {/* grupos: escola, clínica ou equipe */}
+      <Section>
+        <Card radius={24} padding={18}>
+          <Touchable onPress={() => actions.go('groups')} accessibilityLabel="Abrir grupos">
+            <Txt s={13} w={800} c={T.pri}>
+              Grupos: escola, clínica ou equipe
+            </Txt>
+          </Touchable>
+          <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 4 }}>
+            Entre num grupo por código, ou crie um para coordenar. Quem coordena vê só o clima geral, com 5+ pessoas.
+          </Txt>
+        </Card>
+      </Section>
+
       {/* luzes da casa */}
       <Section>
         <LightsCard />

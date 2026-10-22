@@ -43,6 +43,7 @@ import { useApp, useTheme, type Screen } from '../state/AppContext';
 import { VisionEngine } from '../vision/VisionEngine';
 import { CrisisPlanScreen } from '../screens/CrisisPlanScreen';
 import { SosScreen } from '../screens/SosScreen';
+import { GroupsScreen } from '../screens/GroupsScreen';
 
 const SCREENS: Record<Screen, React.ComponentType> = {
   splash: SplashScreen,
@@ -64,6 +65,7 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   fairness: FairnessScreen,
   lullaby: LullabyScreen,
   sos: SosScreen,
+  groups: GroupsScreen,
   crisisplan: CrisisPlanScreen,
   wardrobe: WardrobeScreen,
   care: CareScreen,
