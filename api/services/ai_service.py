@@ -88,12 +88,15 @@ class GeminiProvider:
         from google import genai
 
         self._client = genai.Client(api_key=api_key)
-        self._model = model or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        self._model = model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         # Modelos 2.5 "pensam" antes de responder: o pensamento consome o
         # limite de tokens (a resposta chegava cortada no meio) e, no
-        # streaming, vazava texto do raciocinio em ingles. Desligamos; se o
-        # modelo nao aceitar a opcao, cai para a configuracao sem ela.
-        self._thinking_ok = True
+        # streaming, vazava texto do raciocinio em ingles.
+        #   "off"  -> pensamento desligado (Flash aceita);
+        #   "min"  -> modelos que exigem pensar (Pro): orcamento minimo e
+        #             folga de tokens para a resposta caber inteira;
+        #   "none" -> modelos sem a opcao (2.0): config padrao, com folga.
+        self._thinking = "off"
 
     def _contents(self, messages: list[dict]):
         from google.genai import types
@@ -112,11 +115,17 @@ class GeminiProvider:
         from google.genai import types
 
         extra = {}
-        if self._thinking_ok:
+        limit = max_tokens
+        if self._thinking == "off":
             extra["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+        elif self._thinking == "min":
+            extra["thinking_config"] = types.ThinkingConfig(thinking_budget=128)
+            limit = max_tokens + 1024
+        else:
+            limit = max_tokens + 1024
         return types.GenerateContentConfig(
             system_instruction=system,
-            max_output_tokens=max_tokens,
+            max_output_tokens=limit,
             temperature=0.8,
             **extra,
         )
@@ -131,38 +140,36 @@ class GeminiProvider:
         return "".join(p.text for p in parts if getattr(p, "text", None) and not getattr(p, "thought", False))
 
     def _retry_without_thinking(self, exc: Exception) -> bool:
-        if self._thinking_ok and "think" in str(exc).lower():
-            logger.warning("Modelo %s nao aceita thinking_config; seguindo sem", self._model)
-            self._thinking_ok = False
-            return True
-        return False
+        """Recua um degrau (off -> min -> none) se o erro for da config de pensamento."""
+        msg = str(exc).lower()
+        if self._thinking == "none" or not ("think" in msg or "budget" in msg):
+            return False
+        self._thinking = "min" if self._thinking == "off" else "none"
+        logger.warning("Modelo %s recusou a config de pensamento; usando modo %s", self._model, self._thinking)
+        return True
 
     def complete(self, system: str, messages: list[dict], max_tokens: int) -> str:
-        try:
-            response = self._client.models.generate_content(
-                model=self._model, contents=self._contents(messages), config=self._config(system, max_tokens)
-            )
-        except Exception as exc:
-            if not self._retry_without_thinking(exc):
-                raise
-            response = self._client.models.generate_content(
-                model=self._model, contents=self._contents(messages), config=self._config(system, max_tokens)
-            )
-        return self._answer_text(response).strip()
+        while True:
+            try:
+                response = self._client.models.generate_content(
+                    model=self._model, contents=self._contents(messages), config=self._config(system, max_tokens)
+                )
+                return self._answer_text(response).strip()
+            except Exception as exc:
+                if not self._retry_without_thinking(exc):
+                    raise
 
     def stream(self, system: str, messages: list[dict], max_tokens: int) -> Iterator[str]:
-        try:
-            chunks = self._client.models.generate_content_stream(
-                model=self._model, contents=self._contents(messages), config=self._config(system, max_tokens)
-            )
-            first = next(chunks, None)
-        except Exception as exc:
-            if not self._retry_without_thinking(exc):
-                raise
-            chunks = self._client.models.generate_content_stream(
-                model=self._model, contents=self._contents(messages), config=self._config(system, max_tokens)
-            )
-            first = next(chunks, None)
+        while True:
+            try:
+                chunks = self._client.models.generate_content_stream(
+                    model=self._model, contents=self._contents(messages), config=self._config(system, max_tokens)
+                )
+                first = next(chunks, None)
+                break
+            except Exception as exc:
+                if not self._retry_without_thinking(exc):
+                    raise
         if first is None:
             return
         for chunk in [first]:
