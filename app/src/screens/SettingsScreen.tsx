@@ -21,6 +21,7 @@ import { NO_FACE_MINUTES, SETTING_TOGGLES } from '../data/content';
 import { NfcTapButton } from '../components/NfcTapButton';
 import { PET_TYPES } from '../data/pets';
 import { describeEncounterStatus } from '../pet/encounters';
+import { phoneDigits } from '../integrations/sos';
 import { fetchSettings, saveSettings, type EmergencyContact } from '../settings/settingsClient';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK, WARN, hexA, mix } from '../theme/palette';
@@ -63,21 +64,52 @@ export function SettingsScreen() {
   const [contactName, setContactName] = useState('');
   const [contactValue, setContactValue] = useState('');
 
+  // Só salva depois de ler o que já existe: com a rede oscilando, salvar
+  // "por cima" de uma lista vazia apagava os contatos reais.
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const persistContacts = (next: EmergencyContact[], previous: EmergencyContact[]) => {
+    if (!state.userId) return;
+    setContacts(next);
+    saveSettings(state.userId, { emergency_contacts: next }).catch(() => {
+      setContacts(previous);
+      setContactError('Não foi possível salvar o contato agora. Tente de novo com conexão.');
+    });
+  };
+
   const addContact = () => {
     const name = contactName.trim();
     const contact = contactValue.trim();
     if (!name || !contact || !state.userId) return;
-    const next = [...contacts, { name, contact }];
-    setContacts(next);
+    if (!settingsLoaded) {
+      setContactError('Seus contatos ainda não carregaram. Tente de novo em instantes.');
+      return;
+    }
+    // O SOS liga e manda WhatsApp: precisa ser um telefone de verdade.
+    if (!phoneDigits(contact)) {
+      setContactError('Use um telefone com DDD, ex. (11) 98765-4321.');
+      return;
+    }
+    if (contacts.length >= 10) {
+      setContactError('Até 10 contatos de emergência.');
+      return;
+    }
+    setContactError(null);
     setContactName('');
     setContactValue('');
-    saveSettings(state.userId, { emergency_contacts: next }).catch(() => undefined);
+    persistContacts([...contacts, { name, contact }], contacts);
   };
 
   const removeContact = (index: number) => {
-    const next = contacts.filter((_, i) => i !== index);
-    setContacts(next);
-    if (state.userId) saveSettings(state.userId, { emergency_contacts: next }).catch(() => undefined);
+    if (!settingsLoaded) return;
+    const target = contacts[index];
+    Alert.alert(`Remover ${target?.name ?? 'contato'}?`, 'Ele deixa de aparecer no pedido de ajuda.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Remover', style: 'destructive', onPress: () => persistContacts(contacts.filter((_, i) => i !== index), contacts) },
+    ]);
   };
 
   const refreshLinks = async () => {
@@ -97,19 +129,25 @@ export function SettingsScreen() {
   };
 
   // Carrega preferências e vínculos reais de cuidador ao entrar na tela.
-  useEffect(() => {
+  const loadSettings = () => {
     if (!state.userId) return;
+    setSettingsError(null);
     fetchSettings(state.userId)
       .then((remote) => {
-        actions.set({
+        skipFirstSave.current = true;
+        actions.set((cur) => ({
           petName: remote.pet_name,
           petType: remote.pet_type as typeof state.petType,
           noFaceMin: remote.no_face_alert_minutes,
-          toggles: { ...state.toggles, music: remote.music_enabled, alerts: remote.alerts_enabled },
-        });
+          toggles: { ...cur.toggles, music: remote.music_enabled, alerts: remote.alerts_enabled },
+        }));
         setContacts(remote.emergency_contacts);
+        setSettingsLoaded(true);
       })
-      .catch(() => undefined);
+      .catch((e: Error) => setSettingsError(e.message));
+  };
+  useEffect(() => {
+    loadSettings();
     refreshLinks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.userId]);
@@ -117,23 +155,40 @@ export function SettingsScreen() {
   // Salva no backend com debounce sempre que uma preferência muda — evita um
   // PUT por tecla digitada no nome do bichinho.
   const skipFirstSave = useRef(true);
+  // O que falta salvar: sair da tela antes do debounce não pode perder a mudança.
+  const pendingSave = useRef<null | (() => Promise<unknown>)>(null);
   useEffect(() => {
     if (skipFirstSave.current) {
       skipFirstSave.current = false;
       return;
     }
-    if (!state.userId) return;
+    if (!state.userId || !settingsLoaded) return;
+    const userId = state.userId;
+    const patch = {
+      pet_name: state.petName.trim() || 'Mellow',
+      pet_type: state.petType,
+      no_face_alert_minutes: state.noFaceMin,
+      music_enabled: !!state.toggles.music,
+      alerts_enabled: !!state.toggles.alerts,
+    };
+    const run = () =>
+      saveSettings(userId, patch)
+        .then(() => setSaveError(null))
+        .catch(() => setSaveError('Não foi possível salvar seus ajustes. Eles serão enviados de novo na próxima mudança.'));
+    pendingSave.current = run;
     const timer = setTimeout(() => {
-      saveSettings(state.userId!, {
-        pet_name: state.petName,
-        pet_type: state.petType,
-        no_face_alert_minutes: state.noFaceMin,
-        music_enabled: !!state.toggles.music,
-        alerts_enabled: !!state.toggles.alerts,
-      }).catch(() => undefined);
+      pendingSave.current = null;
+      run();
     }, 700);
     return () => clearTimeout(timer);
-  }, [state.userId, state.petName, state.petType, state.noFaceMin, state.toggles.music, state.toggles.alerts]);
+  }, [state.userId, settingsLoaded, state.petName, state.petType, state.noFaceMin, state.toggles.music, state.toggles.alerts]);
+  useEffect(
+    () => () => {
+      // Ao sair da tela: envia o que ficou pendente.
+      pendingSave.current?.().catch(() => undefined);
+    },
+    []
+  );
 
   const submitInviteCode = () => {
     const code = codeInput.trim();
@@ -192,6 +247,27 @@ export function SettingsScreen() {
     <ScreenScroll>
       <ScreenTitle label="AJUSTES" title="Do seu jeito" />
 
+      {settingsError || saveError ? (
+        <Section top={0}>
+          <Card radius={18} padding={14} style={{ borderColor: DANGER }}>
+            <Txt s={12.5} lh={1.45} c={DANGER} accessibilityRole="alert">
+              {settingsError ?? saveError}
+            </Txt>
+            {settingsError ? (
+              <Touchable onPress={loadSettings} accessibilityRole="button" style={{ marginTop: 8 }}>
+                <Txt s={12} w={800} c={T.pri}>
+                  Tentar de novo
+                </Txt>
+              </Touchable>
+            ) : null}
+          </Card>
+        </Section>
+      ) : null}
+
+      {/* Para o cuidador, pet, câmera, IA e convite de cuidador não fazem
+          sentido (e o "Ninguém conectado" daqui confundia quem já acompanha). */}
+      {state.role !== 'care' ? (
+        <>
       {/* bichinho */}
       <Section top={0}>
         <Card radius={24} padding={18}>
@@ -201,7 +277,11 @@ export function SettingsScreen() {
           <Field
             variant="filled"
             value={state.petName}
-            onChangeText={(petName) => actions.set({ petName })}
+            onChangeText={(petName) => actions.set({ petName: petName.replace(/\s+/g, ' ').slice(0, 20) })}
+            onBlur={() => {
+              if (!state.petName.trim()) actions.set({ petName: 'Mellow' });
+            }}
+            maxLength={20}
             style={{ fontSize: 15, fontWeight: '700' }}
           />
 
@@ -478,6 +558,8 @@ export function SettingsScreen() {
           {primaryLink ? <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>Ao aceitar a conexão, {linkName} recebe acesso integral ao módulo de cuidado. Não há permissões separadas por recurso.</Txt> : null}
         </Card>
       </Section>
+        </>
+      ) : null}
 
       {/* preferências */}
       <Section>
@@ -698,89 +780,103 @@ export function SettingsScreen() {
             </Card>
           </Section>
 
-          <Section>
-            <Card radius={24} padding={18}>
-              <Txt s={14.5} w={700} c={T.t1}>
-                Contatos de emergência
-              </Txt>
-              {contacts.length === 0 ? (
-                <Txt s={12} c={T.t3} style={{ marginTop: 10 }}>
-                  Nenhum contato adicionado ainda.
-                </Txt>
-              ) : (
-                contacts.map((c, i) => (
-                  <View
-                    key={`${c.name}-${i}`}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 14 }}
-                  >
-                    <View
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 999,
-                        backgroundColor: T.priL,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Txt s={15} w={800} c={T.pri}>
-                        {c.name.charAt(0).toUpperCase() || '?'}
-                      </Txt>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Txt s={14} w={700} c={T.t1}>
-                        {c.name}
-                      </Txt>
-                      <Txt s={11.5} c={T.t3}>
-                        {c.contact}
-                      </Txt>
-                    </View>
-                    <Touchable onPress={() => removeContact(i)} style={{ padding: 6 }}>
-                      <Txt s={11.5} w={800} c={DANGER}>
-                        Remover
-                      </Txt>
-                    </Touchable>
-                  </View>
-                ))
-              )}
-              <View style={{ marginTop: 14, gap: 8 }}>
-                <Field
-                  label="Nome"
-                  value={contactName}
-                  onChangeText={setContactName}
-                  placeholder="ex. Ana Ribeiro"
-                />
-                <Field
-                  label="Email ou telefone"
-                  value={contactValue}
-                  onChangeText={setContactValue}
-                  placeholder="ex. ana@email.com"
-                />
-              </View>
-              <Touchable
-                onPress={addContact}
-                disabled={!contactName.trim() || !contactValue.trim()}
-                style={{
-                  marginTop: 14,
-                  paddingVertical: 13,
-                  borderRadius: 14,
-                  alignItems: 'center',
-                  backgroundColor: T.priL,
-                  opacity: contactName.trim() && contactValue.trim() ? 1 : 0.5,
-                }}
-              >
-                <Txt s={14} w={800} c={T.pri}>
-                  + Adicionar contato
-                </Txt>
-              </Touchable>
-            </Card>
-          </Section>
         </>
       ) : null}
 
+      <Section>
+        <Card radius={24} padding={18}>
+          <Txt s={14.5} w={700} c={T.t1}>
+            Contatos de emergência
+          </Txt>
+          {contacts.length === 0 ? (
+            <Txt s={12} c={T.t3} style={{ marginTop: 10 }}>
+              Nenhum contato adicionado ainda.
+            </Txt>
+          ) : (
+            contacts.map((c, i) => (
+              <View
+                key={`${c.name}-${i}`}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 14 }}
+              >
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 999,
+                    backgroundColor: T.priL,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Txt s={15} w={800} c={T.pri}>
+                    {c.name.charAt(0).toUpperCase() || '?'}
+                  </Txt>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Txt s={14} w={700} c={T.t1}>
+                    {c.name}
+                  </Txt>
+                  <Txt s={11.5} c={T.t3}>
+                    {c.contact}
+                  </Txt>
+                </View>
+                <Touchable onPress={() => removeContact(i)} style={{ padding: 6 }}>
+                  <Txt s={11.5} w={800} c={DANGER}>
+                    Remover
+                  </Txt>
+                </Touchable>
+              </View>
+            ))
+          )}
+          <View style={{ marginTop: 14, gap: 8 }}>
+            <Field
+              label="Nome"
+              value={contactName}
+              onChangeText={setContactName}
+              placeholder="ex. Ana Ribeiro"
+            />
+            <Field
+              label="Telefone com DDD"
+              value={contactValue}
+              onChangeText={(v) => {
+                setContactValue(v);
+                setContactError(null);
+              }}
+              placeholder="ex. (11) 98765-4321"
+              keyboardType="phone-pad"
+              maxLength={20}
+              error={contactError}
+            />
+          </View>
+          <Touchable
+            onPress={addContact}
+            disabled={!contactName.trim() || !contactValue.trim()}
+            style={{
+              marginTop: 14,
+              paddingVertical: 13,
+              borderRadius: 14,
+              alignItems: 'center',
+              backgroundColor: T.priL,
+              opacity: contactName.trim() && contactValue.trim() ? 1 : 0.5,
+            }}
+          >
+            <Txt s={14} w={800} c={T.pri}>
+              + Adicionar contato
+            </Txt>
+          </Touchable>
+        </Card>
+      </Section>
+
       <Section top={16}>
         <Touchable
-          onPress={() => actions.go('splash')}
+          onPress={() =>
+            Alert.alert('Sair da conta?', 'Você volta para a tela de login. Seus dados continuam salvos na conta.', [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Sair', style: 'destructive', onPress: () => actions.logout().catch(() => undefined) },
+            ])
+          }
+          accessibilityRole="button"
+          accessibilityLabel="Sair da conta"
           style={{
             paddingVertical: 15,
             borderRadius: 18,
@@ -790,7 +886,7 @@ export function SettingsScreen() {
           }}
         >
           <Txt s={14} w={700} c={DANGER}>
-            Reiniciar sessão
+            Sair da conta
           </Txt>
         </Touchable>
       </Section>

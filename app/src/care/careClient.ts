@@ -50,9 +50,11 @@ function hasErrorMessage(error: { message?: unknown }, identifier: string): bool
 }
 
 async function generateInviteCode(): Promise<string> {
-  const bytes = await Crypto.getRandomBytesAsync(6);
-  const suffix = Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
-  return `MEL-${suffix}`;
+  // 10 símbolos (~50 bits): com 6 dava para adivinhar códigos por tentativa.
+  // O convite também expira em 72 h e o aceite tem limite de tentativas.
+  const bytes = await Crypto.getRandomBytesAsync(10);
+  const chars = Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
+  return `MEL-${chars.slice(0, 5)}-${chars.slice(5)}`;
 }
 
 export async function createInvite(
@@ -60,7 +62,7 @@ export async function createInvite(
   caredName: string,
   relationship: string
 ): Promise<CaregiverLink> {
-  // Colisão de código é praticamente impossível (33^6 combinações), mas
+  // Colisão de código é praticamente impossível (32^10 combinações), mas
   // ainda assim tratada com uma nova tentativa, como o backend antigo fazia.
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const invite_code = await generateInviteCode();

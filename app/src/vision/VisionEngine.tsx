@@ -17,6 +17,18 @@ import { SignalTracker } from './signalTracker';
 import { visionFps, type FpsDecision } from './fpsPolicy';
 import * as Battery from 'expo-battery';
 import MellowVisionNative from '../../modules/mellow-vision/src/MellowVisionModule';
+import { loadCalibrationBaseline, saveCalibrationBaseline } from './calibrationStore';
+import { createVisionId, VisionEventRecorder } from './eventRecorder';
+import {
+  enqueueVisionFeedback,
+  enqueueVisionEvent,
+  flushVisionQueue,
+  VISION_EVENT_UPLOAD_ENABLED,
+} from './eventQueue';
+import { ExpressionEngine } from './expressionEngine';
+import { VISION_FLAGS } from './featureFlags';
+import { qualityGuidance, VisionTelemetry } from './telemetry';
+import { setBackgroundVision } from './backgroundVision';
 
 /** Lê bateria e temperatura a cada 30 s e decide o ritmo da análise. */
 function useVisionBudget(base: number): FpsDecision {
@@ -56,18 +68,6 @@ function useVisionBudget(base: number): FpsDecision {
   }, [base]);
   return decision;
 }
-import { loadCalibrationBaseline, saveCalibrationBaseline } from './calibrationStore';
-import { createVisionId, VisionEventRecorder } from './eventRecorder';
-import {
-  enqueueVisionFeedback,
-  enqueueVisionEvent,
-  flushVisionQueue,
-  VISION_EVENT_UPLOAD_ENABLED,
-} from './eventQueue';
-import { ExpressionEngine } from './expressionEngine';
-import { VISION_FLAGS } from './featureFlags';
-import { qualityGuidance, VisionTelemetry } from './telemetry';
-import { setBackgroundVision } from './backgroundVision';
 
 const APP_STATE_INTERVAL_MS = 250;
 const TELEMETRY_INTERVAL_MS = 500;

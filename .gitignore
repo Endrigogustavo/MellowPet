@@ -195,3 +195,6 @@ wear/local.properties
 # Crash logs da JVM (Gradle/Kotlin daemon)
 hs_err_pid*.log
 replay_pid*.log
+
+# Cache do Gradle dos módulos nativos (gerado em cada build)
+app/modules/*/android/.gradle/

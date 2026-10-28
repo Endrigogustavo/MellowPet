@@ -13,6 +13,10 @@
 const PATTERNS: RegExp[] = [
   /\b(me matar|me mato|suic[ií]d|tirar (a )?minha (pr[oó]pria )?vida|acabar com (a )?minha vida)/,
   /\b(quero|vou|penso em|pensando em) morrer\b/,
+  // "queria morrer", "quero muito morrer", "tenho vontade de morrer",
+  // "eu desejo morrer", "só queria sumir e morrer".
+  /\b(quer\w*|desej\w*|vontade de|pens\w* em)( muito| tanto| s[oó])? morrer\b/,
+  /\bsumir e morrer\b/,
   /\bn[aã]o (quero|aguento) mais (viver|existir)\b/,
   /\b(me cortar|me machucar|automutila|me ferir)/,
   /\bseria melhor (se eu )?(n[aã]o existisse|morrer|sumir)/,

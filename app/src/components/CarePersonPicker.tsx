@@ -1,55 +1,43 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { View } from 'react-native';
 
 import type { CaregiverLink } from '../care/careClient';
+import { careName, pickCurrent } from '../care/careSelection';
 import { useApp, useTheme } from '../state/AppContext';
 import { Touchable, Txt } from './ui';
 
-type CarePersonPickerProps = {
-  links: CaregiverLink[];
-};
-
 /**
- * Seletor compartilhado entre as áreas do cuidador. Só apresenta nomes que
- * vieram de vínculos reais — nunca inventa uma pessoa para preencher a UI.
+ * Seletor compartilhado entre as áreas do cuidador. Mostra TODOS os vínculos
+ * (quem não tem nome aparece como "Pessoa acompanhada N") e só corrige a
+ * escolha quando a pessoa escolhida deixou de existir — nunca troca uma
+ * escolha válida por conta própria.
  */
-export function CarePersonPicker({ links }: CarePersonPickerProps) {
+export function CarePersonPicker({ links }: { links: CaregiverLink[] }) {
   const { state, actions } = useApp();
   const { T } = useTheme();
-  const namedLinks = useMemo(
-    () => links.filter((link) => Boolean(link.cared_name?.trim())),
-    [links]
-  );
-  const selected = namedLinks.find((link) => link.id === state.person) ?? namedLinks[0];
+  const selected = pickCurrent(links, state.person);
 
-  // Mantém a escolha compartilhada entre Painel, Dados, Alertas, Agenda e
-  // Plano. Ao entrar em uma dessas telas, escolhe somente o primeiro vínculo
-  // real quando ainda não há uma escolha válida.
   useEffect(() => {
     if (selected && selected.id !== state.person) actions.set({ person: selected.id });
   }, [actions, selected, state.person]);
 
-  if (namedLinks.length < 2) return null;
+  if (links.length < 2) return null;
 
   return (
-    <View
-      accessibilityLabel="Pessoa acompanhada"
-      style={{ marginHorizontal: 20, marginBottom: 14 }}
-    >
+    <View accessibilityLabel="Pessoa acompanhada" style={{ marginHorizontal: 20, marginBottom: 14 }}>
       <Txt s={10.5} w={800} c={T.t3} ls={1.2}>
         PESSOA ACOMPANHADA
       </Txt>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-        {namedLinks.map((link) => {
+        {links.map((link) => {
           const isSelected = link.id === selected?.id;
-          const name = link.cared_name!.trim();
+          const name = careName(link, links);
           return (
             <Touchable
               key={link.id}
               onPress={() => actions.set({ person: link.id })}
               accessibilityRole="button"
               accessibilityLabel={`Selecionar ${name}`}
-              accessibilityHint={isSelected ? `${name} já está selecionado.` : `Mostra os dados de ${name}.`}
               accessibilityState={{ selected: isSelected }}
               style={{
                 paddingHorizontal: 13,

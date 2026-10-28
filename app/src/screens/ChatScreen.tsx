@@ -160,7 +160,8 @@ export function ChatScreen() {
         </Touchable>
       </View>
 
-      <ChatModelPicker />
+      {/* O cuidador recebe respostas fixas de apoio; não há modelo a escolher. */}
+      {!isCare ? <ChatModelPicker /> : null}
 
       {/* conversa */}
       <ScrollView

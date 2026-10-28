@@ -100,6 +100,11 @@ export function PlaylistEditorScreen() {
       setFormError('Entre na sua conta para salvar playlists.');
       return;
     }
+    if (picked.length === 0) {
+      setFormError('Escolha ao menos uma música antes de salvar.');
+      return;
+    }
+    if (saving) return; // toque duplo não cria duas playlists
     setSaving(true);
     setFormError(null);
     setMirrorNotice(null);

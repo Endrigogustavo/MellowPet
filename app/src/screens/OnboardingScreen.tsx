@@ -112,8 +112,8 @@ export function OnboardingScreen() {
               Quanta informação você quer ver?
             </Txt>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              {densityButton('Simples', !full, () => actions.set({ density: 'simples' }))}
-              {densityButton('Completo', full, () => actions.set({ density: 'completo' }))}
+              {densityButton('Simples', !full, () => actions.setDensity('simples'))}
+              {densityButton('Completo', full, () => actions.setDensity('completo'))}
             </View>
           </View>
         ) : null}

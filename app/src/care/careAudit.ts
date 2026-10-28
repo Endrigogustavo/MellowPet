@@ -6,15 +6,25 @@
 export function auditActionLabel(action: string): string {
   const normalized = action.toLowerCase();
   const operation = normalized.split('.').at(-1);
-  const verb = operation === 'insert' ? 'criado' : operation === 'delete' ? 'removido' : 'atualizado';
+  // Particípio concorda com o substantivo ("Equipe ... atualizada").
+  const verb = (feminine: boolean) =>
+    operation === 'insert'
+      ? feminine ? 'criada' : 'criado'
+      : operation === 'delete'
+        ? feminine ? 'removida' : 'removido'
+        : feminine ? 'atualizada' : 'atualizado';
 
-  if (normalized.includes('caregiver_consents')) return `Registro histórico de permissões ${verb}`;
-  if (normalized.includes('care_alerts')) return `Alerta ${verb}`;
-  if (normalized.includes('care_checkins')) return `Check-in ${verb}`;
-  if (normalized.includes('care_appointments')) return `Compromisso ${verb}`;
-  if (normalized.includes('care_plans')) return `Plano de cuidado ${verb}`;
-  if (normalized.includes('care_team_members')) return `Equipe de cuidado ${verb}`;
-  if (normalized.includes('care_support_actions')) return `Ação de apoio ${verb}`;
-  if (normalized.includes('caregiver_links')) return 'Vínculo de cuidado atualizado';
+  if (normalized.includes('caregiver_consents')) return `Registro histórico de permissões ${verb(false)}`;
+  if (normalized.includes('care_alerts')) return `Alerta ${verb(false)}`;
+  if (normalized.includes('care_checkins')) return `Check-in ${verb(false)}`;
+  if (normalized.includes('care_appointments')) return `Compromisso ${verb(false)}`;
+  if (normalized.includes('care_plans')) return `Plano de cuidado ${verb(false)}`;
+  if (normalized.includes('care_team_members')) return `Equipe de cuidado ${verb(true)}`;
+  if (normalized.includes('care_support_actions')) return `Ação de apoio ${verb(true)}`;
+  if (normalized.includes('caregiver_links')) {
+    if (operation === 'insert') return 'Convite de cuidado criado';
+    if (operation === 'delete') return 'Vínculo de cuidado removido';
+    return 'Vínculo de cuidado atualizado';
+  }
   return 'Alteração de cuidado registrada';
 }

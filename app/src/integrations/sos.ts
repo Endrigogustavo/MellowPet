@@ -8,7 +8,10 @@
  */
 export function phoneDigits(contact: string): string | null {
   if (/@/.test(contact)) return null;
-  const digits = contact.replace(/\D/g, '');
+  let digits = contact.replace(/\D/g, '');
+  // "00 55 11 ..." (discagem internacional) e "011 ..." / "0 11 ..." (DDD com 0).
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  else if (digits.startsWith('0')) digits = digits.slice(1);
   if (digits.length === 10 || digits.length === 11) return `55${digits}`;
   if (digits.length >= 12 && digits.length <= 15) return digits;
   return null;

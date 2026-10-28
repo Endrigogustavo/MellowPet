@@ -13,13 +13,12 @@
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <!-- O watchdog reagenda o servico depois de reboot e de atualizacao do app. -->
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <!-- Só SCHEDULE_EXACT_ALARM: USE_EXACT_ALARM é restrita pelo Play a apps de
+       alarme/agenda, e o ServiceGuard já cai para alarme inexato sem ela. -->
   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-  <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
   <uses-permission android:name="android.permission.WAKE_LOCK" />
   <!-- Sem isencao de bateria o Doze mata o servico; a tela de ajustes pede. -->
   <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-  <!-- O botao de play/pause do widget despacha tecla de midia pro AudioManager. -->
-  <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
   <application>
 

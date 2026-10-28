@@ -115,6 +115,12 @@ export function HomeScreen() {
   const [intLabel, intColor] = INTENSITY[emo.intensity];
   const left = mealsLeft(state.meals, localDay());
   const [fedNotice, setFedNotice] = useState(false);
+  // O widget tentou alimentar além do limite: mostra o mesmo aviso aqui.
+  useEffect(() => {
+    if (!state.fedFull) return;
+    setFedNotice(true);
+    actions.set({ fedFull: false });
+  }, [state.fedFull, actions]);
   useEffect(() => {
     if (!fedNotice) return;
     const t = setTimeout(() => setFedNotice(false), 4000);
@@ -280,6 +286,20 @@ export function HomeScreen() {
 
       <PetStage />
       <NudgeCard />
+      {state.inviteNotice ? (
+        <Section top={10}>
+          <Card radius={18} padding={14}>
+            <Txt s={12.5} lh={1.45} c={T.t2} accessibilityLiveRegion="polite">
+              {state.inviteNotice}
+            </Txt>
+            <Touchable onPress={() => actions.set({ inviteNotice: null })} accessibilityRole="button" style={{ marginTop: 8 }}>
+              <Txt s={12} w={800} c={T.pri}>
+                Entendi
+              </Txt>
+            </Touchable>
+          </Card>
+        </Section>
+      ) : null}
       <Section top={10}>
         <RitualCard />
       </Section>

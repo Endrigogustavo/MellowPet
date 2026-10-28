@@ -401,27 +401,18 @@ export const CARE_QUICK: [string, string, string, string][] = [
 ];
 
 /** [título, subtítulo, ícone] */
-export const CARE_TOOLS: [string, string, string][] = [
-  ['Relatório semanal', 'Resumo consentido para compartilhar', 'M6 4h10l4 4v12H6zM16 4v4h4M9 13h7M9 16.5h5'],
-  ['Definir alertas', 'Quando você quer ser avisado', 'M12 4a6 6 0 016 6v4l2 3H4l2-3v-4a6 6 0 016-6zM10 20h4'],
-  ['Combinar limites', 'O que você vê e o que não vê', 'M7 11V8a5 5 0 0110 0v3M5 11h14v9H5z'],
-  ['Conversar', 'Roteiros de conversa por idade', 'M20 12a8 8 0 01-11.5 7.2L4 20l.9-4.3A8 8 0 1120 12z'],
-  [
-    'Rede de apoio',
-    'Adicionar outro cuidador',
-    'M16 18v-1.5a3 3 0 00-3-3H7a3 3 0 00-3 3V18M10 5.5a3 3 0 100 6 3 3 0 000-6M19 18v-1.5a3 3 0 00-2.2-2.9',
-  ],
-  ['Plano de crise', 'O que fazer se piorar', 'M12 8v5M12 16.5h.01M12 3a9 9 0 100 18 9 9 0 000-18z'],
-  ['Check-in agendado', 'Pergunta diária no horário certo', 'M12 8v4l3 2M12 3a9 9 0 100 18 9 9 0 000-18z'],
-  ['Notas privadas', 'Só você lê o que anotar aqui', 'M6 4h9l4 4v12H6zM15 4v4h4M9 12.5h6M9 16h4'],
-  ['Comparar semanas', 'O que mudou entre um período e outro', 'M5 19V9M10 19V5M15 19v-7M20 19v-4M4 19h17'],
-  ['Lembretes de rotina', 'Sono, remédio, terapia', 'M12 4a6 6 0 016 6v4l2 3H4l2-3v-4a6 6 0 016-6zM9 20h6M12 8v3'],
-  ['Exportar dados', 'Compartilhe um resumo consentido', 'M12 4v10M8 11l4 4 4-4M5 19h14'],
-  [
-    'Equipe de cuidado',
-    'Terapeuta, escola e família',
-    'M12 3a3 3 0 100 6 3 3 0 000-6M5 21v-2a4 4 0 014-4h6a4 4 0 014 4v2M4 11a2.5 2.5 0 100 5M20 11a2.5 2.5 0 110 5',
-  ],
+/**
+ * Recursos do cuidador: cada cartão diz o que a tela FAZ e declara o destino.
+ * (Antes o destino era deduzido do texto do rótulo, e cartões prometiam
+ * coisas que não existiam, como "comparar semanas".)
+ */
+export const CARE_TOOLS: { title: string; sub: string; icon: string; target: 'dashboard' | 'carealerts' | 'careplan' | 'agenda' | 'careaudit' | 'careguide' }[] = [
+  { title: 'Relatório de cuidado', sub: 'Tendências e um resumo para compartilhar', icon: 'M6 4h10l4 4v12H6zM16 4v4h4M9 13h7M9 16.5h5', target: 'dashboard' },
+  { title: 'Alertas', sub: 'Sinais que pedem atenção', icon: 'M12 4a6 6 0 016 6v4l2 3H4l2-3v-4a6 6 0 016-6zM10 20h4', target: 'carealerts' },
+  { title: 'Plano de cuidado', sub: 'Sinais de atenção e próximos passos', icon: 'M12 8v5M12 16.5h.01M12 3a9 9 0 100 18 9 9 0 000-18z', target: 'careplan' },
+  { title: 'Check-ins', sub: 'Convites de conversa e compromissos', icon: 'M12 8v4l3 2M12 3a9 9 0 100 18 9 9 0 000-18z', target: 'agenda' },
+  { title: 'Equipe e notas', sub: 'Quem mais cuida e suas notas privadas', icon: 'M12 3a3 3 0 100 6 3 3 0 000-6M5 21v-2a4 4 0 014-4h6a4 4 0 014 4v2M4 11a2.5 2.5 0 100 5M20 11a2.5 2.5 0 110 5', target: 'careplan' },
+  { title: 'Histórico', sub: 'O que mudou, sem conteúdo sensível', icon: 'M6 4h10l4 4v12H6zM9 13h6M9 16h4', target: 'careaudit' },
 ];
 
 /* ── Rotina e agenda ────────────────────────────────────────────────────── */

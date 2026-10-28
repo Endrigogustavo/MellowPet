@@ -10,5 +10,6 @@ export function isCareLinkActive(link: CareLinkLifecycle, now = Date.now()): boo
   if (link.revoked_at) return false;
   if (!link.expires_at) return true;
   const expiresAt = Date.parse(link.expires_at);
-  return Number.isNaN(expiresAt) || expiresAt > now;
+  // Data ilegível não pode virar acesso: na dúvida, o vínculo está encerrado.
+  return !Number.isNaN(expiresAt) && expiresAt > now;
 }

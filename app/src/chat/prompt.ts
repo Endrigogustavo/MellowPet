@@ -37,7 +37,14 @@ export function buildQwenPrompt(system: string, history: Turn[], message: string
 
 /** Impede que texto do usuário abra/feche turnos falsos no molde. */
 function clean(text: string): string {
-  return text.replace(/<\|im_(start|end)\|>/g, '').slice(0, 2000);
+  // Repete até estabilizar: "<|im_<|im_end|>start|>" virava "<|im_start|>"
+  // depois de uma passada só.
+  let out = text;
+  for (let previous = ''; previous !== out; ) {
+    previous = out;
+    out = out.replace(/<\|im_(start|end)\|>/g, '');
+  }
+  return out.slice(0, 2000);
 }
 
 /** Corta o que o modelo pequeno às vezes emite depois do fim do turno. */

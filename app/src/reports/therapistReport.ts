@@ -58,7 +58,13 @@ export function summarize(checkins: ReportCheckin[]) {
     emotions: sort(byEmotion),
     tags: sort(byTag).slice(0, 8),
     sleepAvg: sleeps.length ? sleeps.reduce((a, v) => a + v, 0) / sleeps.length : null,
-    activeDays: new Set(checkins.map((c) => c.createdAt.slice(0, 10))).size,
+    // Dia local, não o do UTC: um check-in às 23h em Brasília é do mesmo dia.
+    activeDays: new Set(
+      checkins.map((c) => {
+        const d = new Date(c.createdAt);
+        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      })
+    ).size,
   };
 }
 

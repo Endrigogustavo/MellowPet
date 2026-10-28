@@ -60,7 +60,11 @@ export function LullabyScreen() {
   const hint = game.asleep
     ? `${state.petName} dormiu. Esse rosto solto que você fez agora — dá pra voltar a ele quando quiser.`
     : game.relaxed === null
-      ? 'Olhe para a câmera com o rosto bem iluminado.'
+      ? state.signalStatus === 'permission_denied'
+        ? 'A câmera está sem permissão. Libere a câmera nas configurações do celular para ninar o pet.'
+        : state.signalStatus === 'camera_unavailable'
+          ? 'A câmera não está disponível agora. Feche outros apps que usam a câmera e tente de novo.'
+          : 'Olhe para a câmera com o rosto bem iluminado.'
       : game.relaxed
         ? 'Isso… ombros para baixo, testa lisa. Ele está ficando sonolento.'
         : 'Ele percebeu tensão. Solte a mandíbula e a testa, devagar.';

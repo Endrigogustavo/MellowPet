@@ -6,7 +6,7 @@ import { Field } from '../components/Field';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { Card, PrimaryButton, ScreenTitle, Txt } from '../components/ui';
 import { useApp, useTheme } from '../state/AppContext';
-import { OK } from '../theme/palette';
+import { DANGER, OK } from '../theme/palette';
 
 /**
  * Plano de segurança (modelo Stanley-Brown): escrito com calma, para ser
@@ -39,6 +39,7 @@ export function CrisisPlanScreen() {
     () => Object.fromEntries(STEPS.map((s) => [s.key, 'preset' in s ? s.preset : ''])) as Plan
   );
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!state.userId) return;
@@ -51,9 +52,10 @@ export function CrisisPlanScreen() {
 
   const save = () => {
     if (!state.userId) return;
+    setSaveError(null);
     SecureStore.setItemAsync(KEY(state.userId), JSON.stringify(plan))
       .then(() => setSaved(true))
-      .catch(() => undefined);
+      .catch(() => setSaveError('Não foi possível salvar. Tente encurtar algum campo e salve de novo.'));
   };
 
   return (
@@ -73,7 +75,7 @@ export function CrisisPlanScreen() {
               value={plan[step.key]}
               onChangeText={(t) => {
                 setSaved(false);
-                setPlan((p) => ({ ...p, [step.key]: t.slice(0, 600) }));
+                setPlan((p) => ({ ...p, [step.key]: t.slice(0, 280) }));
               }}
               multiline
             />
@@ -83,6 +85,11 @@ export function CrisisPlanScreen() {
       <Section>
         <View>
           <PrimaryButton label={saved ? 'Salvo' : 'Salvar meu plano'} onPress={save} />
+          {saveError ? (
+            <Txt s={12} c={DANGER} center style={{ marginTop: 8 }} accessibilityRole="alert">
+              {saveError}
+            </Txt>
+          ) : null}
           {saved ? (
             <Txt s={12} c={OK} center style={{ marginTop: 8 }}>
               Ele aparece no botão de ajuda, sempre que precisar.

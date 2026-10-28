@@ -1,7 +1,8 @@
 import { EMOTIONS, type EmotionKey } from '../data/emotions';
 import { DANGER, OK, WARN } from '../theme/palette';
 import type { CareDashboardSummary } from './careTypes';
-export { signalScore } from './careMetrics';
+import { signalScore } from './careMetrics';
+export { signalScore };
 
 const NEGATIVE = new Set(['sad', 'angry', 'disgusted', 'fearful']);
 
@@ -16,7 +17,9 @@ export function signalColor(score: number | null): string {
 
 export function formatFreshness(iso: string | null): string {
   if (!iso) return 'Sem registros neste período';
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  const at = new Date(iso).getTime();
+  if (Number.isNaN(at)) return 'Data do último registro indisponível';
+  const minutes = Math.max(0, Math.round((Date.now() - at) / 60_000));
   if (minutes < 2) return 'Atualizado agora';
   if (minutes < 60) return `Atualizado há ${minutes} min`;
   const hours = Math.round(minutes / 60);
@@ -30,7 +33,10 @@ export function safeInsight(summary: CareDashboardSummary): string {
   const top = [...summary.distribution].sort((a, b) => b.count - a.count)[0];
   const label = top && isKnownEmotion(top.emotion) ? EMOTIONS[top.emotion].label.toLowerCase() : 'variação emocional';
   const difficult = summary.distribution.filter((row) => NEGATIVE.has(row.emotion)).reduce((sum, row) => sum + row.count, 0);
-  if (difficult / summary.events >= 0.55) {
+  // O texto acompanha a cor do índice: número vermelho com frase neutra
+  // passava a impressão de que estava tudo bem.
+  const score = signalScore(summary);
+  if (difficult / summary.events >= 0.55 || (score !== null && score < 40)) {
     return `Há predominância de sinais difíceis, com ${label} aparecendo mais. Isso não explica a causa: priorize um check-in calmo e o plano combinado.`;
   }
   return `O padrão mais frequente foi ${label}. Use esta visão como contexto para conversar, sem tratar leituras como certeza sobre o que a pessoa sente.`;

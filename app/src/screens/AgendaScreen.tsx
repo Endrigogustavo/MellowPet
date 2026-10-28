@@ -1,59 +1,255 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
 
-import { createCareAppointment, createCareCheckin, listCareAppointments, listCareCheckins } from '../care/careClient';
-import { useCareLinks } from '../care/useCareLinks';
-import { deviceTimeZone, formatInDeviceTimeZone, localDateTimeInput, parseDeviceLocalDateTime, validateDateRange } from '../care/careDateTime';
-import type { CareAppointment, CareCheckin } from '../care/careTypes';
-import { CareLinksErrorCard } from '../components/CareLinksErrorCard';
-import { CarePersonPicker } from '../components/CarePersonPicker';
+import { createCareAppointment, createCareCheckin, listCareAppointments, listCareCheckins, type CaregiverLink } from '../care/careClient';
+import {
+  deviceTimeZone,
+  formatInDeviceTimeZone,
+  localDateTimeInput,
+  parseDeviceLocalDateTime,
+  validateDateRange,
+} from '../care/careDateTime';
+import { useCareResource } from '../care/useCareResource';
+import { CareGate, ErrorCard, LoadingCard, useCurrentCareLink } from '../components/CareStates';
 import { Field } from '../components/Field';
-import { Card, ScreenTitle, Touchable, Txt } from '../components/ui';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
+import { Card, PrimaryButton, ScreenTitle, Txt } from '../components/ui';
 import { useApp, useTheme } from '../state/AppContext';
-import { DANGER } from '../theme/palette';
+import { DANGER, OK } from '../theme/palette';
+
+type Message = { text: string; tone: 'ok' | 'error' };
+
+/** Data/hora digitada, já validada e no FUTURO. */
+function futureIso(value: string): { iso?: string; error?: string } {
+  const parsed = parseDeviceLocalDateTime(value);
+  if (!parsed.iso) return { error: parsed.error ?? 'Informe uma data válida.' };
+  if (new Date(parsed.iso).getTime() < Date.now() - 60_000) return { error: 'Escolha um horário no futuro.' };
+  return { iso: parsed.iso };
+}
 
 export function AgendaScreen() {
+  const care = useCurrentCareLink();
+  return (
+    <ScreenScroll>
+      <ScreenTitle label="AGENDA" title={care.name ? `Ritmo de\n${care.name}` : 'Ritmo e\ncheck-ins'} />
+      <CareGate care={care} emptyText="Conecte uma pessoa para organizar check-ins.">
+        {(current) => <Agenda key={current.id} link={current} />}
+      </CareGate>
+    </ScreenScroll>
+  );
+}
+
+function Agenda({ link }: { link: CaregiverLink }) {
   const { state } = useApp();
   const { T } = useTheme();
-  const { links, loading: linksLoading, error: linksError, refresh: refreshLinks } = useCareLinks(state.userId, 'care');
-  const [checkins, setCheckins] = useState<CareCheckin[]>([]);
-  const [appointments, setAppointments] = useState<CareAppointment[]>([]);
+  const cared = link.cared_user_id;
+  const agenda = useCareResource(cared, async () => {
+    const [checkins, appointments] = await Promise.all([listCareCheckins(cared!), listCareAppointments(cared!)]);
+    return { checkins, appointments };
+  });
   const [prompt, setPrompt] = useState('Como você gostaria de estar agora?');
   const [checkinAt, setCheckinAt] = useState(localDateTimeInput());
   const [appointment, setAppointment] = useState('');
   const [appointmentAt, setAppointmentAt] = useState(localDateTimeInput(2));
-  const [message, setMessage] = useState<string | null>(null);
-  const [checkinDateError, setCheckinDateError] = useState<string | null>(null);
-  const [appointmentDateError, setAppointmentDateError] = useState<string | null>(null);
-  const current = useMemo(() => links.find((link) => link.id === state.person) ?? links[0], [links, state.person]);
+  const [message, setMessage] = useState<Message | null>(null);
+  const [checkinError, setCheckinError] = useState<string | null>(null);
+  const [appointmentError, setAppointmentError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<'checkin' | 'appointment' | null>(null);
 
-  const refresh = useCallback(() => {
-    if (!current?.cared_user_id) return;
-    Promise.all([listCareCheckins(current.cared_user_id), listCareAppointments(current.cared_user_id)]).then(([nextCheckins, nextAppointments]) => { setCheckins(nextCheckins); setAppointments(nextAppointments); }).catch((reason) => { setMessage(reason instanceof Error ? reason.message : 'Não foi possível carregar a agenda.'); });
-  }, [current?.cared_user_id]);
-  useEffect(() => { refresh(); }, [refresh]);
-  const scheduleCheckin = async () => {
-    const parsed = parseDeviceLocalDateTime(checkinAt);
-    if (!parsed.iso) { const error = parsed.error ?? 'Informe uma data válida.'; setCheckinDateError(error); setMessage(error); return; }
-    if (!state.userId || !current?.cared_user_id || !prompt.trim()) { setMessage('Escreva uma pergunta antes de agendar o check-in.'); return; }
-    setCheckinDateError(null);
-    try { await createCareCheckin(current.cared_user_id, current.id, prompt.trim(), parsed.iso, state.userId); setMessage('Check-in agendado no horário local do aparelho.'); refresh(); } catch (reason) { setMessage(reason instanceof Error ? reason.message : 'Não foi possível agendar o check-in.'); }
-  };
-  const scheduleAppointment = async () => {
-    const parsed = parseDeviceLocalDateTime(appointmentAt);
-    if (!parsed.iso) { const error = parsed.error ?? 'Informe uma data válida.'; setAppointmentDateError(error); setMessage(error); return; }
-    if (!state.userId || !current?.cared_user_id || !appointment.trim()) { setMessage('Dê um título ao compromisso antes de salvá-lo.'); return; }
-    setAppointmentDateError(null);
-    try { await createCareAppointment(current.cared_user_id, current.id, appointment.trim(), parsed.iso, state.userId); setAppointment(''); setMessage('Compromisso salvo no horário local do aparelho.'); refresh(); } catch (reason) { setMessage(reason instanceof Error ? reason.message : 'Não foi possível salvar o compromisso.'); }
+  if (agenda.error) {
+    return (
+      <Section top={0}>
+        <ErrorCard title="Não foi possível carregar a agenda" error={agenda.error} onRetry={agenda.refresh} />
+      </Section>
+    );
+  }
+  if (!agenda.data || !cared || !state.userId) {
+    return (
+      <Section top={0}>
+        <LoadingCard text="Carregando agenda…" />
+      </Section>
+    );
+  }
+  const userId = state.userId;
+  const now = Date.now();
+  // Só os próximos: check-ins antigos "agendados" ocupavam as vagas e o recém-criado sumia.
+  const upcoming = agenda.data.checkins
+    .filter((c) => c.status === 'scheduled' && new Date(c.scheduled_for).getTime() >= now - 3600_000)
+    .slice(0, 6);
+  const nextAppointments = agenda.data.appointments
+    .filter((a) => new Date(a.ends_at ?? a.starts_at).getTime() >= now - 3600_000)
+    .slice(0, 6);
+
+  const run = async (kind: 'checkin' | 'appointment', job: () => Promise<string>) => {
+    if (saving) return;
+    setSaving(kind);
+    try {
+      setMessage({ text: await job(), tone: 'ok' });
+      await agenda.refresh();
+    } catch (reason) {
+      setMessage({ text: reason instanceof Error ? reason.message : 'Não foi possível salvar.', tone: 'error' });
+    } finally {
+      setSaving(null);
+    }
   };
 
-  return <ScreenScroll><ScreenTitle label="AGENDA" title={current?.cared_name ? `Ritmo de\n${current.cared_name}` : 'Ritmo e\ncheck-ins'} />
-    <CarePersonPicker links={links} />
-    {linksLoading && links.length === 0 ? <Section top={0}><Card radius={24} padding={20}><Txt s={13} c={T.t3}>Carregando conexões…</Txt></Card></Section> : linksError ? <Section top={0}><CareLinksErrorCard error={linksError} onRetry={refreshLinks} /></Section> : !current ? <Section top={0}><Card radius={24} padding={20}><Txt s={14.5} w={800} c={T.t1}>Conecte uma pessoa para organizar check-ins.</Txt></Card></Section> : <>
-      {message ? <Section top={0}><View accessibilityLiveRegion="polite"><Card radius={18} padding={13} style={{ borderColor: message.includes('agendado') || message.includes('salvo') ? T.pri : DANGER }}><Txt s={12.5} c={message.includes('agendado') || message.includes('salvo') ? T.pri : DANGER}>{message}</Txt></Card></View></Section> : null}
-      <Section top={message ? 10 : 0}><Card radius={24} padding={18}><Txt s={15} w={800} c={T.t1}>Novo check-in</Txt><Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 4 }}>Convites de conversa; não são cobrança nem monitoramento automático.</Txt><Field label="Pergunta" value={prompt} onChangeText={setPrompt} style={{ marginTop: 12 }} /><Field label="Quando (AAAA-MM-DD HH:mm)" value={checkinAt} onChangeText={(value) => { setCheckinAt(value); setCheckinDateError(null); }} error={checkinDateError} hint={`Interpretado em ${deviceTimeZone()} (horário deste aparelho).`} accessibilityHint="Informe data e hora locais no formato ano, mês, dia, hora e minuto." /><Touchable onPress={scheduleCheckin} accessibilityRole="button" accessibilityLabel="Agendar check-in" style={{ marginTop: 10 }}><Txt s={12.5} w={800} c={T.pri}>Agendar check-in</Txt></Touchable></Card></Section>
-      <Section><Card radius={24} padding={18}><Txt s={15} w={800} c={T.t1}>Check-ins previstos</Txt><View style={{ gap: 9, marginTop: 11 }}>{checkins.length === 0 ? <Txt s={12.5} c={T.t3}>Nenhum check-in agendado.</Txt> : checkins.filter((item) => item.status === 'scheduled').slice(0, 6).map((item) => <View key={item.id} style={{ borderTopWidth: 1, borderTopColor: T.bdL, paddingTop: 10 }}><Txt s={12.5} w={800} c={T.t1}>{item.prompt}</Txt><Txt s={11} c={T.t3} style={{ marginTop: 2 }}>{formatInDeviceTimeZone(item.scheduled_for)}</Txt></View>)}</View></Card></Section>
-      <Section><Card radius={24} padding={18}><Txt s={15} w={800} c={T.t1}>Compromissos</Txt><Field label="Título" value={appointment} onChangeText={setAppointment} style={{ marginTop: 12 }} /><Field label="Início (AAAA-MM-DD HH:mm)" value={appointmentAt} onChangeText={(value) => { setAppointmentAt(value); setAppointmentDateError(null); }} error={appointmentDateError} hint={`Interpretado em ${deviceTimeZone()} (horário deste aparelho).`} accessibilityHint="Informe início em horário local no formato ano, mês, dia, hora e minuto." /><Touchable onPress={scheduleAppointment} accessibilityRole="button" accessibilityLabel="Salvar compromisso" style={{ marginTop: 10 }}><Txt s={12.5} w={800} c={T.pri}>Salvar compromisso</Txt></Touchable><View style={{ gap: 9, marginTop: 14 }}>{appointments.length === 0 ? <Txt s={12.5} c={T.t3}>Nenhum compromisso próximo.</Txt> : appointments.slice(0, 6).map((item) => { const intervalError = validateDateRange(item.starts_at, item.ends_at); return <View key={item.id} style={{ borderTopWidth: 1, borderTopColor: T.bdL, paddingTop: 10 }}><Txt s={12.5} w={800} c={T.t1}>{item.title}</Txt><Txt s={11} c={T.t3} style={{ marginTop: 2 }}>{formatInDeviceTimeZone(item.starts_at)}{item.ends_at ? ` → ${formatInDeviceTimeZone(item.ends_at)}` : ''}</Txt>{intervalError ? <Txt s={11} c={DANGER} accessibilityLiveRegion="polite" style={{ marginTop: 3 }}>{intervalError}</Txt> : null}</View>; })}</View></Card></Section>
-    </>}</ScreenScroll>;
+  const scheduleCheckin = () => {
+    const when = futureIso(checkinAt);
+    if (!when.iso) {
+      setCheckinError(when.error!);
+      return;
+    }
+    const question = prompt.trim();
+    if (!question) {
+      setMessage({ text: 'Escreva uma pergunta antes de agendar.', tone: 'error' });
+      return;
+    }
+    setCheckinError(null);
+    run('checkin', async () => {
+      await createCareCheckin(cared, link.id, question, when.iso!, userId);
+      return 'Check-in agendado.';
+    });
+  };
+
+  const scheduleAppointment = () => {
+    const when = futureIso(appointmentAt);
+    if (!when.iso) {
+      setAppointmentError(when.error!);
+      return;
+    }
+    const title = appointment.trim();
+    if (!title) {
+      setMessage({ text: 'Dê um título ao compromisso.', tone: 'error' });
+      return;
+    }
+    setAppointmentError(null);
+    setAppointment('');
+    run('appointment', async () => {
+      await createCareAppointment(cared, link.id, title, when.iso!, userId);
+      return 'Compromisso salvo.';
+    });
+  };
+
+  const tz = `Horário deste aparelho (${deviceTimeZone()}).`;
+  return (
+    <>
+      {message ? (
+        <Section top={0}>
+          <Card radius={18} padding={13} style={{ borderColor: message.tone === 'ok' ? OK : DANGER }}>
+            <Txt s={12.5} c={message.tone === 'ok' ? OK : DANGER} accessibilityLiveRegion="polite">
+              {message.text}
+            </Txt>
+          </Card>
+        </Section>
+      ) : null}
+
+      <Section top={message ? 10 : 0}>
+        <Card radius={24} padding={18}>
+          <Txt s={15} w={800} c={T.t1}>
+            Novo check-in
+          </Txt>
+          <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 4 }}>
+            Um convite para conversar — não é cobrança nem monitoramento automático.
+          </Txt>
+          <Field label="Pergunta" value={prompt} onChangeText={setPrompt} maxLength={200} style={{ marginTop: 12 }} />
+          <Field
+            label="Quando (AAAA-MM-DD HH:mm)"
+            value={checkinAt}
+            onChangeText={(value) => {
+              setCheckinAt(value);
+              setCheckinError(null);
+            }}
+            error={checkinError}
+            hint={tz}
+            maxLength={16}
+          />
+          <PrimaryButton
+            label={saving === 'checkin' ? 'Agendando…' : 'Agendar check-in'}
+            disabled={saving !== null}
+            onPress={scheduleCheckin}
+            style={{ marginTop: 10 }}
+          />
+        </Card>
+      </Section>
+
+      <Section>
+        <Card radius={24} padding={18}>
+          <Txt s={15} w={800} c={T.t1}>
+            Próximos check-ins
+          </Txt>
+          <View style={{ gap: 9, marginTop: 11 }}>
+            {upcoming.length === 0 ? (
+              <Txt s={12.5} c={T.t3}>
+                Nenhum check-in marcado para os próximos dias.
+              </Txt>
+            ) : (
+              upcoming.map((item) => (
+                <View key={item.id} style={{ borderTopWidth: 1, borderTopColor: T.bdL, paddingTop: 10 }}>
+                  <Txt s={12.5} w={800} c={T.t1}>
+                    {item.prompt}
+                  </Txt>
+                  <Txt s={11} c={T.t3} style={{ marginTop: 2 }}>
+                    {formatInDeviceTimeZone(item.scheduled_for)}
+                  </Txt>
+                </View>
+              ))
+            )}
+          </View>
+        </Card>
+      </Section>
+
+      <Section>
+        <Card radius={24} padding={18}>
+          <Txt s={15} w={800} c={T.t1}>
+            Compromissos
+          </Txt>
+          <Field label="Título" value={appointment} onChangeText={setAppointment} maxLength={120} style={{ marginTop: 12 }} />
+          <Field
+            label="Início (AAAA-MM-DD HH:mm)"
+            value={appointmentAt}
+            onChangeText={(value) => {
+              setAppointmentAt(value);
+              setAppointmentError(null);
+            }}
+            error={appointmentError}
+            hint={tz}
+            maxLength={16}
+          />
+          <PrimaryButton
+            label={saving === 'appointment' ? 'Salvando…' : 'Salvar compromisso'}
+            disabled={saving !== null}
+            onPress={scheduleAppointment}
+            style={{ marginTop: 10 }}
+          />
+          <View style={{ gap: 9, marginTop: 14 }}>
+            {nextAppointments.length === 0 ? (
+              <Txt s={12.5} c={T.t3}>
+                Nenhum compromisso próximo.
+              </Txt>
+            ) : (
+              nextAppointments.map((item) => {
+                const intervalError = validateDateRange(item.starts_at, item.ends_at);
+                return (
+                  <View key={item.id} style={{ borderTopWidth: 1, borderTopColor: T.bdL, paddingTop: 10 }}>
+                    <Txt s={12.5} w={800} c={T.t1}>
+                      {item.title}
+                    </Txt>
+                    <Txt s={11} c={T.t3} style={{ marginTop: 2 }}>
+                      {formatInDeviceTimeZone(item.starts_at)}
+                      {item.ends_at ? ` → ${formatInDeviceTimeZone(item.ends_at)}` : ''}
+                    </Txt>
+                    {intervalError ? (
+                      <Txt s={11} c={DANGER} style={{ marginTop: 3 }}>
+                        {intervalError}
+                      </Txt>
+                    ) : null}
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </Card>
+      </Section>
+    </>
+  );
 }

@@ -41,8 +41,11 @@ export function buildCard(petName: string, petType: PetKey, stage: PetStage, tok
 }
 
 function cleanName(name: string): string {
-  // Sem caracteres de controle; tamanho limitado para caber no balão.
-  const cleaned = name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, NAME_MAX);
+  // Sem caracteres de controle, de direção (U+202E inverte o texto e permite
+  // disfarçar nomes) nem invisíveis; corta por caractere, não por unidade
+  // UTF-16 — senão um emoji partido ao meio vira texto malformado.
+  const stripped = name.replace(/[\u0000-\u001f\u007f​-‏‪-‮⁠-⁩﻿]/g, '').trim();
+  const cleaned = Array.from(stripped).slice(0, NAME_MAX).join('').trim();
   return cleaned || 'Amigo';
 }
 

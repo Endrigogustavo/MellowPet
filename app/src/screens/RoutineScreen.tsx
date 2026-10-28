@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, Alert, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { Field } from '../components/Field';
@@ -37,13 +37,23 @@ export function RoutineScreen() {
   const [nameInput, setNameInput] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Sem rede, "nenhum item ainda" seria mentira: mostra carregando e erro.
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [saving, setSaving] = useState(false);
+  const loadItems = useCallback(() => {
     if (!state.userId) return;
-    listRoutineItems(state.userId).then((list) => {
-      setItems(list);
-      resyncRoutineReminders(list).catch(() => undefined);
-    });
+    setLoadState('loading');
+    listRoutineItems(state.userId)
+      .then((list) => {
+        setItems(list);
+        setLoadState('ready');
+        resyncRoutineReminders(list).catch(() => undefined);
+      })
+      .catch(() => setLoadState('error'));
   }, [state.userId]);
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
 
   // Widget "Rotina de hoje" — atualiza sempre que a lista muda por qualquer
   // motivo (carregar, adicionar, remover), não só com a tela aberta. Mostra
@@ -82,33 +92,58 @@ export function RoutineScreen() {
   const addItem = () => {
     const time = formatTime(timeValue);
     const name = nameInput.trim();
-    if (!name || !state.userId) {
+    if (!state.userId) {
+      setFormError('Entre na sua conta para salvar a rotina.');
+      return;
+    }
+    if (!name) {
       setFormError('Dê um nome para o item da rotina.');
       return;
     }
+    if (saving) return; // toque duplo não cria dois itens
+    setSaving(true);
     setFormError(null);
+    setNameInput('');
     createRoutineItem(state.userId, time, name, true)
       .then((item) => {
         setItems((prev) => [...prev, item].sort((a, b) => a.time.localeCompare(b.time)));
-        setNameInput('');
         scheduleRoutineReminder(item.id, item.time, item.name).catch(() => undefined);
       })
-      .catch((error) => setFormError(error instanceof Error ? error.message : 'Não foi possível salvar.'));
+      .catch((error) => {
+        setNameInput(name);
+        setFormError(error instanceof Error ? error.message : 'Não foi possível salvar.');
+      })
+      .finally(() => setSaving(false));
   };
 
   const toggleNotify = (item: RoutineItem) => {
     const notify = !item.notify;
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, notify } : i)));
-    updateRoutineItem(item.id, { notify }).catch(() => undefined);
+    updateRoutineItem(item.id, { notify }).catch(() => {
+      // Volta o interruptor se o servidor não aceitou.
+      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, notify: !notify } : i)));
+      setFormError('Não foi possível mudar o lembrete agora.');
+    });
     if (notify) scheduleRoutineReminder(item.id, item.time, item.name).catch(() => undefined);
     else cancelRoutineReminder(item.id).catch(() => undefined);
   };
 
-  const removeItem = (item: RoutineItem) => {
-    setItems((prev) => prev.filter((i) => i.id !== item.id));
-    deleteRoutineItem(item.id).catch(() => undefined);
-    cancelRoutineReminder(item.id).catch(() => undefined);
-  };
+  const removeItem = (item: RoutineItem) =>
+    Alert.alert(`Remover "${item.name}"?`, 'O lembrete diário também é cancelado.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Remover',
+        style: 'destructive',
+        onPress: () => {
+          setItems((prev) => prev.filter((i) => i.id !== item.id));
+          cancelRoutineReminder(item.id).catch(() => undefined);
+          deleteRoutineItem(item.id).catch(() => {
+            setFormError('Não foi possível remover agora; o item voltou para a lista.');
+            loadItems();
+          });
+        },
+      },
+    ]);
 
   return (
     <ScreenScroll>
@@ -116,7 +151,15 @@ export function RoutineScreen() {
 
       <Section top={0}>
         <Card radius={24} padding={18} style={{ gap: 14 }}>
-          {items.length === 0 ? (
+          {loadState === 'loading' && items.length === 0 ? (
+            <ActivityIndicator color={T.pri} />
+          ) : loadState === 'error' && items.length === 0 ? (
+            <Touchable onPress={loadItems} accessibilityRole="button">
+              <Txt s={12.5} c={DANGER}>
+                Não foi possível carregar sua rotina. Toque para tentar de novo.
+              </Txt>
+            </Touchable>
+          ) : items.length === 0 ? (
             <Txt s={12.5} c={T.t3}>
               Nenhum item na rotina ainda. Adicione um abaixo.
             </Txt>

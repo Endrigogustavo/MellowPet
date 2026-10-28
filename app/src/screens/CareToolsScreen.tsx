@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Share, View } from 'react-native';
+import { Linking, Share, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 
 import { Icon } from '../components/Icon';
@@ -71,48 +71,17 @@ export function CareToolsScreen() {
     }
   };
 
-  const destinationFor = (title: string) => {
-    if (title === 'Guia do cuidador') return 'careguide' as const;
-    if (title === 'Relatório semanal' || title === 'Comparar semanas' || title === 'Exportar dados') return 'dashboard' as const;
-    if (title === 'Definir alertas') return 'carealerts' as const;
-    if (title === 'Histórico de cuidado') return 'careaudit' as const;
-    if (title === 'Check-in agendado' || title === 'Lembretes de rotina') return 'agenda' as const;
-    if (title === 'Rede de apoio' || title === 'Plano de crise' || title === 'Equipe de cuidado' || title === 'Notas privadas' || title === 'Combinar limites') return 'careplan' as const;
-    return null;
-  };
-
   return (
     <ScreenScroll>
       <ScreenTitle label="RECURSOS" title={'Ferramentas\nde quem cuida'} />
 
-      <Section top={0}>
-        <View
-          style={{
-            padding: 16,
-            borderRadius: 20,
-            backgroundColor: T.priL,
-            borderWidth: 1,
-            borderColor: T.bd,
-          }}
-        >
-          <Txt s={13} w={800} c={T.t1}>
-            Recursos de acompanhamento aguardam ativação
-          </Txt>
-          <Txt s={12} lh={1.55} c={T.t2} style={{ marginTop: 5 }}>
-            Você já pode enviar convites e combinar limites. Painel agregado, alertas, check-ins, agenda, plano de cuidado, equipe e notas dependem da configuração do módulo de cuidado no servidor. Até lá, nenhum dado é exibido.
-          </Txt>
-        </View>
-      </Section>
-
-      <Section top={12} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
-        {CARE_TOOLS.map(([title, sub, icon]) => (
+      <Section top={0} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
+        {CARE_TOOLS.map(({ title, sub, icon, target }) => (
           <Touchable
             key={title}
-            onPress={() => {
-              const target = destinationFor(title);
-              if (target) actions.go(target);
-              else setNotice('O assistente para cuidadores está sendo preparado. Enquanto isso, use o guia para combinar limites e próximos passos respeitosos.');
-            }}
+            onPress={() => actions.go(target)}
+            accessibilityRole="button"
+            accessibilityLabel={`${title}: ${sub}`}
             style={{
               width: cardWidth,
               minHeight: 120,
@@ -150,22 +119,6 @@ export function CareToolsScreen() {
 
       <Section top={12}>
         <Touchable
-          onPress={() => actions.go('careaudit')}
-          accessibilityRole="button"
-          accessibilityLabel="Abrir histórico de cuidado"
-          accessibilityHint="Mostra apenas as ações importantes autorizadas, sem conteúdo sensível"
-          style={{ borderRadius: 20, padding: 15, backgroundColor: T.surf, borderWidth: 1, borderColor: T.bd, flexDirection: 'row', gap: 12, alignItems: 'center' }}
-        >
-          <Icon d="M6 4h10l4 4v12H6zM9 13h6M9 16h4" size={20} color={T.pri} />
-          <View style={{ flex: 1 }}>
-            <Txt s={14} w={800} c={T.t1}>Histórico de cuidado</Txt>
-            <Txt s={12} c={T.t2} style={{ marginTop: 3 }}>Alterações importantes, sem exibir conteúdo sensível.</Txt>
-          </View>
-        </Touchable>
-      </Section>
-
-      <Section top={12}>
-        <Touchable
           onPress={() => actions.go('careguide')}
           style={{ borderRadius: 20, padding: 15, backgroundColor: T.priL, flexDirection: 'row', gap: 12, alignItems: 'center' }}
         >
@@ -192,7 +145,7 @@ export function CareToolsScreen() {
             Convidar uma pessoa acompanhada
           </Txt>
           <Txt s={13} lh={1.55} c={T.t2} style={{ marginTop: 7 }}>
-            Envie o código abaixo. A conexão só vale depois que a pessoa aceitar. Compartilhamento e recursos de acompanhamento continuam desativados até ela conceder permissões e o módulo de cuidado ser configurado.
+            Envie o código abaixo. Ele vale por 72 horas, e o acompanhamento só começa depois que a pessoa aceitar. Ela pode encerrar o vínculo quando quiser.
           </Txt>
           <View
             style={{
@@ -256,7 +209,10 @@ export function CareToolsScreen() {
 
       {/* emergência */}
       <Section top={12}>
-        <View
+        <Touchable
+          onPress={() => Linking.openURL('tel:188').catch(() => undefined)}
+          accessibilityRole="button"
+          accessibilityLabel="Ligar para o CVV, 188"
           style={{
             padding: 15,
             paddingHorizontal: 16,
@@ -285,10 +241,10 @@ export function CareToolsScreen() {
               Emergência
             </Txt>
             <Txt s={11.5} c={T.t3} style={{ marginTop: 2 }}>
-              CVV 188 · CAPS da região · plano combinado
+              Toque para ligar para o CVV (188, 24h). Perigo imediato: SAMU 192.
             </Txt>
           </View>
-        </View>
+        </Touchable>
       </Section>
     </ScreenScroll>
   );

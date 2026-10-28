@@ -1,3 +1,5 @@
+import { accessToken } from '../auth/authClient';
+
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
 const API_KEY = process.env.EXPO_PUBLIC_API_KEY ?? '';
 
@@ -11,10 +13,13 @@ export class ApiError extends Error {
 
 export const API_CONFIGURED = Boolean(API_BASE_URL);
 
-function headers(): Record<string, string> {
+async function headers(): Promise<Record<string, string>> {
+  const token = await accessToken();
   return {
     'Content-Type': 'application/json',
     ...(API_KEY ? { 'X-API-Key': API_KEY } : null),
+    // A API pode exigir a sessão (cota de IA por pessoa, não por chave do APK).
+    ...(token ? { Authorization: `Bearer ${token}` } : null),
   };
 }
 
@@ -29,7 +34,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_BASE_URL) throw new ApiError('API não configurada neste build.');
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: headers() });
+    response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: await headers() });
   } catch {
     throw new ApiError('network');
   }

@@ -15,6 +15,8 @@ const ASK =
 
 /** Nota a guardar, se a mensagem for um pedido de lembrar; senão null. */
 export function extractMemoryRequest(message: string): string | null {
+  // "lembra de mim?" é pergunta, não pedido para guardar.
+  if (/\?\s*$/.test(message)) return null;
   const m = message.trim().match(ASK);
   if (!m) return null;
   const note = m[1]

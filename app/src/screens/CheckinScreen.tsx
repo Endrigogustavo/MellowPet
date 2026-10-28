@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Easing, View } from 'react-native';
 
 import { Field } from '../components/Field';
 import { Icon } from '../components/Icon';
@@ -15,14 +15,13 @@ import {
   type Checkin,
   type CheckinTag,
 } from '../checkins/checkinClient';
-import { ICONS } from '../data/content';
+import { EXTRA_ICONS, ICONS } from '../data/content';
 import { EMOTIONS, FACE_ICON, type EmotionKey } from '../data/emotions';
 import { bumpProfileStats } from '../profile/profileClient';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK, hexA } from '../theme/palette';
 import MellowVoice, { isVoiceAvailable } from '../../modules/mellow-voice';
 import { suggestTags } from '../checkins/tagSuggest';
-import { EXTRA_ICONS } from '../data/content';
 
 /** XP por check-in. Menor que alimentar (6): é reflexão, não cuidado ativo —
  * mas tem de valer alguma coisa, senão ninguém volta. */
@@ -257,7 +256,7 @@ export function CheckinScreen() {
     setSleep(null);
   };
 
-  const remove = async (c: Checkin) => {
+  const removeNow = async (c: Checkin) => {
     setRecent((prev) => prev.filter((x) => x.id !== c.id));
     try {
       await deleteCheckin(c.id);
@@ -266,6 +265,12 @@ export function CheckinScreen() {
       reload();
     }
   };
+  // Apagar é definitivo (não existe editar): pede confirmação.
+  const remove = (c: Checkin) =>
+    Alert.alert('Apagar este check-in?', 'Não dá para desfazer.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Apagar', style: 'destructive', onPress: () => removeNow(c).catch(() => undefined) },
+    ]);
 
   const when = useMemo(
     () => (iso: string) => {

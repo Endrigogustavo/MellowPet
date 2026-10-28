@@ -116,7 +116,7 @@ export function MusicScreen() {
           </Txt>
           <Txt s={12} lh={1.5} c={T.t3} style={{ marginTop: 4 }}>
             Começa com uma música que combina com como você está agora e vai mudando, faixa a faixa, até onde você
-            quer chegar. Pular direto para a música "certa" costuma não funcionar.
+            quer chegar. Pular direto para a música “certa” costuma não funcionar.
           </Txt>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
             {(Object.keys(GOALS) as IsoGoal[]).map((goal) => (
@@ -139,7 +139,7 @@ export function MusicScreen() {
           {/* YouTube Music e Deezer não têm API pública para tocar de dentro do
               app; o link abre a busca do mesmo clima no app deles (ou no site). */}
           <Txt s={11.5} c={T.t3} style={{ marginTop: 14 }}>
-            Prefere outro app? Abra "{suggested.name}" lá:
+            Prefere outro app? Abra “{suggested.name}” lá:
           </Txt>
           <View style={{ flexDirection: 'row', gap: 16, marginTop: 6 }}>
             {[

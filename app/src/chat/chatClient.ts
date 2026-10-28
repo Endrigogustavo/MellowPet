@@ -11,9 +11,11 @@ const API_KEY = process.env.EXPO_PUBLIC_API_KEY ?? '';
 export class ChatError extends Error {}
 
 export function toApiHistory(history: { role: 'user' | 'bot'; content: string }[]) {
+  // Corta cada turno: uma mensagem longa antiga não pode fazer todos os
+  // envios seguintes serem recusados pela validação da API.
   return history.slice(-12).map(({ role, content }) => ({
     role: role === 'bot' ? 'assistant' : role,
-    content,
+    content: content.slice(0, 2000),
   }));
 }
 
@@ -22,7 +24,8 @@ export async function sendChatMessage(
   emotion: string,
   confidence: number,
   history: { role: 'user' | 'bot'; content: string }[],
-  memory: string[] = []
+  memory: string[] = [],
+  authToken: string | null = null
 ): Promise<{ content: string; provider: string; action: ChatAction | null }> {
   if (!API_BASE_URL) {
     throw new ChatError('API não configurada neste build (EXPO_PUBLIC_API_BASE_URL ausente).');
@@ -34,6 +37,7 @@ export async function sendChatMessage(
       headers: {
         'Content-Type': 'application/json',
         ...(API_KEY ? { 'X-API-Key': API_KEY } : null),
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : null),
       },
       body: JSON.stringify({
         message,
@@ -70,7 +74,8 @@ export function streamChatMessage(
   confidence: number,
   history: { role: 'user' | 'bot'; content: string }[],
   memory: string[],
-  onText: (textSoFar: string) => void
+  onText: (textSoFar: string) => void,
+  authToken: string | null = null
 ): Promise<{ content: string; provider: string; action: ChatAction | null }> {
   return new Promise((resolve, reject) => {
     if (!API_BASE_URL) {
@@ -108,6 +113,7 @@ export function streamChatMessage(
     xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.setRequestHeader('Accept', 'text/event-stream');
     if (API_KEY) xhr.setRequestHeader('X-API-Key', API_KEY);
+    if (authToken) xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
     xhr.timeout = 60_000;
     xhr.onprogress = consume;
     xhr.onload = () => {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Alert, View } from 'react-native';
 
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { Bar, Card, Chip, PrimaryButton, ScreenTitle, Touchable, Txt } from '../components/ui';
@@ -64,7 +64,11 @@ export function FairnessScreen() {
     setError(null);
     fetchPersonalAgreement(userId)
       .then(setPersonal)
-      .catch((e: Error) => setError(e.message));
+      .catch((e: Error) => {
+        // Sem isto o bloco "Com você" ficava girando para sempre.
+        setPersonal({ overall: { samples: 0, agree: 0, rate: null }, byEmotion: {} });
+        setError(e.message);
+      });
     loadAuditProfile(userId)
       .then((p) => {
         setProfile(p);
@@ -251,7 +255,7 @@ export function FairnessScreen() {
           </View>
 
           <PrimaryButton
-            label={busy ? 'Salvando…' : dirty ? 'Salvar' : 'Salvo'}
+            label={busy ? 'Salvando…' : dirty ? 'Salvar' : hasAny ? 'Salvo' : 'Escolha acima para salvar'}
             disabled={!dirty || busy}
             onPress={() => {
               save().catch(() => undefined);
@@ -260,9 +264,12 @@ export function FairnessScreen() {
           />
           {hasAny ? (
             <Touchable
-              onPress={() => {
-                erase().catch(() => undefined);
-              }}
+              onPress={() =>
+                Alert.alert('Apagar suas respostas?', 'Elas saem do relatório da comunidade.', [
+                  { text: 'Cancelar', style: 'cancel' },
+                  { text: 'Apagar', style: 'destructive', onPress: () => erase().catch(() => undefined) },
+                ])
+              }
               accessibilityLabel="Apagar meus dados da auditoria"
               style={{ marginTop: 12, alignSelf: 'center' }}
             >

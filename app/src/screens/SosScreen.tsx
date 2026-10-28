@@ -5,7 +5,7 @@ import { Linking, View } from 'react-native';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { Card, PrimaryButton, ScreenTitle, ToggleRow, Touchable, Txt } from '../components/ui';
 import { phoneDigits, sosText, whatsappLink } from '../integrations/sos';
-import { fetchSettings, type EmergencyContact } from '../settings/settingsClient';
+import { cachedContacts, fetchSettings, type EmergencyContact } from '../settings/settingsClient';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER } from '../theme/palette';
 
@@ -21,14 +21,22 @@ export function SosScreen() {
   const [withLocation, setWithLocation] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Primeiro a cópia do aparelho (funciona sem rede, que é justamente quando
+  // mais falta faz), depois a do servidor se vier.
   useEffect(() => {
     if (!state.userId) return;
-    fetchSettings(state.userId)
+    const userId = state.userId;
+    cachedContacts(userId).then((local) => setContacts((cur) => (cur.length ? cur : local)));
+    fetchSettings(userId)
       .then((s) => setContacts(s.emergency_contacts ?? []))
       .catch(() => undefined);
   }, [state.userId]);
 
-  const call = (number: string) => Linking.openURL(`tel:${number}`).catch(() => undefined);
+  const open = (url: string, what: string) =>
+    Linking.openURL(url).catch(() => setNotice(`Não consegui abrir ${what} neste celular. Tente ligar direto.`));
+  const call = (number: string) => open(`tel:${number}`, 'o telefone');
 
   const whatsapp = async (c: EmergencyContact) => {
     setBusy(c.contact);
@@ -48,8 +56,9 @@ export function SosScreen() {
     } finally {
       setBusy(null);
     }
+    if (withLocation && !coords) setNotice('Sem acesso à localização: a mensagem vai sem ela.');
     const link = whatsappLink(c.contact, sosText(coords));
-    if (link) Linking.openURL(link).catch(() => undefined);
+    if (link) open(link, 'o WhatsApp');
   };
 
   const phones = contacts.filter((c) => phoneDigits(c.contact));
@@ -97,15 +106,39 @@ export function SosScreen() {
               </View>
               <View style={{ gap: 8, marginTop: 10 }}>
                 {phones.map((c) => (
-                  <PrimaryButton
-                    key={c.contact}
-                    label={busy === c.contact ? 'Pegando localização…' : `WhatsApp para ${c.name}`}
-                    onPress={() => {
-                      whatsapp(c).catch(() => undefined);
-                    }}
-                  />
+                  <View key={c.contact} style={{ gap: 6 }}>
+                    <PrimaryButton
+                      label={busy === c.contact ? 'Pegando localização…' : `WhatsApp para ${c.name}`}
+                      disabled={busy !== null}
+                      onPress={() => {
+                        whatsapp(c).catch(() => undefined);
+                      }}
+                    />
+                    {/* Sem WhatsApp ou sem internet: ligar e SMS sempre funcionam. */}
+                    <View style={{ flexDirection: 'row', gap: 16, justifyContent: 'center' }}>
+                      <Touchable onPress={() => call(phoneDigits(c.contact)!)} accessibilityRole="button" accessibilityLabel={`Ligar para ${c.name}`}>
+                        <Txt s={12.5} w={800} c={T.pri}>
+                          Ligar
+                        </Txt>
+                      </Touchable>
+                      <Touchable
+                        onPress={() => open(`sms:${phoneDigits(c.contact)}?body=${encodeURIComponent(sosText())}`, 'as mensagens')}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Mandar SMS para ${c.name}`}
+                      >
+                        <Txt s={12.5} w={800} c={T.pri}>
+                          SMS
+                        </Txt>
+                      </Touchable>
+                    </View>
+                  </View>
                 ))}
               </View>
+              {notice ? (
+                <Txt s={12} lh={1.45} c={DANGER} style={{ marginTop: 10 }} accessibilityRole="alert">
+                  {notice}
+                </Txt>
+              ) : null}
             </>
           )}
         </Card>

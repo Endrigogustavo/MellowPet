@@ -95,8 +95,10 @@ export function CareSignupScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Touchable
             onPress={() =>
+              // A conta já existe neste ponto: voltar ao login sem sair deixava
+              // a sessão aberta por baixo. No passo 0, voltar é sair de verdade.
               step === 0
-                ? actions.go('login')
+                ? actions.logout().catch(() => undefined)
                 : actions.set((s) => ({ careStep: s.careStep - 1 }))
             }
             accessibilityLabel="Voltar"
@@ -280,8 +282,8 @@ export function CareSignupScreen() {
                 }}
               >
                 <Txt s={12} lh={1.55} c={T.t3}>
-                  O convite pode ser enviado agora. Enquanto ela não aceitar — e as permissões
-                  não estiverem configuradas — não há acesso a nenhum dado.
+                  O convite vale por 72 horas. Enquanto ela não aceitar, você não tem acesso a
+                  nenhum dado — e ela pode encerrar o vínculo quando quiser.
                 </Txt>
               </View>
             </View>
@@ -295,7 +297,8 @@ export function CareSignupScreen() {
               ? actions.setRole('care')
               : actions.set((s) => ({ careStep: s.careStep + 1 }))
           }
-          disabled={step === 2 && !inviteCode}
+          // O nome identifica a pessoa no painel e no seletor; vazio vira confusão.
+          disabled={(step === 2 && !inviteCode) || (step === 0 && !state.careName.trim())}
           style={{ marginTop: 18 }}
         />
       </View>

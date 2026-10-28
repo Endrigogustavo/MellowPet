@@ -1,51 +1,141 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import React, { useState } from 'react';
+import { View } from 'react-native';
 
 import { createSupportAction, listCareAlerts, updateCareAlert } from '../care/careClient';
-import { useCareLinks } from '../care/useCareLinks';
+import { formatInDeviceTimeZone } from '../care/careDateTime';
 import type { CareAlert } from '../care/careTypes';
-import { CareLinksErrorCard } from '../components/CareLinksErrorCard';
-import { CarePersonPicker } from '../components/CarePersonPicker';
-import { Card, ScreenTitle, Touchable, Txt } from '../components/ui';
+import { useCareResource } from '../care/useCareResource';
+import { ActionError, CareGate, ErrorCard, LoadingCard, useCurrentCareLink } from '../components/CareStates';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
+import { Card, ScreenTitle, Touchable, Txt } from '../components/ui';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK, WARN } from '../theme/palette';
 
-function when(iso: string) {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
+const STATUS_LABEL: Record<CareAlert['status'], string> = {
+  open: 'NOVO ALERTA',
+  acknowledged: 'EM ACOMPANHAMENTO',
+  resolved: 'RESOLVIDO',
+};
 
 export function CareAlertsScreen() {
   const { state, actions } = useApp();
   const { T } = useTheme();
-  const { links, loading: linksLoading, error: linksError, refresh: refreshLinks } = useCareLinks(state.userId, 'care');
-  const [alerts, setAlerts] = useState<CareAlert[] | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-  const current = useMemo(() => links.find((link) => link.id === state.person) ?? links[0], [links, state.person]);
-
-  const refresh = useCallback(() => {
-    setAlerts(null); setError(null);
-    if (!current?.cared_user_id) return;
-    listCareAlerts(current.cared_user_id).then(setAlerts).catch((reason) => setError(reason instanceof Error ? reason : new Error('Não foi possível carregar os alertas.')));
-  }, [current?.cared_user_id]);
-  useEffect(() => { refresh(); }, [refresh]);
+  const care = useCurrentCareLink();
+  const cared = care.current?.cared_user_id ?? null;
+  const alerts = useCareResource(cared, () => listCareAlerts(cared!));
+  // Trava por alerta: dois toques não registram a ação duas vezes.
+  const [busy, setBusy] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const change = async (alert: CareAlert, status: 'acknowledged' | 'resolved') => {
-    if (!state.userId) return;
+    if (!state.userId || busy || !care.current?.cared_user_id) return;
+    setBusy(alert.id);
+    setActionError(null);
     try {
       await updateCareAlert(alert.id, status, state.userId);
-      if (status === 'acknowledged' && current?.cared_user_id) await createSupportAction(current.cared_user_id, current.id, state.userId, 'Alerta reconhecido', alert.title);
-      setAlerts((items) => items?.map((item) => item.id === alert.id ? { ...item, status } : item) ?? null);
-    } catch (reason) { setError(reason instanceof Error ? reason : new Error('Não foi possível atualizar este alerta.')); }
+      alerts.setData((items) => items?.map((item) => (item.id === alert.id ? { ...item, status } : item)) ?? null);
+      if (status === 'acknowledged') {
+        // O alerta já mudou; se só o registro de apoio falhar, a lista fica.
+        await createSupportAction(care.current.cared_user_id, care.current.id, state.userId, 'Alerta reconhecido', alert.title).catch(
+          () => setActionError('O alerta foi marcado, mas não deu para registrar a ação de apoio.')
+        );
+      }
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : 'Não foi possível atualizar este alerta.');
+    } finally {
+      setBusy(null);
+    }
   };
 
-  return <ScreenScroll>
-    <ScreenTitle label="ALERTAS" title={current?.cared_name ? `Acompanhar\n${current.cared_name}` : 'Sinais para\nacompanhar'} />
-    <CarePersonPicker links={links} />
-    {linksLoading && links.length === 0 ? <Section top={0}><Card radius={24} padding={22} style={{ alignItems: 'center', gap: 9 }}><ActivityIndicator color={T.pri} /><Txt s={13} c={T.t3}>Carregando conexões…</Txt></Card></Section> : linksError ? <Section top={0}><CareLinksErrorCard error={linksError} onRetry={refreshLinks} /></Section> : !current ? <Section top={0}><Card radius={24} padding={20}><Txt s={14.5} w={800} c={T.t1}>Conecte uma pessoa para acompanhar alertas.</Txt></Card></Section> : error ? <Section top={0}><Card radius={24} padding={20} style={{ borderColor: DANGER }}><Txt s={14.5} w={800} c={DANGER}>Não foi possível carregar</Txt><Txt s={12.5} c={T.t3} style={{ marginTop: 6 }}>{error.message}</Txt><Touchable onPress={refresh} style={{ marginTop: 11 }}><Txt s={12.5} w={800} c={T.pri}>Tentar novamente</Txt></Touchable></Card></Section> : alerts === null ? <Section top={0}><Card radius={24} padding={22} style={{ alignItems: 'center', gap: 9 }}><ActivityIndicator color={T.pri} /><Txt s={13} c={T.t3}>Carregando alertas…</Txt></Card></Section> : alerts.length === 0 ? <Section top={0}><Card radius={24} padding={21}><Txt s={15} w={800} c={OK}>Nenhum alerta registrado</Txt><Txt s={12.5} lh={1.55} c={T.t3} style={{ marginTop: 6 }}>A ausência de alertas não resume o bem-estar da pessoa. Continue usando check-ins e o plano de cuidado.</Txt></Card></Section> : <Section top={0} gap={10}>{alerts.map((alert) => {
-      const color = alert.severity === 'urgent' ? DANGER : alert.severity === 'attention' ? WARN : T.pri;
-      return <Card key={alert.id} radius={22} padding={17} style={{ borderColor: alert.status === 'resolved' ? T.bd : color }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}><View style={{ flex: 1 }}><Txt s={11} w={800} c={color} ls={1.1}>{alert.status === 'resolved' ? 'RESOLVIDO' : alert.status === 'acknowledged' ? 'EM ACOMPANHAMENTO' : 'NOVO ALERTA'}</Txt><Txt s={15} w={800} c={T.t1} style={{ marginTop: 5 }}>{alert.title}</Txt></View><Txt s={10.5} c={T.t3}>{when(alert.occurred_at)}</Txt></View><Txt s={12.5} lh={1.55} c={T.t2} style={{ marginTop: 8 }}>{alert.detail}</Txt><Txt s={10.5} lh={1.45} c={T.t3} style={{ marginTop: 9 }}>Um alerta descreve um padrão de sinais e não uma emergência ou diagnóstico por si só.</Txt>{alert.status === 'open' ? <View style={{ flexDirection: 'row', gap: 9, marginTop: 13 }}><Touchable onPress={() => change(alert, 'acknowledged')} style={{ paddingVertical: 10, paddingHorizontal: 13, borderRadius: 12, backgroundColor: T.priL }}><Txt s={12} w={800} c={T.pri}>Marcar como visto</Txt></Touchable><Touchable onPress={() => actions.go('careplan')} style={{ paddingVertical: 10, paddingHorizontal: 13 }}><Txt s={12} w={800} c={T.t2}>Ver plano</Txt></Touchable></View> : alert.status === 'acknowledged' ? <Touchable onPress={() => change(alert, 'resolved')} style={{ marginTop: 13 }}><Txt s={12} w={800} c={OK}>Marcar como resolvido</Txt></Touchable> : null}</Card>;
-    })}</Section>}
-  </ScreenScroll>;
+  return (
+    <ScreenScroll>
+      <ScreenTitle label="ALERTAS" title={care.name ? `Acompanhar\n${care.name}` : 'Sinais para\nacompanhar'} />
+      <CareGate care={care} emptyText="Conecte uma pessoa para acompanhar alertas.">
+        {() => (
+          <>
+            {actionError ? (
+              <Section top={0}>
+                <ActionError message={actionError} onClose={() => setActionError(null)} />
+              </Section>
+            ) : null}
+            {alerts.error ? (
+              <Section top={actionError ? 10 : 0}>
+                <ErrorCard title="Não foi possível carregar os alertas" error={alerts.error} onRetry={alerts.refresh} />
+              </Section>
+            ) : alerts.data === null ? (
+              <Section top={0}>
+                <LoadingCard text="Carregando alertas…" />
+              </Section>
+            ) : alerts.data.length === 0 ? (
+              <Section top={0}>
+                <Card radius={24} padding={21}>
+                  <Txt s={15} w={800} c={OK}>
+                    Nenhum alerta registrado
+                  </Txt>
+                  <Txt s={12.5} lh={1.55} c={T.t3} style={{ marginTop: 6 }}>
+                    A ausência de alertas não resume o bem-estar da pessoa. Continue usando check-ins e o plano de cuidado.
+                  </Txt>
+                </Card>
+              </Section>
+            ) : (
+              <Section top={actionError ? 10 : 0} gap={10}>
+                {alerts.data.map((alert) => {
+                  const color = alert.severity === 'urgent' ? DANGER : alert.severity === 'attention' ? WARN : T.pri;
+                  const working = busy === alert.id;
+                  return (
+                    <Card key={alert.id} radius={22} padding={17} style={{ borderColor: alert.status === 'resolved' ? T.bd : color }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
+                        <View style={{ flex: 1 }}>
+                          <Txt s={11} w={800} c={color} ls={1.1}>
+                            {STATUS_LABEL[alert.status]}
+                          </Txt>
+                          <Txt s={15} w={800} c={T.t1} style={{ marginTop: 5 }}>
+                            {alert.title}
+                          </Txt>
+                        </View>
+                        <Txt s={10.5} c={T.t3}>
+                          {formatInDeviceTimeZone(alert.occurred_at)}
+                        </Txt>
+                      </View>
+                      <Txt s={12.5} lh={1.55} c={T.t2} style={{ marginTop: 8 }}>
+                        {alert.detail}
+                      </Txt>
+                      <Txt s={10.5} lh={1.45} c={T.t3} style={{ marginTop: 9 }}>
+                        Um alerta descreve um padrão de sinais e não uma emergência ou diagnóstico por si só.
+                      </Txt>
+                      {alert.status === 'open' ? (
+                        <View style={{ flexDirection: 'row', gap: 9, marginTop: 13 }}>
+                          <Touchable
+                            onPress={() => change(alert, 'acknowledged')}
+                            disabled={working}
+                            accessibilityRole="button"
+                            style={{ paddingVertical: 10, paddingHorizontal: 13, borderRadius: 12, backgroundColor: T.priL, opacity: working ? 0.5 : 1 }}
+                          >
+                            <Txt s={12} w={800} c={T.pri}>
+                              {working ? 'Marcando…' : 'Marcar como visto'}
+                            </Txt>
+                          </Touchable>
+                          <Touchable onPress={() => actions.go('careplan')} accessibilityRole="button" style={{ paddingVertical: 10, paddingHorizontal: 13 }}>
+                            <Txt s={12} w={800} c={T.t2}>
+                              Ver plano
+                            </Txt>
+                          </Touchable>
+                        </View>
+                      ) : alert.status === 'acknowledged' ? (
+                        <Touchable onPress={() => change(alert, 'resolved')} disabled={working} accessibilityRole="button" style={{ marginTop: 13 }}>
+                          <Txt s={12} w={800} c={OK}>
+                            {working ? 'Salvando…' : 'Marcar como resolvido'}
+                          </Txt>
+                        </Touchable>
+                      ) : null}
+                    </Card>
+                  );
+                })}
+              </Section>
+            )}
+          </>
+        )}
+      </CareGate>
+    </ScreenScroll>
+  );
 }

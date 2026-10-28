@@ -87,6 +87,9 @@ function DashboardEntry() {
   return state.role === 'care' ? <CareDataScreen /> : <DashboardScreen />;
 }
 
+/** Únicas telas acessíveis sem sessão. */
+const PUBLIC_SCREENS: Screen[] = ['splash', 'login'];
+
 /** Telas em que a barra de abas fica escondida. */
 const NO_TABS: Screen[] = ['splash', 'onboarding', 'chat', 'login', 'caresignup', 'vision', 'spotifyplayer'];
 
@@ -95,9 +98,14 @@ export function RootNavigator() {
   const { T, isDark } = useTheme();
 
   const home: Screen = state.role === 'care' ? 'care' : 'home';
-  const atRoot = state.screen === home || state.screen === 'splash';
+  // Guarda de rota: sem sessão só existem a abertura e o login. Antes o
+  // "voltar" do login (ou um link de widget) abria a Home com userId nulo.
+  const signedOut = !state.userId;
+  const screen: Screen = signedOut && !PUBLIC_SCREENS.includes(state.screen) ? 'login' : state.screen;
+  const atRoot = screen === home || screen === 'splash' || signedOut;
 
-  // Botão físico de voltar no Android: cai para a tela inicial do perfil.
+  // Botão físico de voltar no Android: cai para a tela inicial do perfil;
+  // sem sessão (ou já na inicial), sai do app.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (atRoot) return false;
@@ -107,10 +115,10 @@ export function RootNavigator() {
     return () => sub.remove();
   }, [atRoot, home, actions]);
 
-  const Current = SCREENS[state.screen];
-  const showTabs = !NO_TABS.includes(state.screen);
-  const showCoach = state.coach < COACH.length && state.screen === 'home';
-  const onSplash = state.screen === 'splash';
+  const Current = SCREENS[screen];
+  const showTabs = !NO_TABS.includes(screen) && !signedOut;
+  const showCoach = state.coach < COACH.length && screen === 'home';
+  const onSplash = screen === 'splash';
 
   // Troca de tela até aqui era um corte seco (componente inteiro trocado no
   // mesmo frame). O fade não reanima a tela em si, só suaviza a entrada.
@@ -118,7 +126,7 @@ export function RootNavigator() {
   useEffect(() => {
     fade.setValue(0);
     Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }).start();
-  }, [state.screen, fade]);
+  }, [screen, fade]);
 
   return (
     <DockInsetProvider>

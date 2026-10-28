@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
   android:description="@string/mellow_nfc_description"
-  android:requireDeviceUnlock="false">
+  android:requireDeviceUnlock="true">
   <aid-group android:category="other" android:description="@string/mellow_nfc_description">
     <aid-filter android:name="F04D454C4C4F57" />
   </aid-group>

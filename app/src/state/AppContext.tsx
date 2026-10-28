@@ -28,11 +28,12 @@ import {
   login as apiLogin,
   logout as apiLogout,
   signup as apiSignup,
+  accessToken,
   subscribeToSignOut,
 } from '../auth/authClient';
 import { SERVER_CONFIGURED, sendChatMessage, streamChatMessage } from '../chat/chatClient';
 import { fetchToolContent } from '../tools/toolsClient';
-import { listLinks } from '../care/careClient';
+import { acceptInvite, listLinks } from '../care/careClient';
 import { bumpProfileStats, fetchProfileStats, levelFromXp } from '../profile/profileClient';
 import { grewUp, localDay, stageForDays, type PetStage } from '../pet/growth';
 import { registerMeal, type MealRecord } from '../pet/feeding';
@@ -133,6 +134,8 @@ export type Density = 'simples' | 'completo';
 export type ThemeName = 'light' | 'dark';
 
 export type ChatMessage = {
+  /** Identifica a bolha que está sendo escrita (streaming). */
+  id?: number;
   role: 'user' | 'bot';
   content: string;
   /** De onde veio a resposta — o chat mostra um selo "no aparelho". */
@@ -166,6 +169,12 @@ export type State = {
   meals: MealRecord | null;
   /** Microcheck-ins em horários sorteados (opt-in deste aparelho). */
   emaEnabled: boolean;
+  /** O Mellow ainda está respondendo: novos envios esperam. */
+  replying: boolean;
+  /** Widget tentou alimentar além do limite do dia: a Home mostra o aviso. */
+  fedFull: boolean;
+  /** Resultado do código de convite colado no cadastro. */
+  inviteNotice: string | null;
   /** Memória do Mellow ligada (consentimento) e as notas pedidas pela pessoa. */
   memoryEnabled: boolean;
   memoryNotes: string[];
@@ -309,6 +318,9 @@ const INITIAL: State = {
   meals: null,
   emaEnabled: false,
   habits: EMPTY_HABITS,
+  fedFull: false,
+  replying: false,
+  inviteNotice: null,
   memoryEnabled: false,
   memoryNotes: [],
   speakReplies: false,
@@ -505,26 +517,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   /**
-   * Única porta de entrada para alimentar o pet (Home e widget). Aplica o
-   * limite de refeições do dia; devolve o registro novo ou null se já comeu.
-   * Atualiza `ref` na hora para dois toques rápidos não passarem do limite.
-   */
-  const consumeMeal = (): MealRecord | null => {
-    const next = registerMeal(ref.current.meals, localDay());
-    if (!next) return null;
-    updateHabits((h) => recordHabit(h, 'feed', localDay()));
-    ref.current = { ...ref.current, meals: next };
-    dispatch({ meals: next });
-    const userId = ref.current.userId;
-    if (userId) saveMeals(userId, next).catch(() => undefined);
-    return next;
-  };
-
-  /**
    * Toda escrita no diário passa aqui: atualiza `ref` na hora (dois toques
    * seguidos não se perdem), persiste e detecta acessório recém-liberado.
    */
-  const updateHabits = (fn: (h: Habits) => Habits) => {
+  const updateHabits = useCallback((fn: (h: Habits) => Habits) => {
     const before = ref.current.habits;
     const after = fn(before);
     if (after === before) return;
@@ -533,7 +529,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch(unlocked ? { habits: after, unlockEvent: unlocked } : { habits: after });
     const userId = ref.current.userId;
     if (userId) saveHabits(userId, after).catch(() => undefined);
-  };
+  }, []);
+
+  /**
+   * Única porta de entrada para alimentar o pet (Home e widget). Aplica o
+   * limite de refeições do dia; devolve o registro novo ou null se já comeu.
+   * Atualiza `ref` na hora para dois toques rápidos não passarem do limite.
+   */
+  const consumeMeal = useCallback((): MealRecord | null => {
+    const next = registerMeal(ref.current.meals, localDay());
+    if (!next) return null;
+    updateHabits((h) => recordHabit(h, 'feed', localDay()));
+    ref.current = { ...ref.current, meals: next };
+    dispatch({ meals: next });
+    const userId = ref.current.userId;
+    if (userId) saveMeals(userId, next).catch(() => undefined);
+    return next;
+  }, [updateHabits]);
 
   /** Timers pendentes, limpos ao desmontar. */
   const pending = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -607,6 +619,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state.userId, state.screen]);
 
   const encounterStage = stageForDays(state.careDays);
+  const encounterTimes = useRef<number[]>([]);
   useEffect(() => {
     // Ajustes também: é de lá que se dispara o encontro por NFC.
     const encounterScreen = state.screen === 'home' || state.screen === 'settings';
@@ -617,6 +630,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     startEncounters(
       { petName: state.petName, petType: state.petType, stage: encounterStage },
       (card) => {
+        const now = Date.now();
+        encounterTimes.current = encounterTimes.current.filter((t) => now - t < 3600_000);
+        if (encounterTimes.current.length >= 10) return;
+        encounterTimes.current.push(now);
         Vibration.vibrate([0, 40, 60, 40]);
         dispatch((s) => ({ visitor: card, xp: s.xp + 3 }));
         updateHabits((h) => recordHabit(h, 'encounter', localDay()));
@@ -745,11 +762,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(
     () =>
       subscribeToSignOut(() => {
+        // Tudo que é da conta sai junto (histórico do chat, pessoa
+        // acompanhada, memória, pet, papel); só ficam preferências do aparelho.
+        Speech.stop();
         dispatch((s) => ({
-          userId: null,
+          ...INITIAL,
+          theme: s.theme,
+          density: s.density,
+          encountersEnabled: s.encountersEnabled,
+          emaEnabled: s.emaEnabled,
+          speakReplies: s.speakReplies,
+          localModel: s.localModel,
+          privateMode: s.privateMode,
+          dismissedCards: s.dismissedCards,
           authRestored: true,
-          email: '',
-          pass: '',
           screen: 'login',
           navSeq: s.navSeq + 1,
         }));
@@ -761,6 +787,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    * link. `getInitialURL` cobre o caso do Android matar o processo enquanto
    * o navegador estava em primeiro plano; o listener cobre o caso comum de
    * app só suspenso. */
+  const widgetMoodAt = useRef(0);
+  const widgetCareAt = useRef(0);
   useEffect(() => {
     const handleUrl = (url: string) => {
       if (url.startsWith('mellowpet://widget/')) {
@@ -773,9 +801,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             dispatch((s) => ({ screen: target as Screen, navSeq: s.navSeq + 1 }));
           }
         } else if (url.includes('/widget/mood')) {
-          const value = params.get('value') as EmotionKey | null;
+          // Qualquer app pode abrir este link: só aceita emoção conhecida e no
+          // máximo um registro por minuto (senão forjava alertas para o cuidador).
+          const raw = params.get('value');
+          const value = raw && Object.prototype.hasOwnProperty.call(EMOTIONS, raw) && raw !== 'unknown' ? (raw as EmotionKey) : null;
           const userId = ref.current.userId;
-          if (value && userId) logManualEmotion(userId, value).catch(() => undefined);
+          const now = Date.now();
+          if (value && userId && now - widgetMoodAt.current > 60_000) {
+            widgetMoodAt.current = now;
+            logManualEmotion(userId, value).catch(() => undefined);
+          }
           dispatch((s) => ({
             observedExpression: value ?? s.observedExpression,
             screen: 'home',
@@ -794,9 +829,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   ? { xp: 3 }
                   : null;
           if (!delta) return;
+          // XP pelo link é limitado: no máximo um cuidado a cada 30 s.
+          if (Date.now() - widgetCareAt.current < 30_000) return;
+          widgetCareAt.current = Date.now();
           if (action === 'feed' && !consumeMeal()) {
-            // Já comeu o bastante hoje: abre a Home, que explica, sem dar XP.
-            dispatch((s) => ({ screen: 'home', navSeq: s.navSeq + 1 }));
+            // Já comeu o bastante hoje: a Home abre mostrando o aviso.
+            dispatch((s) => ({ screen: 'home', navSeq: s.navSeq + 1, fedFull: true }));
             return;
           }
           if (action !== 'feed') updateHabits((h) => recordHabit(h, action === 'play' ? 'play' : 'rest', localDay()));
@@ -835,7 +873,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url));
     return () => subscription.remove();
-  }, []);
+  }, [consumeMeal, updateHabits]);
 
   // Toque numa notificação: microcheck-in abre o check-in; pausa de água
   // volta para a Home (o pet comemora a pausa por lá).
@@ -911,7 +949,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       send: () => {
         const s = ref.current;
         const text = s.chatInput.trim();
-        if (!text || s.typing) return;
+        // `typing` some na primeira palavra; `replying` só quando a resposta
+        // termina — enviar no meio fazia o stream sobrescrever a mensagem nova.
+        if (!text || s.typing || s.replying) return;
         const history = s.messages;
         const emotion = s.observedExpression;
         const confidence = s.signalConfidence;
@@ -920,7 +960,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           messages: [...s.messages, { role: 'user', content: text }],
           chatInput: '',
           typing: true,
+          replying: true,
         });
+        const botId = Date.now() + Math.random();
+        const done = () => dispatch({ typing: false, replying: false });
 
         const speak = (content: string) => {
           if (!ref.current.speakReplies) return;
@@ -928,16 +971,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           Speech.speak(content, { language: 'pt-BR', rate: 1.0, pitch: 1.15 });
         };
         const reply = (content: string, source: ChatMessage['source'], action: ChatAction | null = null) => {
-          dispatch((cur) => ({ typing: false, messages: [...cur.messages, { role: 'bot', content, source, action }] }));
+          dispatch((cur) => ({ typing: false, messages: [...cur.messages, { id: botId, role: 'bot', content, source, action }] }));
           speak(content);
+          done();
         };
+        // Atualiza a bolha DESTA resposta pelo id (não "a última": se a conversa
+        // foi limpa no meio, a resposta simplesmente não reaparece).
         const setLast = (content: string, source: ChatMessage['source'], action: ChatAction | null = null) =>
-          dispatch((cur) => {
-            const messages = [...cur.messages];
-            messages[messages.length - 1] = { role: 'bot', content, source, action };
-            return { typing: false, messages };
-          });
-        const dropLast = () => dispatch((cur) => ({ messages: cur.messages.slice(0, -1) }));
+          dispatch((cur) => ({
+            typing: false,
+            messages: cur.messages.map((m) => (m.id === botId ? { id: botId, role: 'bot', content, source, action } : m)),
+          }));
+        const dropLast = () => dispatch((cur) => ({ messages: cur.messages.filter((m) => m.id !== botId) }));
         const canned = () => reply(REPLIES[emotion], 'canned');
 
         // "Mellow, lembra que…": só guarda com a memória ligada.
@@ -986,7 +1031,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (text) {
               if (!shown) {
                 shown = true;
-                dispatch((cur) => ({ typing: false, messages: [...cur.messages, { role: 'bot', content: text, source: 'device' }] }));
+                dispatch((cur) => ({ typing: false, messages: [...cur.messages, { id: botId, role: 'bot', content: text, source: 'device' }] }));
               } else {
                 setLast(text, 'device');
               }
@@ -997,6 +1042,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               if (shown) {
                 setLast(clean || REPLIES[emotion], 'device', action);
                 speak(clean || REPLIES[emotion]);
+                done();
               } else {
                 show(clean || REPLIES[emotion], action);
               }
@@ -1028,11 +1074,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (started) {
             setLast(clean, provider === 'crisis' ? 'crisis' : 'server', action);
             speak(clean);
+            done();
           } else {
             reply(clean, provider === 'crisis' ? 'crisis' : 'server', action);
           }
         };
-        streamChatMessage(text, emotion, confidence, history, memory, (soFar) => {
+        accessToken().then((token) => streamChatMessage(text, emotion, confidence, history, memory, (soFar) => {
           const shown = splitAction(soFar).text;
           // Só cria a bolha com texto de verdade; até lá fica o "digitando".
           if (!shown) return;
@@ -1040,17 +1087,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             started = true;
             dispatch((cur) => ({
               typing: false,
-              messages: [...cur.messages, { role: 'bot', content: shown, source: 'server' }],
+              messages: [...cur.messages, { id: botId, role: 'bot', content: shown, source: 'server' }],
             }));
           } else {
             setLast(shown, 'server');
           }
-        })
+        }, token))
           .then(({ content, provider, action }) => finishServer(content, provider, action))
           .catch(() => {
-            if (started) return; // já mostrou parte da resposta; fica com ela
+            if (started) {
+              done(); // já mostrou parte da resposta; fica com ela
+              return;
+            }
             // Streaming indisponível (proxy, versão antiga da API): pedido normal.
-            sendChatMessage(text, emotion, confidence, history, memory)
+            accessToken()
+              .then((token) => sendChatMessage(text, emotion, confidence, history, memory, token))
               .then(({ content, provider, action }) => finishServer(content, provider, action))
               .catch(() => {
                 // Rede ou servidor fora: modelo local se houver, senão as fixas.
@@ -1168,7 +1219,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             coach: s.signup && !isCareSignup ? 0 : cur.coach,
             navSeq: cur.navSeq + 1,
           }));
-          listLinks(user.userId, 'user')
+          // Código de convite colado no cadastro: conecta com o cuidador já.
+          const code = s.signup && !isCareSignup ? s.pairCode.trim() : '';
+          const linkCheck = code
+            ? acceptInvite(code, user.userId)
+                .then(() => dispatch({ linked: true, pairCode: '', inviteNotice: 'Pronto: você está conectado ao seu cuidador.' }))
+                .catch((e: Error) => dispatch({ inviteNotice: `O código de convite não funcionou: ${e.message}` }))
+            : Promise.resolve();
+          linkCheck
+            .then(() => listLinks(user.userId, 'user'))
             .then((res) => dispatch({ linked: res.links.length > 0 }))
             .catch(() => undefined);
           fetchProfileStats(user.userId).then((stats) => dispatch(stats));
@@ -1303,7 +1362,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await apiLogout();
       },
     };
-  }, [later]);
+  }, [later, consumeMeal, updateHabits]);
 
   const value = useMemo(() => ({ state, actions }), [state, actions]);
 

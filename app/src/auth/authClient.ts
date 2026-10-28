@@ -1,3 +1,4 @@
+import * as SecureStore from 'expo-secure-store';
 import type { AuthError as SupabaseAuthError } from '@supabase/supabase-js';
 
 import { supabase, SUPABASE_CONFIGURED } from '../supabase/client';
@@ -63,10 +64,27 @@ function mapAuthError(error: SupabaseAuthError): string {
   return `Não foi possível continuar: ${error.message}`;
 }
 
-async function fetchProfile(userId: string): Promise<{ displayName: string | null; role: AuthRole }> {
-  const { data } = await supabase.from('profiles').select('display_name, role').eq('id', userId).single();
-  const role = data?.role === 'care' ? 'care' : 'user';
-  return { displayName: data?.display_name ?? null, role };
+const roleKey = (userId: string) => `mellowpet.role.v1.${encodeURIComponent(userId).slice(0, 120)}`;
+
+/**
+ * Perfil (nome e papel). Sem rede, o papel vem do último conhecido neste
+ * aparelho ou dos metadados da conta — antes caía em 'user' e um cuidador
+ * abria a Home do bichinho (e a câmera) só por estar offline.
+ */
+async function fetchProfile(
+  userId: string,
+  metaRole?: unknown
+): Promise<{ displayName: string | null; role: AuthRole }> {
+  const { data, error } = await supabase.from('profiles').select('display_name, role').eq('id', userId).single();
+  if (!error && data) {
+    const role: AuthRole = data.role === 'care' ? 'care' : 'user';
+    SecureStore.setItemAsync(roleKey(userId), role).catch(() => undefined);
+    return { displayName: data.display_name ?? null, role };
+  }
+  const cached = await SecureStore.getItemAsync(roleKey(userId)).catch(() => null);
+  if (cached === 'care' || cached === 'user') return { displayName: null, role: cached };
+  if (metaRole === 'care' || metaRole === 'user') return { displayName: null, role: metaRole };
+  throw new AuthError('Não foi possível carregar seu perfil. Verifique a conexão e tente de novo.');
 }
 
 export async function signup(
@@ -106,7 +124,7 @@ export async function login(email: string, password: string): Promise<AuthUser> 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new AuthError(mapAuthError(error));
   if (!data.user) throw new AuthError('Não foi possível entrar.');
-  const profile = await fetchProfile(data.user.id);
+  const profile = await fetchProfile(data.user.id, data.user.user_metadata?.role);
   return {
     userId: data.user.id,
     email: data.user.email ?? email,
@@ -120,7 +138,7 @@ export async function loadStoredSession(): Promise<AuthUser | null> {
   const { data } = await supabase.auth.getSession();
   const user = data.session?.user;
   if (!user) return null;
-  const profile = await fetchProfile(user.id);
+  const profile = await fetchProfile(user.id, user.user_metadata?.role);
   return {
     userId: user.id,
     email: user.email ?? '',
@@ -141,4 +159,15 @@ export function subscribeToSignOut(onSignedOut: () => void): () => void {
     if (event === 'SIGNED_OUT') onSignedOut();
   });
   return () => data.subscription.unsubscribe();
+}
+
+/** Token da sessão para a API do MellowPet (cota de IA por pessoa). */
+export async function accessToken(): Promise<string | null> {
+  if (!SUPABASE_CONFIGURED) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  } catch {
+    return null;
+  }
 }
