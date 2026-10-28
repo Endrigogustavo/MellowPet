@@ -113,6 +113,7 @@ export type Screen =
   | 'fairness'
   | 'lullaby'
   | 'sos'
+  | 'caremirror'
   | 'groups'
   | 'crisisplan'
   | 'wardrobe'
@@ -152,6 +153,8 @@ export type State = {
   screen: Screen;
   /** Incrementa a cada navegação; usado só para re-disparar a animação de entrada. */
   navSeq: number;
+  /** Telas anteriores (para o "voltar" levar aonde a pessoa estava). */
+  history: Screen[];
 
   petName: string;
   petType: PetKey;
@@ -307,6 +310,7 @@ const INITIAL: State = {
   density: 'completo',
   screen: 'splash',
   navSeq: 0,
+  history: [],
 
   petName: 'Mellow',
   petType: 'seal',
@@ -419,8 +423,17 @@ const INITIAL: State = {
 
 type Patch = Partial<State> | ((s: State) => Partial<State>);
 
+/** Telas que não entram no histórico (não faz sentido "voltar" para elas). */
+const NO_HISTORY: Screen[] = ['splash', 'login', 'onboarding', 'caresignup'];
+
 function reducer(s: State, patch: Patch): State {
-  const changes = typeof patch === 'function' ? patch(s) : patch;
+  let changes = typeof patch === 'function' ? patch(s) : patch;
+  // Toda troca de tela empilha a anterior, venha de onde vier (botão,
+  // notificação, widget). Quem já define `history` (voltar, abas) manda.
+  if (changes.screen && changes.screen !== s.screen && !('history' in changes)) {
+    const previous = NO_HISTORY.includes(s.screen) ? s.history : [...s.history, s.screen];
+    changes = { ...changes, history: previous.slice(-20) };
+  }
   const keys = Object.keys(changes) as (keyof State)[];
   if (keys.length === 0 || keys.every((key) => Object.is(s[key], changes[key]))) {
     return s;
@@ -457,6 +470,10 @@ function loadPetIdentity(userId: string, apply: (patch: Partial<State>) => void)
 export type Actions = {
   set: (patch: Patch) => void;
   go: (screen: Screen) => void;
+  /** Volta para a tela anterior; devolve false se não há para onde voltar. */
+  back: () => boolean;
+  /** Troca de aba: recomeça o histórico a partir dela. */
+  goTab: (screen: Screen) => void;
   pet: () => void;
   send: () => void;
   sendBot: (content: string, screen?: Screen) => void;
@@ -613,9 +630,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const target = pendingScreen.current;
-    if (!target || !state.userId || state.screen !== 'home') return;
+    // A tela inicial do cuidador é 'care'; a da pessoa, 'home'.
+    if (!target || !state.userId || (state.screen !== 'home' && state.screen !== 'care')) return;
     pendingScreen.current = null;
-    if (target !== 'home') dispatch((s) => ({ screen: target, navSeq: s.navSeq + 1 }));
+    if (target !== state.screen) dispatch((s) => ({ screen: target, navSeq: s.navSeq + 1 }));
   }, [state.userId, state.screen]);
 
   const encounterStage = stageForDays(state.careDays);
@@ -882,7 +900,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const pendingScreen = useRef<Screen | null>(null);
   useEffect(() => {
     const open = (data: Record<string, unknown> | undefined) => {
-      const target: Screen | null = data?.kind === 'ema' ? 'checkin' : data?.kind === 'water' ? 'home' : null;
+      const kind = data?.kind;
+      const target: Screen | null =
+        kind === 'ema'
+          ? 'checkin'
+          : kind === 'water' || kind === 'care_gestures'
+            ? 'home'
+            : kind === 'care_alert' || kind === 'care_alerts'
+              ? 'carealerts'
+              : kind === 'care_request' || kind === 'care_requests'
+                ? 'care'
+                : null;
       if (!target) return;
       if (ref.current.userId && ref.current.screen !== 'splash') {
         dispatch((s) => ({ screen: target, navSeq: s.navSeq + 1 }));
@@ -934,6 +962,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const go = (screen: Screen) => dispatch((s) => ({ screen, navSeq: s.navSeq + 1 }));
 
     return {
+      back: () => {
+        const history = ref.current.history;
+        if (history.length === 0) return false;
+        const target = history[history.length - 1];
+        dispatch((s) => ({ screen: target, history: s.history.slice(0, -1), navSeq: s.navSeq + 1 }));
+        return true;
+      },
+
+      goTab: (screen) => dispatch((s) => ({ screen, history: [], navSeq: s.navSeq + 1 })),
+
       set,
       go,
 

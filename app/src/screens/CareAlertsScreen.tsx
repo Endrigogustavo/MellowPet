@@ -4,6 +4,9 @@ import { View } from 'react-native';
 import { createSupportAction, listCareAlerts, updateCareAlert } from '../care/careClient';
 import { formatInDeviceTimeZone } from '../care/careDateTime';
 import type { CareAlert } from '../care/careTypes';
+import { FEEDBACK_LABEL, giveAlertFeedback, type AlertFeedback } from '../care/presenceClient';
+import { Icon } from '../components/Icon';
+import { EXTRA_ICONS } from '../data/content';
 import { useCareResource } from '../care/useCareResource';
 import { ActionError, CareGate, ErrorCard, LoadingCard, useCurrentCareLink } from '../components/CareStates';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
@@ -27,13 +30,16 @@ export function CareAlertsScreen() {
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const change = async (alert: CareAlert, status: 'acknowledged' | 'resolved') => {
+  const change = async (alert: CareAlert, status: 'acknowledged' | 'resolved', feedback?: AlertFeedback) => {
     if (!state.userId || busy || !care.current?.cared_user_id) return;
     setBusy(alert.id);
     setActionError(null);
     try {
       await updateCareAlert(alert.id, status, state.userId);
-      alerts.setData((items) => items?.map((item) => (item.id === alert.id ? { ...item, status } : item)) ?? null);
+      alerts.setData((items) => items?.map((item) => (item.id === alert.id ? { ...item, status, feedback: feedback ?? item.feedback } : item)) ?? null);
+      // O retorno ajusta o limiar deste vínculo (falsos alarmes deixam o
+      // alerta mais exigente) e mede a precisão dos alertas.
+      if (feedback) await giveAlertFeedback(alert.id, feedback).catch(() => setActionError('O alerta foi resolvido, mas o retorno não foi salvo.'));
       if (status === 'acknowledged') {
         // O alerta já mudou; se só o registro de apoio falhar, a lista fica.
         await createSupportAction(care.current.cared_user_id, care.current.id, state.userId, 'Alerta reconhecido', alert.title).catch(
@@ -86,9 +92,12 @@ export function CareAlertsScreen() {
                     <Card key={alert.id} radius={22} padding={17} style={{ borderColor: alert.status === 'resolved' ? T.bd : color }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
                         <View style={{ flex: 1 }}>
-                          <Txt s={11} w={800} c={color} ls={1.1}>
-                            {STATUS_LABEL[alert.status]}
-                          </Txt>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            {alert.status !== 'resolved' ? <Icon d={EXTRA_ICONS.warning} size={14} color={color} sw={2} /> : null}
+                            <Txt s={11} w={800} c={color} ls={1.1}>
+                              {STATUS_LABEL[alert.status]}
+                            </Txt>
+                          </View>
                           <Txt s={15} w={800} c={T.t1} style={{ marginTop: 5 }}>
                             {alert.title}
                           </Txt>
@@ -122,11 +131,30 @@ export function CareAlertsScreen() {
                           </Touchable>
                         </View>
                       ) : alert.status === 'acknowledged' ? (
-                        <Touchable onPress={() => change(alert, 'resolved')} disabled={working} accessibilityRole="button" style={{ marginTop: 13 }}>
-                          <Txt s={12} w={800} c={OK}>
-                            {working ? 'Salvando…' : 'Marcar como resolvido'}
+                        <View style={{ marginTop: 13 }}>
+                          <Txt s={11.5} w={800} c={T.t2}>
+                            Resolver — este alerta foi:
                           </Txt>
-                        </Touchable>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                            {(Object.keys(FEEDBACK_LABEL) as AlertFeedback[]).map((f) => (
+                              <Touchable
+                                key={f}
+                                onPress={() => change(alert, 'resolved', f)}
+                                disabled={working}
+                                accessibilityRole="button"
+                                style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: T.priL, opacity: working ? 0.5 : 1 }}
+                              >
+                                <Txt s={12} w={800} c={T.pri}>
+                                  {FEEDBACK_LABEL[f]}
+                                </Txt>
+                              </Touchable>
+                            ))}
+                          </View>
+                        </View>
+                      ) : alert.feedback ? (
+                        <Txt s={11} c={OK} style={{ marginTop: 10 }}>
+                          Resolvido · {FEEDBACK_LABEL[alert.feedback]}
+                        </Txt>
                       ) : null}
                     </Card>
                   );

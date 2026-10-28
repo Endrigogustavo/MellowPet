@@ -37,6 +37,7 @@ import {
   getBackgroundVision,
   setBackgroundVision,
 } from '../vision/backgroundVision';
+import { PauseSharing } from '../components/CaredPresence';
 
 export function SettingsScreen() {
   const { state, actions } = useApp();
@@ -499,6 +500,16 @@ export function SettingsScreen() {
             ) : null}
           </View>
 
+          {primaryLink ? (
+            <>
+              <PauseSharing link={primaryLink} onChange={() => refreshLinks().catch(() => undefined)} />
+              <Touchable onPress={() => actions.go('caremirror')} accessibilityRole="button" style={{ marginTop: 12 }}>
+                <Txt s={12.5} w={800} c={T.pri}>
+                  Ver o que meu cuidador vê
+                </Txt>
+              </Touchable>
+            </>
+          ) : null}
           <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>
             A conexão é sempre sua escolha. Ao desconectar, o painel dela fica vazio na hora.
           </Txt>

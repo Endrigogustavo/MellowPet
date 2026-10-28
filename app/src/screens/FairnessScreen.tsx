@@ -24,7 +24,7 @@ import {
   saveAuditProfile,
 } from '../vision/fairnessClient';
 import { Icon } from '../components/Icon';
-import { ICONS } from '../data/content';
+import { EXTRA_ICONS } from '../data/content';
 
 /**
  * "A leitura é justa com você?" — auditoria de viés.
@@ -206,7 +206,7 @@ export function FairnessScreen() {
                       <Txt s={12} w={800} c={g.flagged ? DANGER : T.t1}>
                         {pct(g.rate)}
                       </Txt>
-                      {g.flagged ? <Icon d={ICONS.alert} size={13} color={DANGER} sw={2} /> : null}
+                      {g.flagged ? <Icon d={EXTRA_ICONS.warning} size={14} color={DANGER} sw={2} /> : null}
                     </View>
                   </View>
                 ))}

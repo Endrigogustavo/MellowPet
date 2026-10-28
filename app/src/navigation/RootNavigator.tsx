@@ -44,6 +44,7 @@ import { VisionEngine } from '../vision/VisionEngine';
 import { CrisisPlanScreen } from '../screens/CrisisPlanScreen';
 import { SosScreen } from '../screens/SosScreen';
 import { GroupsScreen } from '../screens/GroupsScreen';
+import { CareMirrorScreen } from '../screens/CareMirrorScreen';
 
 const SCREENS: Record<Screen, React.ComponentType> = {
   splash: SplashScreen,
@@ -65,6 +66,7 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   fairness: FairnessScreen,
   lullaby: LullabyScreen,
   sos: SosScreen,
+  caremirror: CareMirrorScreen,
   groups: GroupsScreen,
   crisisplan: CrisisPlanScreen,
   wardrobe: WardrobeScreen,
@@ -108,12 +110,15 @@ export function RootNavigator() {
   // sem sessão (ou já na inicial), sai do app.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (signedOut) return false;
+      // Primeiro a tela anterior de verdade; sem histórico, a inicial; nela, sai.
+      if (actions.back()) return true;
       if (atRoot) return false;
-      actions.go(home);
+      actions.goTab(home);
       return true;
     });
     return () => sub.remove();
-  }, [atRoot, home, actions]);
+  }, [atRoot, home, actions, signedOut]);
 
   const Current = SCREENS[screen];
   const showTabs = !NO_TABS.includes(screen) && !signedOut;

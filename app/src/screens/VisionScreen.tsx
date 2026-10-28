@@ -67,7 +67,7 @@ export function VisionScreen() {
       <SafeAreaView style={styles.overlay} pointerEvents="box-none">
         <View style={styles.header}>
           <Touchable
-            onPress={() => actions.go('home')}
+            onPress={() => actions.back() || actions.goTab('home')}
             style={styles.closeButton}
             accessibilityLabel="Voltar"
           >

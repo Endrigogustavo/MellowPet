@@ -20,6 +20,7 @@ import { MEALS_PER_DAY, mealsLeft } from '../pet/feeding';
 import { useApp, useTheme } from '../state/AppContext';
 import { OK } from '../theme/palette';
 import { DivergenceCard } from '../components/DivergenceCard';
+import { GestureDelivery, NeedYouCard } from '../components/CaredPresence';
 
 /** Botão redondo de 44px do cabeçalho. */
 function HeaderButton({ d, onPress, label }: { d: string; onPress: () => void; label: string }) {
@@ -301,7 +302,13 @@ export function HomeScreen() {
         </Section>
       ) : null}
       <Section top={10}>
+        <GestureDelivery />
+      </Section>
+      <Section top={10}>
         <RitualCard />
+      </Section>
+      <Section top={10}>
+        <NeedYouCard />
       </Section>
       <Section top={10}>
         <DivergenceCard />

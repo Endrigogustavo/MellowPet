@@ -1,5 +1,13 @@
 export type CareDistributionRow = { emotion: string; count: number };
-export type CareBucket = { at: string; count: number; dominant: string | null };
+export type CareBucket = {
+  at: string;
+  count: number;
+  dominant: string | null;
+  /** Por humor (servidor com a migration 202610280002). */
+  pleasant?: number;
+  neutral?: number;
+  difficult?: number;
+};
 export type CareSource = { source: string; count: number };
 
 export type CareDashboardSummary = {
@@ -26,6 +34,7 @@ export type CareAlert = {
   occurred_at: string;
   acknowledged_at: string | null;
   resolved_at: string | null;
+  feedback?: 'useful' | 'false_alarm' | 'already_knew' | null;
 };
 
 export type CareCheckin = {

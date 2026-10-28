@@ -61,7 +61,7 @@ export function TabBar() {
         return (
           <Touchable
             key={key}
-            onPress={() => actions.go(key)}
+            onPress={() => actions.goTab(key)}
             style={{
               flex: 1,
               alignItems: 'center',

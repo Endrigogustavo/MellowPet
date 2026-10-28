@@ -9,11 +9,23 @@ import type { CareAlert, CareDashboardSummary } from '../care/careTypes';
 import { CareLinksErrorCard } from '../components/CareLinksErrorCard';
 import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Bar, Card, Touchable, Txt, useColumnWidth } from '../components/ui';
-import { ICONS } from '../data/content';
+import { Bar, Card, ToggleRow, Touchable, Txt, useColumnWidth } from '../components/ui';
+import { EXTRA_ICONS, ICONS } from '../data/content';
 import { useApp, useTheme, type Screen } from '../state/AppContext';
 import { DANGER, OK, WARN } from '../theme/palette';
 import { updateCareWidgets } from '../widgets/widgetBridge';
+import { isPaused, registerPushToken } from '../care/presenceClient';
+import {
+  CareRequestsBanner,
+  CaregiverWellbeingCard,
+  GestureCard,
+  PausedCard,
+  ValenceTrend,
+  WeeklySummaryCard,
+  usePanelOpens,
+  useWeeklyMode,
+} from '../components/CarePresence';
+import { scheduleOnce } from '../notifications/notifications';
 
 const LINK_COLORS = ['#FFD166', '#74B9FF', '#A29BFE', '#55EFC4'];
 type Loaded = { id: string; summary: CareDashboardSummary; alerts: CareAlert[] };
@@ -35,14 +47,32 @@ export function CareScreen() {
   const [error, setError] = useState<Error | null>(null);
   const [revoking, setRevoking] = useState(false);
   const [linkActionError, setLinkActionError] = useState<string | null>(null);
+  const [weekly, setWeekly] = useWeeklyMode();
+  const opens = usePanelOpens();
+  const [tick, setTick] = useState(0);
+  const seenAlerts = React.useRef<Set<string> | null>(null);
+
+  // Push remoto (quando o projeto EAS estiver configurado).
+  useEffect(() => {
+    if (state.userId) registerPushToken(state.userId).catch(() => undefined);
+  }, [state.userId]);
 
   const current = useMemo(() => pickCurrent(links, state.person), [links, state.person]);
   const linkName = useCallback((link: CaregiverLink) => careName(link, links), [links]);
   const refreshCurrent = useCallback(() => {
     if (!current?.cared_user_id) return;
     setError(null);
+    setTick((t) => t + 1);
     Promise.all([fetchCareDashboardSummary(current.cared_user_id, 24 * 7), listCareAlerts(current.cared_user_id)])
-      .then(([summary, alerts]) => setLoaded({ id: current.id, summary, alerts }))
+      .then(([summary, alerts]) => {
+        setLoaded({ id: current.id, summary, alerts });
+        // Alerta novo desde a última olhada: aviso local com texto neutro.
+        const open = alerts.filter((a) => a.status === 'open').map((a) => a.id);
+        if (seenAlerts.current && open.some((id) => !seenAlerts.current!.has(id))) {
+          scheduleOnce(2, 'MellowPet', 'Há um novo sinal para acompanhar.', { kind: 'care_alert' }).catch(() => undefined);
+        }
+        seenAlerts.current = new Set(open);
+      })
       .catch((reason) => {
         setLoaded(null);
         setError(reason instanceof Error ? reason : new Error('Não foi possível atualizar os dados de cuidado.'));
@@ -82,6 +112,7 @@ export function CareScreen() {
   }, [refreshCurrent]);
 
   const currentData = loaded?.id === current?.id ? loaded : null;
+  const paused = current ? isPaused(current) : false;
   const score = currentData ? signalScore(currentData.summary) : null;
   const scoreColor = signalColor(score);
   const activeAlerts = useMemo(
@@ -116,10 +147,16 @@ export function CareScreen() {
       })}</ScrollView>
       {linkActionError ? <Section top={10}><Card radius={18} padding={14} style={{ borderColor: DANGER }}><Txt s={12.5} w={800} c={DANGER} accessibilityRole="alert" accessibilityLiveRegion="assertive">{linkActionError}</Txt><Touchable onPress={() => setLinkActionError(null)} accessibilityRole="button" accessibilityLabel="Fechar mensagem de erro" style={{ marginTop: 8 }}><Txt s={11.5} w={800} c={T.pri}>Entendi</Txt></Touchable></Card></Section> : null}
       {current ? <Section top={10}><Card radius={18} padding={14}><Txt s={12.5} w={800} c={T.t1}>Encerrar acompanhamento</Txt><Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 3 }}>Interrompe imediatamente seu acesso aos dados de {linkName(current)}. O histórico operacional é preservado.</Txt><Touchable onPress={endCareRelationship} disabled={revoking} accessibilityRole="button" accessibilityLabel={`Encerrar acompanhamento de ${linkName(current)}`} accessibilityHint="Interrompe seu acesso aos dados de cuidado dessa pessoa" style={{ alignSelf: 'flex-start', marginTop: 10, paddingVertical: 8, paddingHorizontal: 10 }}><Txt s={11.5} w={800} c={DANGER}>{revoking ? 'Encerrando…' : 'Encerrar acompanhamento'}</Txt></Touchable></Card></Section> : null}
-      {error ? <Section><Card radius={24} padding={19} style={{ borderColor: DANGER }}><Txt s={14.5} w={800} c={DANGER} accessibilityRole="alert" accessibilityLiveRegion="assertive">Não foi possível carregar os dados</Txt><Txt s={12.5} lh={1.55} c={T.t3} style={{ marginTop: 6 }}>{error.message}</Txt><Touchable onPress={refreshCurrent} accessibilityRole="button" accessibilityLabel="Tentar carregar os dados novamente" style={{ marginTop: 12 }}><Txt s={12.5} w={800} c={T.pri}>Tentar novamente</Txt></Touchable></Card></Section> : !currentData ? <Section><Card radius={24} padding={22} style={{ alignItems: 'center', gap: 9 }}><ActivityIndicator color={T.pri} /><Txt s={13} c={T.t3} accessibilityRole="progressbar" accessibilityLabel="Atualizando dados de cuidado" accessibilityLiveRegion="polite">Atualizando dados de cuidado…</Txt></Card></Section> : <>
-        {activeAlerts.length > 0 ? <Section><Touchable onPress={() => actions.go('carealerts')} accessibilityRole="button" accessibilityLabel={`Atenção necessária: ${activeAlerts[0].title}`} accessibilityHint="Abre os alertas e o plano combinado" style={{ borderRadius: 22, padding: 17, backgroundColor: 'rgba(239,68,68,.11)', borderWidth: 1, borderColor: 'rgba(239,68,68,.28)' }}><Txt s={11} w={800} c={DANGER} ls={1.2}>ATENÇÃO NECESSÁRIA</Txt><Txt s={14.5} w={800} c={T.t1} style={{ marginTop: 5 }}>{activeAlerts[0].title}</Txt><Txt s={12} lh={1.5} c={T.t2} style={{ marginTop: 4 }}>{activeAlerts[0].detail}</Txt><Txt s={11.5} w={800} c={DANGER} style={{ marginTop: 10 }}>Ver alertas e plano combinado</Txt></Touchable></Section> : null}
+      {current && paused ? <><Section><PausedCard name={linkName(current)} until={current.paused_until!} /></Section><Section><GestureCard link={current} name={linkName(current)} /></Section></> : error ? <Section><Card radius={24} padding={19} style={{ borderColor: DANGER }}><Txt s={14.5} w={800} c={DANGER} accessibilityRole="alert" accessibilityLiveRegion="assertive">Não foi possível carregar os dados</Txt><Txt s={12.5} lh={1.55} c={T.t3} style={{ marginTop: 6 }}>{error.message}</Txt><Touchable onPress={refreshCurrent} accessibilityRole="button" accessibilityLabel="Tentar carregar os dados novamente" style={{ marginTop: 12 }}><Txt s={12.5} w={800} c={T.pri}>Tentar novamente</Txt></Touchable></Card></Section> : !currentData ? <Section><Card radius={24} padding={22} style={{ alignItems: 'center', gap: 9 }}><ActivityIndicator color={T.pri} /><Txt s={13} c={T.t3} accessibilityRole="progressbar" accessibilityLabel="Atualizando dados de cuidado" accessibilityLiveRegion="polite">Atualizando dados de cuidado…</Txt></Card></Section> : <>
+        {current ? <Section><CareRequestsBanner link={current} name={linkName(current)} refreshKey={tick} /></Section> : null}
+        {activeAlerts.length > 0 ? <Section><Touchable onPress={() => actions.go('carealerts')} accessibilityRole="button" accessibilityLabel={`Atenção necessária: ${activeAlerts[0].title}`} accessibilityHint="Abre os alertas e o plano combinado" style={{ borderRadius: 22, padding: 17, backgroundColor: 'rgba(239,68,68,.11)', borderWidth: 1, borderColor: 'rgba(239,68,68,.28)' }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Icon d={EXTRA_ICONS.warning} size={14} color={DANGER} sw={2} /><Txt s={11} w={800} c={DANGER} ls={1.2}>ATENÇÃO NECESSÁRIA</Txt></View><Txt s={14.5} w={800} c={T.t1} style={{ marginTop: 5 }}>{activeAlerts[0].title}</Txt><Txt s={12} lh={1.5} c={T.t2} style={{ marginTop: 4 }}>{activeAlerts[0].detail}</Txt><Txt s={11.5} w={800} c={DANGER} style={{ marginTop: 10 }}>Ver alertas e plano combinado</Txt></Touchable></Section> : null}
+        {weekly && current ? <Section><WeeklySummaryCard name={linkName(current)} events={currentData.summary.events} daily={currentData.summary.daily} openAlerts={activeAlerts.length} /></Section> : <>
         <Section><Card radius={24} padding={18}><View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}><View><Txt s={15} w={800} c={T.t1}>Resumo de sinais</Txt><Txt s={11.5} c={T.t3} style={{ marginTop: 3 }}>{formatFreshness(currentData.summary.last_event_at)}</Txt></View><Txt s={24} w={800} c={scoreColor}>{score ?? '—'}</Txt></View><View style={{ marginTop: 12 }}><Bar pct={score ?? 0} color={scoreColor} height={7} /></View><Txt s={12} lh={1.5} c={T.t2} style={{ marginTop: 12 }}>{safeInsight(currentData.summary)}</Txt><Txt s={10.5} c={T.t3} style={{ marginTop: 10 }}>{currentData.summary.events} leituras agregadas · confiança média {currentData.summary.mean_confidence}%</Txt></Card></Section>
-        <Section><Card radius={24} padding={18}><View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}><Txt s={15} w={800} c={T.t1}>Tendência dos últimos 7 dias</Txt><Touchable onPress={() => actions.go('dashboard')} accessibilityRole="button" accessibilityLabel="Ver evolução"><Txt s={11.5} w={800} c={T.pri}>Ver evolução</Txt></Touchable></View><View accessible accessibilityRole="image" accessibilityLabel={`Tendência dos últimos 7 dias: ${currentData.summary.daily.slice(-7).map((day) => `${new Date(day.at).toLocaleDateString('pt-BR', { weekday: 'long' })}, ${day.count} leituras`).join('; ') || 'sem leituras'}`} style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 74, marginTop: 14 }}>{currentData.summary.daily.slice(-7).map((day, index) => { const h = Math.max(10, Math.min(68, day.count * 10)); return <View key={day.at} style={{ flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center', gap: 5 }}><View style={{ width: '100%', height: h, borderRadius: 6, backgroundColor: index === currentData.summary.daily.slice(-7).length - 1 ? T.pri : T.priL }} /><Txt s={9} c={T.t3}>{new Date(day.at).toLocaleDateString('pt-BR', { weekday: 'narrow' })}</Txt></View>; })}</View><Touchable onPress={() => actions.go('dashboard')} accessibilityRole="button" accessibilityLabel="Abrir relatório completo" accessibilityHint="Mostra a evolução e a cobertura dos sinais agregados" style={{ marginTop: 11 }}><Txt s={12.5} w={800} c={T.pri}>Abrir relatório completo</Txt></Touchable></Card></Section>
+        <Section><Card radius={24} padding={18}><View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}><Txt s={15} w={800} c={T.t1}>Como foram os últimos 7 dias</Txt><Touchable onPress={() => actions.go('dashboard')} accessibilityRole="button" accessibilityLabel="Ver evolução"><Txt s={11.5} w={800} c={T.pri}>Ver evolução</Txt></Touchable></View><ValenceTrend daily={currentData.summary.daily} /><Touchable onPress={() => actions.go('dashboard')} accessibilityRole="button" accessibilityLabel="Abrir relatório completo" accessibilityHint="Mostra a evolução e a cobertura dos sinais agregados" style={{ marginTop: 11 }}><Txt s={12.5} w={800} c={T.pri}>Abrir relatório completo</Txt></Touchable></Card></Section>
+        </>}
+        {current ? <Section><GestureCard link={current} name={linkName(current)} /></Section> : null}
+        <Section><CaregiverWellbeingCard opens={opens} /></Section>
+        <Section><Card radius={24} padding={18}><ToggleRow label="Só o resumo da semana" sub={weekly ? 'O painel mostra a semana em 3 frases e uma sugestão de conversa. Alertas e pedidos continuam aparecendo na hora.' : 'Em vez do painel ao vivo, veja a semana em 3 frases — menos ansiedade para os dois lados.'} on={weekly} onPress={() => setWeekly(!weekly)} /></Card></Section>
         <Section style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{[['Alertas', `${activeAlerts.length} ativo${activeAlerts.length === 1 ? '' : 's'}`, 'carealerts'], ['Check-in', 'Combinar próximo contato', 'agenda'], ['Plano', 'Sinais e próximos passos', 'careplan'], ['Relatório', 'Tendências e cobertura', 'dashboard']].map(([title, sub, screen]) => <Touchable key={title} onPress={() => actions.go(screen as Screen)} accessibilityRole="button" accessibilityLabel={`${title}: ${sub}`} style={{ width: quickWidth, borderRadius: 18, padding: 13, backgroundColor: T.surf, borderWidth: 1, borderColor: T.bd }}><Txt s={13} w={800} c={T.t1}>{title}</Txt><Txt s={10.5} lh={1.35} c={T.t3} style={{ marginTop: 3 }}>{sub}</Txt></Touchable>)}</Section>
         <Section top={4}><Txt s={11.5} lh={1.55} c={T.t3}>Os sinais apresentados são agregados. Eles servem para orientar uma conversa, não para diagnosticar ou vigiar silenciosamente.</Txt></Section>
       </>}

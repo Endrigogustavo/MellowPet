@@ -587,6 +587,8 @@ export const TAB_ICONS: Record<string, string> = {
   agenda: 'M4 7h16v13H4zM8 3v4M16 3v4M4 11h16M9 15h2M14 15h2',
   music: 'M9 18V5l10-2v13M9 18a2.6 2.6 0 11-5.2 0A2.6 2.6 0 019 18zm10-2a2.6 2.6 0 11-5.2 0 2.6 2.6 0 015.2 0z',
   care: 'M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z',
+  // Sino: faltava, e a aba Alertas do cuidador aparecia sem ícone.
+  carealerts: 'M12 4a6 6 0 016 6v4l2 3H4l2-3v-4a6 6 0 016-6zM10 20h4',
 };
 
 /** Ícones avulsos que aparecem em mais de uma tela. */
@@ -598,6 +600,8 @@ export const EXTRA_ICONS = {
   sun: 'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   cloudSun: 'M8 6a3 3 0 015.7-1M3 9h1M5.5 3.5l.7.7M8 18h9a3.5 3.5 0 00.5-7A5 5 0 008.3 10 4 4 0 008 18z',
   rain: 'M7 14h10a4 4 0 00.6-7.95A6 6 0 006.2 5.2 4.5 4.5 0 007 14zM8 17l-1 3M12 17l-1 3M16 17l-1 3',
+  // Triângulo de atenção, para alertas.
+  warning: 'M12 4L2.8 19.5h18.4zM12 10v4.2M12 16.6v.8',
   storm: 'M7 14h10a4 4 0 00.6-7.95A6 6 0 006.2 5.2 4.5 4.5 0 007 14zM13 15l-3 4h4l-3 4',
 };
 
@@ -634,7 +638,9 @@ export const ICONS = {
   ground: 'M3 12h18M12 3c2.5 2.4 2.5 15.6 0 18',
   book: 'M5 4h6a3 3 0 013 3v13a2.5 2.5 0 00-2.5-2H5zM19 4h-6M19 4v16M19 20h-2.5a2.5 2.5 0 00-2.5 2',
   star: 'M12 3l2.6 5.6 6.1.8-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6L3.3 9.4l6.1-.8z',
-  alert: 'M12 8v5M12 16.5h.01',
+  // O ponto do "!" era um traço de comprimento ~0 (h.01), que o Android não
+  // desenha: o alerta aparecia sem o ponto, ou sumia. Agora é um traço curto.
+  alert: 'M12 7.5v5.5M12 16.1v.8',
   swap: 'M17 4l3 4-3 4M20 8H9M7 20l-3-4 3-4M4 16h11',
   people:
     'M16 18v-1.5a3 3 0 00-3-3H7a3 3 0 00-3 3V18M10 5.5a3 3 0 100 6 3 3 0 000-6M19 18v-1.5a3 3 0 00-2.2-2.9',

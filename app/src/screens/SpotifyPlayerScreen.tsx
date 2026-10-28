@@ -145,7 +145,7 @@ export function SpotifyPlayerScreen() {
           }}
         >
           <Touchable
-            onPress={() => actions.go('music')}
+            onPress={() => actions.back() || actions.goTab('music')}
             accessibilityLabel="Fechar"
             style={{
               width: 38,

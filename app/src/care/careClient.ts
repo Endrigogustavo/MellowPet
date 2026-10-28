@@ -26,6 +26,8 @@ export type CaregiverLink = {
   status: 'pending' | 'accepted';
   caregiver_email?: string | null;
   caregiver_display_name?: string | null;
+  /** Compartilhamento pausado pela pessoa acompanhada até esta data. */
+  paused_until?: string | null;
 };
 
 // Sem 0/O/1/I — evita confusão ao digitar o código à mão.
@@ -196,7 +198,8 @@ export async function fetchCareDashboardSummary(caredUserId: string, hours = 168
 export async function listCareAlerts(caredUserId: string): Promise<CareAlert[]> {
   const { data, error } = await supabase
     .from('care_alerts')
-    .select('id, cared_user_id, caregiver_link_id, kind, severity, title, detail, evidence, status, occurred_at, acknowledged_at, resolved_at')
+    // '*' tolera servidores com ou sem a coluna de retorno (feedback).
+    .select('*')
     .eq('cared_user_id', caredUserId)
     .order('occurred_at', { ascending: false });
   if (error) throw toCareClientError(error, 'Não foi possível carregar os alertas.');

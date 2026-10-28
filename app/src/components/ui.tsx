@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 
 import { font, type FontWeight } from '../theme/type';
-import { useTheme } from '../state/AppContext';
+import Svg, { Path } from 'react-native-svg';
+
+import { useApp, useTheme } from '../state/AppContext';
 
 /* ── Texto ──────────────────────────────────────────────────────────────── */
 
@@ -59,11 +61,32 @@ export function Eyebrow({ children, ls = 1.8 }: { children: React.ReactNode; ls?
   );
 }
 
-/** Cabeçalho de tela: rótulo + título grande. */
+/** Telas de aba: nelas não há "voltar" (a barra de baixo já leva às outras). */
+const TAB_ROOTS = ['home', 'tools', 'routine', 'music', 'dashboard', 'care', 'carealerts', 'agenda', 'caretools'];
+
+/** Cabeçalho de tela: voltar (fora das abas) + rótulo + título grande. */
 export function ScreenTitle({ label, title }: { label: string; title: string }) {
   const { T } = useTheme();
+  const { state, actions } = useApp();
+  const canGoBack = state.history.length > 0 && !TAB_ROOTS.includes(state.screen);
   return (
     <View style={{ paddingHorizontal: 20, paddingBottom: 18 }}>
+      {canGoBack ? (
+        <Touchable
+          onPress={() => actions.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+          hitSlop={12}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10, alignSelf: 'flex-start' }}
+        >
+          <Svg width={18} height={18} viewBox="0 0 24 24">
+            <Path d="M15 5l-7 7 7 7" stroke={T.pri} strokeWidth={2.4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+          <Txt s={13} w={800} c={T.pri}>
+            Voltar
+          </Txt>
+        </Touchable>
+      ) : null}
       <Eyebrow>{label}</Eyebrow>
       <Txt s={32} w={800} c={T.t1} ls={-1} lh={1.1} style={{ marginTop: 6 }}>
         {title}

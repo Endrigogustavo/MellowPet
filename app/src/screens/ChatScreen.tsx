@@ -17,6 +17,11 @@ import { useApp, useTheme } from '../state/AppContext';
 import { font } from '../theme/type';
 import { ACTION_LABEL } from '../chat/actions';
 import { ChatModelPicker } from '../components/ChatModelPicker';
+import { fetchCareDashboardSummary } from '../care/careClient';
+import { signalScore } from '../care/careDashboard';
+import { askCopilot, type CopilotSummary } from '../care/presenceClient';
+import { useCareResource } from '../care/useCareResource';
+import { useCurrentCareLink } from '../components/CareStates';
 
 /** Um dos três pontinhos de "digitando" — keyframe `mp-dots`. */
 function Dot({ delay, color }: { delay: number; color: string }) {
@@ -69,6 +74,24 @@ export function ChatScreen() {
     return () => clearTimeout(id);
   }, [state.messages.length, state.typing, keyboard]);
 
+  // Resumo agregado da pessoa selecionada, para o copiloto do cuidador.
+  const care = useCurrentCareLink();
+  const caredId = isCare ? (care.current?.cared_user_id ?? null) : null;
+  const careData = useCareResource(caredId, () => fetchCareDashboardSummary(caredId!, 24 * 7));
+  const careSummary: CopilotSummary | null = careData.data
+    ? {
+        period: '7 dias',
+        events: careData.data.events,
+        score: signalScore(careData.data),
+        top_emotion: [...careData.data.distribution].sort((a, b) => b.count - a.count)[0]?.emotion ?? null,
+        difficult_share: careData.data.events
+          ? careData.data.distribution
+              .filter((d) => ['sad', 'angry', 'disgusted', 'fearful'].includes(d.emotion))
+              .reduce((sum, d) => sum + d.count, 0) / careData.data.events
+          : 0,
+      }
+    : null;
+
   const canSend = state.chatInput.trim().length > 0;
   const prompts = isCare ? CARE_CHAT_PROMPTS : QUICK_PROMPTS;
   const send = () => {
@@ -78,14 +101,15 @@ export function ChatScreen() {
     }
     const text = state.chatInput.trim();
     if (!text || state.typing) return;
-    actions.set({
-      chatInput: '',
-      messages: [
-        ...state.messages,
-        { role: 'user', content: text },
-        { role: 'bot', content: caregiverReply(text) },
-      ],
-    });
+    const history = state.messages;
+    actions.set({ chatInput: '', typing: true, messages: [...history, { role: 'user', content: text }] });
+    const reply = (content: string) =>
+      actions.set((cur) => ({ typing: false, messages: [...cur.messages, { role: 'bot', content }] }));
+    // Copiloto com IA: recebe só o resumo agregado do painel. Sem servidor ou
+    // sem IA, as respostas prontas de antes continuam valendo.
+    askCopilot(text, history, careSummary)
+      .then((answer) => reply(answer ?? caregiverReply(text)))
+      .catch(() => reply(caregiverReply(text)));
   };
 
   return (
@@ -104,7 +128,7 @@ export function ChatScreen() {
         }}
       >
         <Touchable
-          onPress={() => actions.go(state.role === 'care' ? 'care' : 'home')}
+          onPress={() => actions.back() || actions.goTab(state.role === 'care' ? 'care' : 'home')}
           accessibilityLabel="Voltar"
           style={{
             width: 36,
