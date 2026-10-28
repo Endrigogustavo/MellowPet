@@ -34,7 +34,10 @@ def client_ip(request: Request) -> str:
     if settings.trust_proxy_headers:
         forwarded = request.headers.get("x-forwarded-for")
         if forwarded:
-            return forwarded.split(",")[0].strip()
+            # O proxy confiável ACRESCENTA o IP que viu no fim da lista; o que
+            # vem antes o próprio cliente escreve. Usar o primeiro deixava
+            # qualquer um trocar de "IP" a cada requisição e fugir do limite.
+            return forwarded.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 
@@ -155,6 +158,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         hits.append(now)
         self._sweep(now)
+        # Teto de memória: inundar com IPs distintos não pode esgotar a RAM.
+        if len(self._hits) > 100_000:
+            self._last_sweep = 0
+            self._sweep(now)
 
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"] = str(self.limit)
@@ -178,7 +185,9 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 
         provided = request.headers.get("x-api-key", "")
         # compare_digest evita vazar o tamanho/prefixo da chave por timing.
-        if not secrets.compare_digest(provided, settings.api_key):
+        # Compara bytes: com str, um caractere não-ASCII levantava TypeError
+        # e a resposta virava 500 com traceback no log, em vez de 401.
+        if not secrets.compare_digest(provided.encode("utf-8"), settings.api_key.encode("utf-8")):
             logger.warning("Chave invalida de %s em %s", client_ip(request), request.url.path
             )
             return JSONResponse(

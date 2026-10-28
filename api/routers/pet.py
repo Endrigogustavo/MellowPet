@@ -8,10 +8,11 @@ quebras de linha, chaves ou sinais que ajudem a injetar instrução.
 """
 from typing import Annotated, Literal, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from services.ai_service import ai_chat_service
+from utils.auth import ai_user
 
 router = APIRouter()
 
@@ -45,7 +46,7 @@ class DreamRequest(BaseModel):
 
 
 @router.post("/dream", summary="Write the pet's morning dream from yesterday's aggregates")
-async def dream(request: DreamRequest):
+async def dream(request: DreamRequest, _user: Optional[str] = Depends(ai_user)):
     text, provider = await ai_chat_service.generate_dream(
         {
             "pet_name": request.pet_name,

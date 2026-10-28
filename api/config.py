@@ -70,6 +70,14 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     ai_timeout_seconds: float = Field(default=25.0, ge=5.0, le=120.0)
 
+    # ── Usuário (JWT do Supabase) ───────────────────────────────────────────
+    # Com um dos dois definidos, as rotas de IA exigem o token da sessão.
+    # SUPABASE_JWT_SECRET: projetos com segredo HS256 (Settings → API → JWT).
+    # SUPABASE_URL: projetos com chaves assimétricas (JWKS público).
+    supabase_jwt_secret: str | None = None
+    supabase_url: str | None = None
+    ai_requests_per_minute_per_user: int = Field(default=20, ge=1, le=600)
+
     @field_validator("log_level")
     @classmethod
     def _upper(cls, v: str) -> str:

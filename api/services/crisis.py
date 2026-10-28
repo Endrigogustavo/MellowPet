@@ -15,6 +15,10 @@ import unicodedata
 _PATTERNS = [
     r"\b(me matar|me mato|suicid|tirar (a )?minha (propria )?vida|acabar com (a )?minha vida)",
     r"\b(quero|vou|penso em|pensando em) morrer\b",
+    # "queria morrer", "quero muito morrer", "tenho vontade de morrer",
+    # "eu desejo morrer", "só queria sumir e morrer".
+    r"\b(quer\w*|desej\w*|vontade de|pens\w* em)( muito| tanto| so)? morrer\b",
+    r"\bsumir e morrer\b",
     r"\bnao (quero|aguento) mais (viver|existir)\b",
     r"\b(me cortar|me machucar|automutila|me ferir)",
     r"\bseria melhor (se eu )?(nao existisse|morrer|sumir)",

@@ -84,11 +84,13 @@ class StreamFriendlyGZip(GZipMiddleware):
 # A ordem importa: o Starlette executa na ordem inversa do registro, entao o
 # ultimo add_middleware e o primeiro a ver a requisicao. Queremos barrar corpo
 # grande e excesso de chamadas antes de gastar CPU com autenticacao ou rotas.
-app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(ApiKeyMiddleware)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.rate_limit_per_minute)
 app.add_middleware(RequestSizeLimitMiddleware)
 app.add_middleware(StreamFriendlyGZip, minimum_size=1000)
+# Por fora dos que respondem erro (401/413/429): assim até essas respostas
+# levam os headers de segurança.
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
