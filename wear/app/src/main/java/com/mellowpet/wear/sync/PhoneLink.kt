@@ -4,6 +4,8 @@ import android.content.Context
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 import org.json.JSONObject
@@ -81,25 +83,29 @@ object PhoneLink {
     val client: DataClient = Wearable.getDataClient(context)
     return try {
       val items = client.dataItems.await()
-      val item = items.firstOrNull { it.uri.path == PATH_STATE } ?: return null
-      val map = DataMapItem.fromDataItem(item).dataMap
-      val music = items.firstOrNull { it.uri.path == PATH_NOW_PLAYING }
-        ?.let { DataMapItem.fromDataItem(it).dataMap }
-      PhoneState(
-        emotion = map.getString("emotion") ?: "neutral",
-        level = map.getInt("level", 1),
-        streak = map.getInt("streak", 0),
-        checkedInToday = map.getBoolean("checkedInToday", false),
-        trackName = music?.getString("trackName")?.takeIf { it.isNotBlank() },
-        playlistName = music?.getString("playlistName")?.takeIf { it.isNotBlank() },
-        musicPlaying = music?.getBoolean("musicPlaying", false) ?: false,
-        hoursSinceReading = map.getInt("hoursSinceReading", -1).takeIf { it >= 0 },
-        alertTitle = map.getString("alertTitle"),
-        alertDetail = map.getString("alertDetail"),
-        caregiverName = map.getString("caregiverName")?.takeIf { it.isNotBlank() },
-        caregiverPhone = map.getString("caregiverPhone")?.takeIf { it.isNotBlank() },
-        updatedAt = map.getLong("updatedAt", 0L),
-      ).also { items.release() }
+      try {
+        val item = items.firstOrNull { it.uri.path == PATH_STATE } ?: return null
+        val map = DataMapItem.fromDataItem(item).dataMap
+        val music = items.firstOrNull { it.uri.path == PATH_NOW_PLAYING }
+          ?.let { DataMapItem.fromDataItem(it).dataMap }
+        PhoneState(
+          emotion = map.getString("emotion") ?: "neutral",
+          level = map.getInt("level", 1),
+          streak = map.getInt("streak", 0),
+          checkedInToday = map.getBoolean("checkedInToday", false),
+          trackName = music?.getString("trackName")?.takeIf { it.isNotBlank() },
+          playlistName = music?.getString("playlistName")?.takeIf { it.isNotBlank() },
+          musicPlaying = music?.getBoolean("musicPlaying", false) ?: false,
+          hoursSinceReading = map.getInt("hoursSinceReading", -1).takeIf { it >= 0 },
+          alertTitle = map.getString("alertTitle"),
+          alertDetail = map.getString("alertDetail"),
+          caregiverName = map.getString("caregiverName")?.takeIf { it.isNotBlank() },
+          caregiverPhone = map.getString("caregiverPhone")?.takeIf { it.isNotBlank() },
+          updatedAt = map.getLong("updatedAt", 0L),
+        )
+      } finally {
+        items.release()
+      }
     } catch (_: Exception) {
       null
     }
@@ -134,7 +140,9 @@ object CheckinQueue {
   private const val PREFS = "mellow_wear"
   private const val KEY = "pending_checkins"
   private const val MAX = 100
+  private val flushMutex = Mutex()
 
+  @Synchronized
   fun add(context: Context, payload: JSONObject) {
     val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     val arr = read(prefs.getString(KEY, null))
@@ -147,11 +155,13 @@ object CheckinQueue {
     prefs.edit().putString(KEY, trimmed.toString()).apply()
   }
 
+  @Synchronized
   fun all(context: Context): List<JSONObject> {
     val arr = read(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null))
     return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
   }
 
+  @Synchronized
   fun clear(context: Context) {
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY).apply()
   }
@@ -159,22 +169,43 @@ object CheckinQueue {
   fun size(context: Context): Int = all(context).size
 
   /** Tenta entregar tudo que esta parado. So limpa o que o celular aceitou. */
-  suspend fun flush(context: Context): Int {
+  suspend fun flush(context: Context): Int = flushMutex.withLock {
     val pending = all(context)
-    if (pending.isEmpty()) return 0
+    if (pending.isEmpty()) return@withLock 0
+    val sentKeys = HashSet<String>()
     var sent = 0
     for (item in pending) {
-      if (PhoneLink.sendCheckin(context, item)) sent++ else break
+      if (PhoneLink.sendCheckin(context, item)) {
+        sentKeys.add(itemKey(item))
+        sent++
+      } else {
+        break
+      }
     }
-    if (sent == pending.size) {
-      clear(context)
-    } else if (sent > 0) {
-      val rest = pending.drop(sent)
-      val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-      prefs.edit().putString(KEY, JSONArray().also { a -> rest.forEach(a::put) }.toString()).apply()
+    if (sent > 0) {
+      removeSent(context, sentKeys)
     }
-    return sent
+    sent
   }
+
+  @Synchronized
+  private fun removeSent(context: Context, sentKeys: Set<String>) {
+    val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    val arr = read(prefs.getString(KEY, null))
+    val remaining = JSONArray()
+    for (i in 0 until arr.length()) {
+      val obj = arr.optJSONObject(i) ?: continue
+      if (itemKey(obj) !in sentKeys) remaining.put(obj)
+    }
+    if (remaining.length() == 0) {
+      prefs.edit().remove(KEY).apply()
+    } else {
+      prefs.edit().putString(KEY, remaining.toString()).apply()
+    }
+  }
+
+  private fun itemKey(obj: JSONObject): String =
+    obj.optLong("at", -1L).takeIf { it > 0L }?.toString() ?: obj.toString()
 
   private fun read(raw: String?): JSONArray = try {
     if (raw.isNullOrEmpty()) JSONArray() else JSONArray(raw)

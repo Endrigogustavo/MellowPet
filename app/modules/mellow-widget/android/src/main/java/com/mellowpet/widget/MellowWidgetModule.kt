@@ -93,14 +93,15 @@ class MellowWidgetModule : Module() {
      * Opt-in — deixa uma notificação permanente, então quem liga é a pessoa. */
     Function("setBackgroundEnabled") { enabled: Boolean ->
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      context.getSharedPreferences("mellow_widget_prefs", android.content.Context.MODE_PRIVATE)
+        .edit().putBoolean("bg_enabled", enabled).apply()
       if (enabled) {
         MellowBackgroundService.start(context)
         ServiceGuard.scheduleNextCheck(context)
       } else {
         MellowBackgroundService.stop(context)
+        ServiceGuard.restoreEnabled(context)
       }
-      context.getSharedPreferences("mellow_widget_prefs", android.content.Context.MODE_PRIVATE)
-        .edit().putBoolean("bg_enabled", enabled).apply()
     }
 
     /**

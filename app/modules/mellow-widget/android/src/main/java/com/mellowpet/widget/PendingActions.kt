@@ -20,6 +20,7 @@ internal object PendingActions {
   private const val KEY = "pending_actions"
   private const val MAX = 200
 
+  @Synchronized
   fun add(context: Context, kind: String, value: String) {
     val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     val arr = read(prefs.getString(KEY, null))
@@ -39,6 +40,7 @@ internal object PendingActions {
   }
 
   /** Devolve a fila como JSON e a esvazia — o app assume a partir daqui. */
+  @Synchronized
   fun drain(context: Context): String {
     val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     val json = prefs.getString(KEY, null) ?: "[]"

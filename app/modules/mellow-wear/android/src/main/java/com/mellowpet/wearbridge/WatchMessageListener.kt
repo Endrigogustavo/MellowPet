@@ -56,6 +56,7 @@ internal object WatchInbox {
   private const val KEY = "inbox"
   private const val MAX = 200
 
+  @Synchronized
   fun add(context: Context, payload: JSONObject) {
     val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     val arr = read(prefs.getString(KEY, null))
@@ -69,6 +70,7 @@ internal object WatchInbox {
   }
 
   /** Devolve tudo e esvazia — o app assume a partir daqui. */
+  @Synchronized
   fun drain(context: Context): String {
     val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     val json = prefs.getString(KEY, null) ?: "[]"
@@ -87,6 +89,7 @@ internal object WatchInbox {
 internal object MediaCommand {
   private const val PREFS = "mellow_wear_bridge"
 
+  @Synchronized
   fun set(context: Context, command: String) {
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
       .putString("media_cmd", command)
@@ -95,6 +98,7 @@ internal object MediaCommand {
   }
 
   /** Devolve "comando:idadeEmMs" e limpa. Vazio quando nao ha nada. */
+  @Synchronized
   fun take(context: Context): String {
     val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     val cmd = prefs.getString("media_cmd", null) ?: return ""

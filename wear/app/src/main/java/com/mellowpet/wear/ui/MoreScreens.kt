@@ -155,7 +155,7 @@ private fun RoundIcon(
 
 @Composable
 private fun Equalizer(playing: Boolean, color: Color) {
-  val transition = rememberInfiniteTransition(label = "eq")
+  val transition = if (playing) rememberInfiniteTransition(label = "eq") else null
   Row(
     verticalAlignment = Alignment.Bottom,
     horizontalArrangement = Arrangement.spacedBy(d(3f)),
@@ -163,20 +163,25 @@ private fun Equalizer(playing: Boolean, color: Color) {
   ) {
     // Mesmos tempos do design: 0,65 s + 0,14 por barra.
     repeat(5) { i ->
-      val h by transition.animateFloat(
-        initialValue = 0.28f,
-        targetValue = if (playing) 1f else 0.28f,
-        animationSpec = infiniteRepeatable(
-          tween(((0.65f + i * 0.14f) * 1000).toInt()),
-          RepeatMode.Reverse,
-        ),
-        label = "bar$i",
-      )
       val still = listOf(0.3f, 0.6f, 0.45f, 0.75f, 0.35f)[i]
+      val h = if (transition != null) {
+        val animated by transition.animateFloat(
+          initialValue = 0.28f,
+          targetValue = 1f,
+          animationSpec = infiniteRepeatable(
+            tween(((0.65f + i * 0.14f) * 1000).toInt()),
+            RepeatMode.Reverse,
+          ),
+          label = "bar$i",
+        )
+        animated
+      } else {
+        still
+      }
       Box(
         Modifier
           .width(d(3f))
-          .height(d(20f) * if (playing) h else still)
+          .height(d(20f) * h)
           .clip(RoundedCornerShape(2.dp))
           .background(color)
       )
