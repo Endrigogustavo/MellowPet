@@ -56,7 +56,10 @@ export function learnFromFeedback(
 export function learnFromCheckin(gains: PersonalGains, said: string, seen: string | null): PersonalGains {
   if (!seen || said === seen) return gains;
   // Leu errado: a emoção vista perde um pouco, a declarada ganha um pouco.
-  return nudge(nudge(gains, seen, 0.93), said, 1.06);
+  const afterSeen = nudge(gains, seen, 0.93);
+  const afterSaid = nudge(afterSeen, said, 1.06);
+  if (afterSaid === gains) return gains;
+  return { ...afterSaid, samples: gains.samples + 1 };
 }
 
 /** Aplica os ganhos a uma distribuição e renormaliza para somar 1. */

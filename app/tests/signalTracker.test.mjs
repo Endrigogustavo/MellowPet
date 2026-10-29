@@ -14,7 +14,7 @@ function run(tracker, fromMs, seconds, opts = {}) {
     const sec = Math.floor(i / 2);
     const blink = opts.blinkEvery && sec % opts.blinkEvery === 0 && i % 2 === 0 ? 0.9 : 0;
     const away = opts.awayPattern ? opts.awayPattern(sec) : false;
-    const r = tracker.push(frame(t, { tension: opts.tension ?? 0.1, blink, yaw: away ? 40 : 0 }), opts.focus ?? false);
+    const r = tracker.push(frame(t, { tension: opts.tension ?? 0.1, blink, yaw: away ? 0.45 : 0 }), opts.focus ?? false);
     if (r) fired.push({ kind: r, t });
   }
   return fired;
@@ -46,11 +46,13 @@ test('olhar fora várias vezes só cutuca no modo foco', () => {
   assert.ok(run(new SignalTracker(), 0, 100, { blinkEvery: 4, awayPattern: pattern, focus: true }).some((f) => f.kind === 'gaze'));
 });
 
-test('perder o rosto zera a janela das piscadas', () => {
+test('perder o rosto brevemente preserva a janela; ausência longa (>3s) zera', () => {
   const tr = new SignalTracker();
   run(tr, 0, 200, { blinkEvery: 20 });
   tr.push({ atMs: 200_500, ready: false, tension: null, blink: 0, yaw: 0, lookOut: 0 }, false);
-  assert.equal(tr.blinkRate(200_500), null);
+  assert.notEqual(tr.blinkRate(200_500), null);
+  tr.push({ atMs: 204_000, ready: false, tension: null, blink: 0, yaw: 0, lookOut: 0 }, false);
+  assert.equal(tr.blinkRate(204_000), null);
 });
 
 test('círculo de Russell: quadrantes e estados derivados', () => {
