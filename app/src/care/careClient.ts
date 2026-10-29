@@ -113,13 +113,34 @@ export async function acceptInvite(inviteCode: string, _userId: string): Promise
   if (!code) throw new Error('Informe o código de convite.');
 
   const { data, error } = await supabase.rpc('accept_invite', { code });
-  if (error) {
-    if (error.code === 'P0002') throw new Error('Código de convite não encontrado.');
-    if (error.code === '23505') throw new Error('Este convite já foi aceito.');
-    if (error.code === '22023' && hasErrorMessage(error, 'invite_expired')) throw new Error('Este convite expirou. Peça um novo código ao cuidador.');
-    if (error.code === '22023' && hasErrorMessage(error, 'invite_revoked')) throw new Error('Este convite foi revogado pelo cuidador.');
-    if (error.code === '22023') throw new Error('Você não pode aceitar seu próprio convite.');
-    throw toCareClientError(error, 'Não foi possível aceitar o convite.');
+  const rpcError =
+    error ??
+    (data && typeof data === 'object' && 'error' in data && typeof (data as { error?: unknown }).error === 'string'
+      ? {
+          code: typeof (data as { code?: unknown }).code === 'string' ? (data as { code: string }).code : '',
+          message: (data as { error: string }).error,
+        }
+      : null);
+  if (rpcError) {
+    if (rpcError.code === '54000' || hasErrorMessage(rpcError, 'too_many_attempts')) {
+      throw new Error('Muitas tentativas. Aguarde um pouco antes de tentar outro código.');
+    }
+    if (rpcError.code === 'P0002' || hasErrorMessage(rpcError, 'invite_not_found')) {
+      throw new Error('Código de convite não encontrado.');
+    }
+    if (rpcError.code === '23505' || hasErrorMessage(rpcError, 'invite_already_accepted')) {
+      throw new Error('Este convite já foi aceito.');
+    }
+    if (rpcError.code === '22023' && hasErrorMessage(rpcError, 'invite_expired')) {
+      throw new Error('Este convite expirou. Peça um novo código ao cuidador.');
+    }
+    if (rpcError.code === '22023' && hasErrorMessage(rpcError, 'invite_revoked')) {
+      throw new Error('Este convite foi revogado pelo cuidador.');
+    }
+    if (rpcError.code === '22023' || hasErrorMessage(rpcError, 'cannot_accept_own_invite')) {
+      throw new Error('Você não pode aceitar seu próprio convite.');
+    }
+    throw toCareClientError(rpcError, 'Não foi possível aceitar o convite.');
   }
   if (!data) throw new Error('O convite não retornou uma conexão válida. Tente novamente.');
   return data as CaregiverLink;

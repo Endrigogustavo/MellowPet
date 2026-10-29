@@ -302,12 +302,18 @@ fun HeartScreen(bpm: Int?, history: List<Int>, granted: Boolean, onAsk: () -> Un
       modifier = Modifier.padding(bottom = INDICATOR_SPACE),
       horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-      val pulse by rememberInfiniteTransition(label = "beat").animateFloat(
-        initialValue = 1f,
-        targetValue = if (bpm != null) 1.18f else 1f,
-        animationSpec = infiniteRepeatable(tween(1100), RepeatMode.Reverse),
-        label = "beatScale",
-      )
+      val pulse = if (bpm != null) {
+        val transition = rememberInfiniteTransition(label = "beat")
+        val animated by transition.animateFloat(
+          initialValue = 1f,
+          targetValue = 1.18f,
+          animationSpec = infiniteRepeatable(tween(1100), RepeatMode.Reverse),
+          label = "beatScale",
+        )
+        animated
+      } else {
+        1f
+      }
       Heart(Modifier.size(d(28f)).scale(pulse))
       Row(verticalAlignment = Alignment.Bottom) {
         Text(

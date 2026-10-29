@@ -66,6 +66,9 @@ class MellowNearbyModule : Module() {
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
       stopInternal()
       payload = payloadJson.toByteArray(Charsets.UTF_8)
+      if (payload.size > 250) {
+        Log.w(TAG, "payload maior que 250 bytes (${payload.size}); cartão NFC desativado")
+      }
       // NFC: o mesmo cartão vale para quem encostar (até 250 bytes, cabe numa APDU).
       NfcCards.ownCard = payload.takeIf { it.size <= 250 }
       NfcCards.onReceived = { card -> received(card, "nfc") }
@@ -93,6 +96,9 @@ class MellowNearbyModule : Module() {
     /** Só o NFC (sem Bluetooth/Wi-Fi): não depende de permissão de localização. */
     Function("startNfc") { payloadJson: String ->
       payload = payloadJson.toByteArray(Charsets.UTF_8)
+      if (payload.size > 250) {
+        Log.w(TAG, "payload maior que 250 bytes (${payload.size}); cartão NFC desativado")
+      }
       NfcCards.ownCard = payload.takeIf { it.size <= 250 }
       NfcCards.onReceived = { card -> received(card, "nfc") }
       true

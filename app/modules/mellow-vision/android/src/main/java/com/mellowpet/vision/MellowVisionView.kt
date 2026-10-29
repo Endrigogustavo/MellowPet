@@ -238,6 +238,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   private fun openCameraDevice(id: String) {
     if (!active || !attached) return
     opening = true
+    isForegroundActive.set(true)
     try {
       cameraManager.openCamera(
         id,
@@ -246,9 +247,11 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
             opening = false
             if (!active || !attached) {
               device.close()
+              isForegroundActive.set(false)
               return
             }
             cameraDevice = device
+            isForegroundActive.set(true)
             createSession(device)
           }
 
@@ -256,6 +259,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
             opening = false
             device.close()
             if (cameraDevice === device) cameraDevice = null
+            isForegroundActive.set(false)
             scheduleRestart()
           }
 
@@ -263,6 +267,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
             opening = false
             device.close()
             if (cameraDevice === device) cameraDevice = null
+            isForegroundActive.set(false)
             emitError("camera_bind_failed", "Falha ao abrir a câmera frontal (código $error).", true)
             scheduleRestart()
           }
@@ -271,6 +276,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
       )
     } catch (error: Exception) {
       opening = false
+      isForegroundActive.set(false)
       emitError("camera_bind_failed", error.message ?: "Não foi possível abrir a câmera frontal.", true)
       scheduleRestart()
     }
@@ -349,6 +355,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
             cameraDevice = null
             device.close()
           }
+          isForegroundActive.set(false)
           bound = false
           emitError("camera_bind_failed", "Falha ao configurar sessão de câmera.", true)
           scheduleRestart()
@@ -374,6 +381,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
         cameraDevice = null
         device.close()
       }
+      isForegroundActive.set(false)
       bound = false
       emitError("camera_bind_failed", error.message ?: "Falha ao criar sessão de câmera.", true)
       scheduleRestart()
@@ -448,7 +456,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     var sourceBitmap: Bitmap? = null
     var normalizedBitmap: Bitmap? = null
     try {
-      val bitmap = image.use(::yuv420ToBitmap)
+      val bitmap = image.use(YuvConverter::toBitmap)
       sourceBitmap = bitmap
       val frameStats = computeFrameStats(bitmap)
       val matrix = Matrix().apply {
@@ -465,6 +473,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
         sharpness = frameStats.sharpness,
         capturedAtMs = System.currentTimeMillis(),
         generation = generation,
+        bitmap = transformed,
       )
       val mpImage = BitmapImageBuilder(transformed).build()
       // Keep the instance stable for this frame. The camera lifecycle may
@@ -473,7 +482,9 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
         ?: throw IllegalStateException("Face Landmarker indisponível")
       landmarker.detectAsync(mpImage, timestamp)
     } catch (error: Exception) {
-      if (timestamp != 0L) pendingFrames.remove(timestamp)
+      val removed = if (timestamp != 0L) pendingFrames.remove(timestamp) else null
+      val toRecycle = removed?.bitmap ?: normalizedBitmap
+      if (toRecycle != null && !toRecycle.isRecycled) toRecycle.recycle()
       inferenceInFlight.set(false)
       emitError("frame_processing_failed", error.message ?: "Falha ao processar frame.", true)
     } finally {
@@ -483,50 +494,6 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
       val source = sourceBitmap
       if (source != null && source !== normalizedBitmap && !source.isRecycled) source.recycle()
     }
-  }
-
-  /**
-   * Converte YUV_420_888 diretamente para ARGB respeitando row/pixel stride.
-   * O pipeline anterior fazia YUV -> JPEG -> Bitmap em todo frame: além de
-   * adicionar compressão com perdas antes do modelo, criava buffers grandes e
-   * aumentava a latência. A conversão direta mantém os detalhes faciais usados
-   * pelos blendshapes e evita a etapa de encode/decode.
-   */
-  private fun yuv420ToBitmap(image: Image): Bitmap {
-    val width = image.width
-    val height = image.height
-    val yPlane = image.planes[0]
-    val uPlane = image.planes[1]
-    val vPlane = image.planes[2]
-    val yBuffer = yPlane.buffer
-    val uBuffer = uPlane.buffer
-    val vBuffer = vPlane.buffer
-    val yStart = yBuffer.position()
-    val uStart = uBuffer.position()
-    val vStart = vBuffer.position()
-    val pixels = IntArray(width * height)
-
-    for (row in 0 until height) {
-      val yRow = yStart + row * yPlane.rowStride
-      val uvRow = row / 2
-      val uRow = uStart + uvRow * uPlane.rowStride
-      val vRow = vStart + uvRow * vPlane.rowStride
-      for (col in 0 until width) {
-        val y = yBuffer.get(yRow + col * yPlane.pixelStride).toInt() and 0xff
-        val uvCol = col / 2
-        val u = uBuffer.get(uRow + uvCol * uPlane.pixelStride).toInt() and 0xff
-        val v = vBuffer.get(vRow + uvCol * vPlane.pixelStride).toInt() and 0xff
-
-        val c = max(0, y - 16)
-        val d = u - 128
-        val e = v - 128
-        val red = ((298 * c + 409 * e + 128) shr 8).coerceIn(0, 255)
-        val green = ((298 * c - 100 * d - 208 * e + 128) shr 8).coerceIn(0, 255)
-        val blue = ((298 * c + 516 * d + 128) shr 8).coerceIn(0, 255)
-        pixels[row * width + col] = Color.rgb(red, green, blue)
-      }
-    }
-    return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
   }
 
   private fun monotonicTimestamp(): Long {
@@ -539,52 +506,64 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   }
 
   private fun handleResult(result: FaceLandmarkerResult, input: MPImage) {
-    val meta = pendingFrames.remove(result.timestampMs()) ?: return
-    if (meta.generation != sessionGeneration.get()) return
-    inferenceInFlight.set(false)
-    processedFrames.incrementAndGet()
-    val startedAt = pipelineStartedAtMs.get()
-    if (initializationLatencyMs.get() == 0L && startedAt > 0L) {
-      initializationLatencyMs.compareAndSet(0L, (SystemClock.uptimeMillis() - startedAt).coerceAtLeast(1))
-    }
-    val faces = result.faceLandmarks()
-    if (faces.isEmpty()) {
-      emitResult(
-        status = "no_face",
-        qualityScore = 0.0,
-        qualityReasons = listOf("no_face"),
-        blendshapes = emptyMap(),
-        geometry = FaceGeometry(),
-        meta = meta,
-        latencyMs = (SystemClock.uptimeMillis() - result.timestampMs()).coerceAtLeast(0),
-      )
+    val meta = pendingFrames.remove(result.timestampMs())
+    if (meta == null) {
+      runCatching { BitmapExtractor.extract(input) }.getOrNull()?.let {
+        if (!it.isRecycled) it.recycle()
+      }
       return
     }
+    try {
+      if (meta.generation != sessionGeneration.get()) return
+      inferenceInFlight.set(false)
+      processedFrames.incrementAndGet()
+      val startedAt = pipelineStartedAtMs.get()
+      if (initializationLatencyMs.get() == 0L && startedAt > 0L) {
+        initializationLatencyMs.compareAndSet(0L, (SystemClock.uptimeMillis() - startedAt).coerceAtLeast(1))
+      }
+      val faces = result.faceLandmarks()
+      if (faces.isEmpty()) {
+        emitResult(
+          status = "no_face",
+          qualityScore = 0.0,
+          qualityReasons = listOf("no_face"),
+          blendshapes = emptyMap(),
+          geometry = FaceGeometry(),
+          meta = meta,
+          latencyMs = (SystemClock.uptimeMillis() - result.timestampMs()).coerceAtLeast(0),
+        )
+        return
+      }
 
-    val landmarks = faces.first()
-    val points = landmarks.map { Point(it.x().toDouble(), it.y().toDouble()) }
-    val geometry = computeGeometry(points)
-    val blendshapes = result.faceBlendshapes().orElse(emptyList())
-      .firstOrNull()
-      ?.associate { category -> category.categoryName() to category.score().toDouble().coerceIn(0.0, 1.0) }
-      ?: emptyMap()
-    val reasons = qualityReasons(meta, geometry)
-    val qualityScore = qualityScore(meta, geometry)
-    val skin = try {
-      skinRgb(points, BitmapExtractor.extract(input))
-    } catch (_: Exception) {
-      null
+      val landmarks = faces.first()
+      val points = landmarks.map { Point(it.x().toDouble(), it.y().toDouble()) }
+      val geometry = computeGeometry(points)
+      val blendshapes = result.faceBlendshapes().orElse(emptyList())
+        .firstOrNull()
+        ?.associate { category -> category.categoryName() to category.score().toDouble().coerceIn(0.0, 1.0) }
+        ?: emptyMap()
+      val reasons = qualityReasons(meta, geometry)
+      val qualityScore = qualityScore(meta, geometry)
+      val skin = try {
+        val bmp = meta.bitmap ?: BitmapExtractor.extract(input)
+        skinRgb(points, bmp)
+      } catch (_: Exception) {
+        null
+      }
+      emitResult(
+        status = if (reasons.isEmpty()) "ready" else "insufficient_quality",
+        qualityScore = qualityScore,
+        qualityReasons = reasons,
+        blendshapes = blendshapes,
+        geometry = geometry,
+        meta = meta,
+        latencyMs = (SystemClock.uptimeMillis() - result.timestampMs()).coerceAtLeast(0),
+        skin = skin,
+      )
+    } finally {
+      val bmp = meta.bitmap ?: runCatching { BitmapExtractor.extract(input) }.getOrNull()
+      if (bmp != null && !bmp.isRecycled) bmp.recycle()
     }
-    emitResult(
-      status = if (reasons.isEmpty()) "ready" else "insufficient_quality",
-      qualityScore = qualityScore,
-      qualityReasons = reasons,
-      blendshapes = blendshapes,
-      geometry = geometry,
-      meta = meta,
-      latencyMs = (SystemClock.uptimeMillis() - result.timestampMs()).coerceAtLeast(0),
-      skin = skin,
-    )
   }
 
   /**
@@ -629,8 +608,16 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     return doubleArrayOf(r / n, g / n, b / n)
   }
 
-  private fun handleLandmarkerError(error: RuntimeException) {
+  private fun clearPendingFrames() {
+    for (entry in pendingFrames.values) {
+      val bmp = entry.bitmap
+      if (bmp != null && !bmp.isRecycled) bmp.recycle()
+    }
     pendingFrames.clear()
+  }
+
+  private fun handleLandmarkerError(error: RuntimeException) {
+    clearPendingFrames()
     inferenceInFlight.set(false)
     emitError("inference_failed", error.message ?: "Falha na inferência facial.", true)
   }
@@ -682,6 +669,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     sessionGeneration.incrementAndGet()
     bound = false
     opening = false
+    isForegroundActive.set(false)
     try {
       captureSession?.close()
     } catch (_: Exception) {
@@ -700,7 +688,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     previewSurface?.release()
     previewSurface = null
     readerSurface = null
-    pendingFrames.clear()
+    clearPendingFrames()
     inferenceInFlight.set(false)
 
     // Keep the model alive across camera session restarts. Closing it from a
@@ -748,10 +736,16 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
 
   private fun computeGeometry(points: List<Point>): FaceGeometry {
     if (points.size <= 263) return FaceGeometry()
-    val minX = points.minOf { it.x }
-    val maxX = points.maxOf { it.x }
-    val minY = points.minOf { it.y }
-    val maxY = points.maxOf { it.y }
+    var minX = Double.POSITIVE_INFINITY
+    var maxX = Double.NEGATIVE_INFINITY
+    var minY = Double.POSITIVE_INFINITY
+    var maxY = Double.NEGATIVE_INFINITY
+    for (p in points) {
+      if (p.x < minX) minX = p.x
+      if (p.x > maxX) maxX = p.x
+      if (p.y < minY) minY = p.y
+      if (p.y > maxY) maxY = p.y
+    }
     val width = max(0.001, maxX - minX)
     val height = max(0.001, maxY - minY)
     val nose = points[1]
@@ -816,6 +810,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
     val sharpness: Double = 0.0,
     val capturedAtMs: Long = System.currentTimeMillis(),
     val generation: Long = 0L,
+    val bitmap: Bitmap? = null,
   )
   private data class Point(val x: Double, val y: Double)
   private data class FaceGeometry(
@@ -826,6 +821,7 @@ class MellowVisionView(context: Context, appContext: AppContext) : ExpoView(cont
   )
 
   companion object {
+    internal val isForegroundActive = AtomicBoolean(false)
     const val MODEL_VERSION = "mediapipe-face-landmarker-float16-v1"
     const val PIPELINE_VERSION = "mellow-vision-v3.1.0-native"
     private const val MODEL_ASSET = "face_landmarker.task"

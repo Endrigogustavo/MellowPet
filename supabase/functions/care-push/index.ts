@@ -20,7 +20,8 @@ const TEXT: Record<string, { title: string; body: string }> = {
 };
 
 Deno.serve(async (req) => {
-  if (req.headers.get('x-webhook-secret') !== Deno.env.get('WEBHOOK_SECRET')) {
+  const secret = Deno.env.get('WEBHOOK_SECRET');
+  if (!secret || req.headers.get('x-webhook-secret') !== secret) {
     return new Response('forbidden', { status: 403 });
   }
   const payload = (await req.json()) as Payload;
@@ -42,7 +43,8 @@ Deno.serve(async (req) => {
       .select('caregiver_user_id, paused_until')
       .eq('cared_user_id', String(r.cared_user_id))
       .eq('status', 'accepted')
-      .is('revoked_at', null);
+      .is('revoked_at', null)
+      .or(`expires_at.is.null,expires_at.gt.${now}`);
     recipients = (data ?? [])
       .filter((l) => !l.paused_until || l.paused_until <= now)
       .map((l) => String(l.caregiver_user_id));

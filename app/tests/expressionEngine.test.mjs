@@ -385,3 +385,149 @@ test('calibration only learns after an explicit request', () => {
   assert.equal(engine.getCalibrationState().complete, true);
   assert.ok(engine.exportBaseline());
 });
+
+test('open-mouth laughing and gentle smiles classify as happy, never sad', () => {
+  const laughing = {
+    mouthSmileLeft: 0.54,
+    mouthSmileRight: 0.52,
+    cheekSquintLeft: 0.46,
+    cheekSquintRight: 0.44,
+    jawOpen: 0.56,
+    eyeBlinkLeft: 0.68,
+    eyeBlinkRight: 0.65,
+    browInnerUp: 0.28,
+  };
+  const laughScores = scoreBlendshapes(laughing);
+  const laughWinner = Object.entries(laughScores).sort((left, right) => right[1] - left[1])[0][0];
+  assert.equal(laughWinner, 'happy', `laughing should rank happy first: ${JSON.stringify(laughScores)}`);
+  assert.ok(laughScores.happy > laughScores.sad + 0.35);
+
+  const gentleSmile = {
+    mouthSmileLeft: 0.28,
+    mouthSmileRight: 0.26,
+    cheekSquintLeft: 0.18,
+    cheekSquintRight: 0.16,
+    browInnerUp: 0.14,
+  };
+  const engine = new ExpressionEngine();
+  let result;
+  for (let index = 0; index < 4; index += 1) result = engine.process(baseFrame(gentleSmile));
+  assert.equal(result.observedExpression, 'happy', `gentle smile ficou em ${result.observedExpression}: ${JSON.stringify(result.scores)}`);
+  assert.equal(result.signalStatus, 'ready');
+});
+
+test('arching eyebrows in anger and angry scowls with inner-brow tension classify as angry, never sad', () => {
+  const asymmetricAngryArch = {
+    browOuterUpLeft: 0.62,
+    browOuterUpRight: 0.08,
+    browDownLeft: 0.12,
+    browDownRight: 0.54,
+    eyeSquintLeft: 0.34,
+    eyeSquintRight: 0.42,
+    mouthPressLeft: 0.36,
+    mouthPressRight: 0.34,
+  };
+  const bilateralAngryArch = {
+    browInnerUp: 0.52,
+    browOuterUpLeft: 0.48,
+    browOuterUpRight: 0.46,
+    browDownLeft: 0.42,
+    browDownRight: 0.4,
+    eyeSquintLeft: 0.5,
+    eyeSquintRight: 0.48,
+    mouthPressLeft: 0.44,
+    mouthPressRight: 0.42,
+    mouthFrownLeft: 0.3,
+    mouthFrownRight: 0.28,
+  };
+  const scowlWithFrownAndBrowInner = {
+    browDownLeft: 0.65,
+    browDownRight: 0.62,
+    browInnerUp: 0.36,
+    mouthFrownLeft: 0.38,
+    mouthFrownRight: 0.36,
+    mouthPressLeft: 0.42,
+    mouthPressRight: 0.4,
+    eyeSquintLeft: 0.38,
+    eyeSquintRight: 0.36,
+  };
+
+  for (const [label, pattern] of [
+    ['asymmetricAngryArch', asymmetricAngryArch],
+    ['bilateralAngryArch', bilateralAngryArch],
+    ['scowlWithFrownAndBrowInner', scowlWithFrownAndBrowInner],
+  ]) {
+    const engine = new ExpressionEngine();
+    let result;
+    for (let index = 0; index < 5; index += 1) result = engine.process(baseFrame(pattern));
+    assert.equal(
+      result.observedExpression,
+      'angry',
+      `${label} esperava angry, veio ${result.observedExpression}: ${JSON.stringify(result.scores)}`
+    );
+    assert.equal(result.signalStatus, 'ready');
+  }
+});
+
+test('resting face with mild camera-angle brow/frown baseline stays neutral and transitions out of sad cleanly', () => {
+  const restingCameraAngle = {
+    browInnerUp: 0.12,
+    mouthFrownLeft: 0.1,
+    mouthFrownRight: 0.1,
+  };
+  const engine = new ExpressionEngine();
+  let result;
+  for (let index = 0; index < 6; index += 1) result = engine.process(baseFrame(restingCameraAngle));
+  assert.equal(
+    result.observedExpression,
+    'neutral',
+    `resting face deveria ficar neutral, veio ${result.observedExpression}: ${JSON.stringify(result.scores)}`
+  );
+
+  // Depois de entrar em sad, voltar ao rosto em repouso, sorrir ou franzir a
+  // testa precisa sair de sad sem ficar preso.
+  const sadPattern = {
+    mouthFrownLeft: 0.62,
+    mouthFrownRight: 0.6,
+    browInnerUp: 0.52,
+    mouthLowerDownLeft: 0.3,
+    mouthLowerDownRight: 0.28,
+  };
+  for (let index = 0; index < 4; index += 1) result = engine.process(baseFrame(sadPattern));
+  assert.equal(result.observedExpression, 'sad');
+
+  for (let index = 0; index < 5; index += 1) result = engine.process(baseFrame(restingCameraAngle));
+  assert.equal(result.observedExpression, 'neutral');
+
+  for (let index = 0; index < 4; index += 1) result = engine.process(baseFrame(sadPattern));
+  assert.equal(result.observedExpression, 'sad');
+
+  for (let index = 0; index < 5; index += 1) result = engine.process(baseFrame(smile));
+  assert.equal(result.observedExpression, 'happy');
+});
+
+test('personal score adjuster also scales evidence so calibrated runner-up emotions are not blocked', () => {
+  const subtleSad = {
+    mouthFrownLeft: 0.25,
+    mouthFrownRight: 0.25,
+    browInnerUp: 0.18,
+  };
+  const uncalibrated = new ExpressionEngine();
+  let before;
+  for (let index = 0; index < 4; index += 1) before = uncalibrated.process(baseFrame(subtleSad));
+  assert.notEqual(before.observedExpression, 'sad');
+
+  const calibrated = new ExpressionEngine();
+  calibrated.setScoreAdjuster((scores) => {
+    const boosted = {
+      ...scores,
+      sad: scores.sad * 1.4,
+    };
+    const total = Object.values(boosted).reduce((a, b) => a + b, 0);
+    return Object.fromEntries(Object.entries(boosted).map(([k, v]) => [k, v / total]));
+  });
+  let after;
+  for (let index = 0; index < 4; index += 1) after = calibrated.process(baseFrame(subtleSad));
+  assert.equal(after.observedExpression, 'sad');
+  assert.equal(after.signalStatus, 'ready');
+});

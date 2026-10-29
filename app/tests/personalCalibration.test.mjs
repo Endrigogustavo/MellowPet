@@ -35,8 +35,10 @@ test('check-in divergente move as duas emoções', () => {
   const g = learnFromCheckin(DEFAULT_GAINS, 'sad', 'neutral');
   assert.equal(g.neutral, undefined);
   assert.ok(g.sad > 1);
+  assert.equal(g.samples, 1);
   const g2 = learnFromCheckin(DEFAULT_GAINS, 'sad', 'angry');
   assert.ok(g2.angry < 1 && g2.sad > 1);
+  assert.equal(g2.samples, 1);
   assert.equal(learnFromCheckin(DEFAULT_GAINS, 'sad', 'sad'), DEFAULT_GAINS);
 });
 

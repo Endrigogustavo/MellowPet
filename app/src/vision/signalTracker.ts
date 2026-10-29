@@ -21,7 +21,7 @@ export type FrameSignals = {
   tension: number | null;
   /** Média de eyeBlinkLeft/Right, 0–1. */
   blink: number;
-  /** Rotação da cabeça em graus. */
+  /** Rotação da cabeça normalizada (-1 a 1). */
   yaw: number;
   /** Máximo de eyeLookOut*, 0–1. */
   lookOut: number;
@@ -38,6 +38,7 @@ export const LOW_BLINKS_PER_MIN = 7;
 export const GAZE_WINDOW_MS = 2 * 60_000;
 export const GAZE_AWAY_EPISODES = 4;
 const GAZE_MIN_AWAY_MS = 1500;
+export const MAX_FACE_GAP_MS = 3_000;
 
 export const COOLDOWN_MS: Record<NudgeKind, number> = {
   tension: 30 * 60_000,
@@ -50,6 +51,7 @@ type Sample = { atMs: number; tense: boolean };
 export class SignalTracker {
   private tension: Sample[] = [];
   private faceSince: number | null = null;
+  private lastReadyAt: number | null = null;
   private blinks: number[] = [];
   private eyesShut = false;
   private awayStart: number | null = null;
@@ -59,13 +61,22 @@ export class SignalTracker {
   /** Alimenta um quadro. Devolve o lembrete que deve aparecer agora, se houver. */
   push(f: FrameSignals, focusMode: boolean): NudgeKind | null {
     if (!f.ready) {
-      // Sem rosto não há como medir piscada: a janela recomeça.
-      this.faceSince = null;
       this.eyesShut = false;
       this.awayStart = null;
+      if (this.lastReadyAt !== null && f.atMs - this.lastReadyAt > MAX_FACE_GAP_MS) {
+        // Sem rosto por mais que uma falha breve: a janela de piscadas recomeça.
+        this.faceSince = null;
+        this.blinks = [];
+        this.lastReadyAt = null;
+      }
       return null;
     }
     const now = f.atMs;
+    if (this.lastReadyAt !== null && now - this.lastReadyAt > MAX_FACE_GAP_MS) {
+      this.faceSince = null;
+      this.blinks = [];
+    }
+    this.lastReadyAt = now;
 
     // tensão sustentada
     if (f.tension !== null) {
@@ -84,7 +95,7 @@ export class SignalTracker {
     this.blinks = this.blinks.filter((t) => now - t <= BLINK_WINDOW_MS);
 
     // olhar fora da tela (só conta episódio que dura)
-    const away = Math.abs(f.yaw) > 25 || f.lookOut > 0.55;
+    const away = Math.abs(f.yaw) > 0.32 || f.lookOut > 0.55;
     if (away && this.awayStart === null) this.awayStart = now;
     if (!away && this.awayStart !== null) {
       if (now - this.awayStart >= GAZE_MIN_AWAY_MS) this.awayEpisodes.push(now);

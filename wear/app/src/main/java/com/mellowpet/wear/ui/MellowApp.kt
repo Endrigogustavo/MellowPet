@@ -88,6 +88,8 @@ fun MellowApp(
 
   var now by remember { mutableStateOf(Date()) }
   var reachable by remember { mutableStateOf(false) }
+  val dateFormat = remember { SimpleDateFormat("EEE d MMM", Locale("pt", "BR")) }
+  val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
 
   LaunchedEffect(Unit) {
     CheckinQueue.flush(context)
@@ -176,8 +178,8 @@ fun MellowApp(
             // O bem-estar real e calculado no celular; ate ele chegar, a
             // sequencia de dias e o que o relogio sabe de concreto.
             wellbeing = state.streak.coerceAtMost(7) / 7f,
-            dateLabel = SimpleDateFormat("EEE d MMM", Locale("pt", "BR")).format(now),
-            timeLabel = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now),
+            dateLabel = dateFormat.format(now),
+            timeLabel = timeFormat.format(now),
             bpm = bpm,
             onPet = { pets += 1; context.buzz(longArrayOf(0, 30)) },
           )

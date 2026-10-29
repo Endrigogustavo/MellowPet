@@ -105,7 +105,7 @@ async def chat_stream(request: ChatRequest, _user: Optional[str] = Depends(ai_us
     async def events():
         if detect_crisis(request.crisis_text()):
             yield _sse({"delta": CRISIS_REPLY})
-            yield _sse({"done": True, "provider": "crisis", "action": None})
+            yield _sse({"done": True, "provider": "crisis", "action": None, "reply": CRISIS_REPLY})
             return
 
         provider = "fallback"
@@ -123,9 +123,11 @@ async def chat_stream(request: ChatRequest, _user: Optional[str] = Depends(ai_us
 
         if not parts:
             fallback = ai_chat_service._fallback_response(request.emotion)
+            parts.append(fallback)
             yield _sse({"delta": fallback})
-        _, action = split_action("".join(parts))
-        yield _sse({"done": True, "provider": provider, "action": action})
+        reply, action = split_action("".join(parts))
+        reply = reply or ai_chat_service._fallback_response(request.emotion)
+        yield _sse({"done": True, "provider": provider, "action": action, "reply": reply})
 
     return StreamingResponse(
         events(),

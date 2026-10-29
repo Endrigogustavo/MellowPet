@@ -62,12 +62,18 @@ fun PetFace(
   }
   val mouth = remember(emotion) { path(MOUTH[emotion]!!) }
 
-  val breath by rememberInfiniteTransition(label = "breath").animateFloat(
-    initialValue = 1f,
-    targetValue = if (breathing) 1.035f else 1f,
-    animationSpec = infiniteRepeatable(tween(2600), RepeatMode.Reverse),
-    label = "breathScale",
-  )
+  val breath = if (breathing) {
+    val transition = rememberInfiniteTransition(label = "breath")
+    val animated by transition.animateFloat(
+      initialValue = 1f,
+      targetValue = 1.035f,
+      animationSpec = infiniteRepeatable(tween(2600), RepeatMode.Reverse),
+      label = "breathScale",
+    )
+    animated
+  } else {
+    1f
+  }
 
   Canvas(modifier = modifier.size(size)) {
     val k = this.size.minDimension / VIEW

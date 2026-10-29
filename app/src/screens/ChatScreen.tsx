@@ -100,11 +100,11 @@ export function ChatScreen() {
       return;
     }
     const text = state.chatInput.trim();
-    if (!text || state.typing) return;
+    if (!text || state.typing || state.replying) return;
     const history = state.messages;
-    actions.set({ chatInput: '', typing: true, messages: [...history, { role: 'user', content: text }] });
+    actions.set({ chatInput: '', typing: true, replying: true, messages: [...history, { role: 'user', content: text }] });
     const reply = (content: string) =>
-      actions.set((cur) => ({ typing: false, messages: [...cur.messages, { role: 'bot', content }] }));
+      actions.set((cur) => ({ typing: false, replying: false, messages: [...cur.messages, { role: 'bot', content }] }));
     // Copiloto com IA: recebe só o resumo agregado do painel. Sem servidor ou
     // sem IA, as respostas prontas de antes continuam valendo.
     askCopilot(text, history, careSummary)

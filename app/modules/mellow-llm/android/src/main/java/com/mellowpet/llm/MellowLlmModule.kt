@@ -26,6 +26,7 @@ class MellowLlmModule : Module() {
 
   private var llm: LlmInference? = null
   private var loadedFile: String? = null
+  private val llmLock = Any()
   private val worker = Executors.newSingleThreadExecutor()
   private val downloading = AtomicBoolean(false)
   private val cancelDownload = AtomicBoolean(false)
@@ -46,10 +47,11 @@ class MellowLlmModule : Module() {
 
     Function("status") { fileName: String ->
       val file = modelFile(fileName)
+      val loaded = synchronized(llmLock) { loadedFile == file.name && llm != null }
       mapOf(
         "downloaded" to file.exists(),
         "bytes" to (if (file.exists()) file.length() else 0L),
-        "loaded" to (loadedFile == fileName && llm != null),
+        "loaded" to loaded,
         "downloading" to downloading.get(),
       )
     }
@@ -67,7 +69,7 @@ class MellowLlmModule : Module() {
       cancelDownload.set(false)
       worker.execute {
         val target = modelFile(fileName)
-        val tmp = File(target.parentFile, "$fileName.part")
+        val tmp = File(target.parentFile, "${target.name}.part")
         try {
           val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             instanceFollowRedirects = true
@@ -119,39 +121,48 @@ class MellowLlmModule : Module() {
     Function("cancelDownload") { cancelDownload.set(true) }
 
     Function("deleteModel") { fileName: String ->
-      if (loadedFile == fileName) {
-        llm?.close()
-        llm = null
-        loadedFile = null
+      val file = modelFile(fileName)
+      synchronized(llmLock) {
+        if (loadedFile == file.name) {
+          llm?.close()
+          llm = null
+          loadedFile = null
+        }
       }
-      modelFile(fileName).delete()
+      file.delete()
     }
 
     /** Carrega na memória. Demora alguns segundos; fazer antes da primeira pergunta. */
     AsyncFunction("load") { fileName: String, maxTokens: Int, promise: Promise ->
       worker.execute {
         try {
-          if (loadedFile == fileName && llm != null) {
-            promise.resolve(true)
-            return@execute
-          }
-          llm?.close()
           val file = modelFile(fileName)
           if (!file.exists()) {
             promise.reject("missing", "Modelo ainda não baixado.", null)
             return@execute
           }
-          val options = LlmInference.LlmInferenceOptions.builder()
-            .setModelPath(file.absolutePath)
-            .setMaxTokens(maxTokens)
-            .setMaxTopK(40)
-            .build()
-          llm = LlmInference.createFromOptions(context, options)
-          loadedFile = fileName
+          synchronized(llmLock) {
+            if (loadedFile == file.name && llm != null) {
+              promise.resolve(true)
+              return@execute
+            }
+            llm?.close()
+            llm = null
+            loadedFile = null
+            val options = LlmInference.LlmInferenceOptions.builder()
+              .setModelPath(file.absolutePath)
+              .setMaxTokens(maxTokens)
+              .setMaxTopK(40)
+              .build()
+            llm = LlmInference.createFromOptions(context, options)
+            loadedFile = file.name
+          }
           promise.resolve(true)
         } catch (e: Exception) {
-          llm = null
-          loadedFile = null
+          synchronized(llmLock) {
+            llm = null
+            loadedFile = null
+          }
           promise.reject("load_failed", e.message ?: "Não foi possível carregar o modelo.", e)
         }
       }
@@ -162,18 +173,20 @@ class MellowLlmModule : Module() {
      * final por `onDone`. Uma geração por vez.
      */
     Function("generate") { requestId: String, prompt: String ->
-      val engine = llm ?: run {
-        sendEvent("onError", mapOf("requestId" to requestId, "message" to "Modelo não carregado."))
-        return@Function false
-      }
       val text = StringBuilder()
       try {
-        engine.generateResponseAsync(prompt) { partial, done ->
-          if (partial != null) {
-            text.append(partial)
-            sendEvent("onToken", mapOf("requestId" to requestId, "text" to text.toString()))
+        synchronized(llmLock) {
+          val engine = llm ?: run {
+            sendEvent("onError", mapOf("requestId" to requestId, "message" to "Modelo não carregado."))
+            return@Function false
           }
-          if (done) sendEvent("onDone", mapOf("requestId" to requestId, "text" to text.toString()))
+          engine.generateResponseAsync(prompt) { partial, done ->
+            if (partial != null) {
+              text.append(partial)
+              sendEvent("onToken", mapOf("requestId" to requestId, "text" to text.toString()))
+            }
+            if (done) sendEvent("onDone", mapOf("requestId" to requestId, "text" to text.toString()))
+          }
         }
       } catch (e: Exception) {
         sendEvent("onError", mapOf("requestId" to requestId, "message" to (e.message ?: "Falha na geração.")))
@@ -183,14 +196,19 @@ class MellowLlmModule : Module() {
     }
 
     Function("unload") {
-      llm?.close()
-      llm = null
-      loadedFile = null
+      synchronized(llmLock) {
+        llm?.close()
+        llm = null
+        loadedFile = null
+      }
     }
 
     OnDestroy {
-      llm?.close()
-      llm = null
+      synchronized(llmLock) {
+        llm?.close()
+        llm = null
+        loadedFile = null
+      }
       worker.shutdown()
     }
   }

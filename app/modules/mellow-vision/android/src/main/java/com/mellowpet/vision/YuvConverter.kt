@@ -13,6 +13,8 @@ import kotlin.math.max
  * com perdas antes do modelo e latência de encode/decode.
  */
 internal object YuvConverter {
+  private val pixelBuffer = ThreadLocal<IntArray>()
+
   fun toBitmap(image: Image): Bitmap {
     val width = image.width
     val height = image.height
@@ -25,7 +27,10 @@ internal object YuvConverter {
     val yStart = yBuffer.position()
     val uStart = uBuffer.position()
     val vStart = vBuffer.position()
-    val pixels = IntArray(width * height)
+    val needed = width * height
+    val pixels = pixelBuffer.get()?.takeIf { it.size >= needed } ?: IntArray(needed).also {
+      pixelBuffer.set(it)
+    }
 
     for (row in 0 until height) {
       val yRow = yStart + row * yPlane.rowStride
@@ -47,6 +52,6 @@ internal object YuvConverter {
         pixels[row * width + col] = Color.rgb(red, green, blue)
       }
     }
-    return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
+    return Bitmap.createBitmap(pixels, 0, width, width, height, Bitmap.Config.ARGB_8888)
   }
 }

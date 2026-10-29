@@ -112,3 +112,26 @@ export async function loadSpeak(): Promise<boolean> {
 export async function saveSpeak(enabled: boolean): Promise<void> {
   await SecureStore.setItemAsync(SPEAK_KEY, enabled ? 'on' : 'off');
 }
+
+/** Cápsula do tempo (texto e se já foi selada), guardada no aparelho por conta. */
+const capsuleKey = (userId: string) => `mellowpet.capsule.v1.${encodeURIComponent(userId).slice(0, 120)}`;
+
+export async function loadCapsule(userId: string): Promise<{ text: string; saved: boolean }> {
+  try {
+    const raw = await SecureStore.getItemAsync(capsuleKey(userId));
+    const parsed = raw ? (JSON.parse(raw) as { text?: unknown; saved?: unknown }) : null;
+    if (parsed && typeof parsed.text === 'string') {
+      return { text: parsed.text.slice(0, 2000), saved: parsed.saved === true };
+    }
+  } catch {
+    // registro corrompido volta vazio
+  }
+  return { text: '', saved: false };
+}
+
+export async function saveCapsule(userId: string, capsule: { text: string; saved: boolean }): Promise<void> {
+  await SecureStore.setItemAsync(
+    capsuleKey(userId),
+    JSON.stringify({ text: capsule.text.slice(0, 2000), saved: capsule.saved })
+  );
+}

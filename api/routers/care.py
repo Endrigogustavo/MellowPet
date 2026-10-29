@@ -73,6 +73,13 @@ class CareChatRequest(BaseModel):
             raise ValueError("message must not be blank")
         return value
 
+    def crisis_text(self) -> str:
+        """Combina a mensagem atual com as últimas 2 mensagens do usuário no
+        histórico — crise mencionada no contexto recente também recebe a
+        orientação fixa imediata."""
+        recent_user = [m.content for m in self.history if m.role == "user"][-2:]
+        return " ".join([self.message, *recent_user])
+
 
 def describe(summary: Optional[CareSummary]) -> str:
     if summary is None or summary.events == 0:
@@ -90,7 +97,7 @@ def describe(summary: Optional[CareSummary]) -> str:
 
 @router.post("/chat", summary="Conversation copilot for caregivers (aggregated data only)")
 async def care_chat(request: CareChatRequest, _user: Optional[str] = Depends(ai_user)):
-    if detect_crisis(request.message):
+    if detect_crisis(request.crisis_text()):
         return {"response": CARE_CRISIS_REPLY, "provider": "crisis"}
     if not ai_chat_service.available:
         return {"response": None, "provider": "fallback"}

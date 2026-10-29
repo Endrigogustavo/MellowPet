@@ -14,18 +14,27 @@ export async function fetchProfileStats(userId: string): Promise<ProfileStats> {
   return { xp: data.xp ?? 0, fed: data.fed ?? 0, played: data.played ?? 0 };
 }
 
+let queue: Promise<unknown> = Promise.resolve();
+
 /** Incrementa (ou decrementa) os contadores do usuário autenticado de forma
- * atômica no banco — nunca lê-modifica-escreve no cliente. */
-export async function bumpProfileStats(delta: {
+ * atômica no banco — nunca lê-modifica-escreve no cliente. As chamadas saem
+ * em fila para que duas ações rápidas ("Brincar" + "Alimentar") não corram em
+ * paralelo e sobrescrevam o estado com uma resposta fora de ordem. */
+export function bumpProfileStats(delta: {
   fed?: number;
   played?: number;
   xp?: number;
 }): Promise<ProfileStats | null> {
-  const { data, error } = await supabase.rpc('bump_profile', {
-    fed_delta: delta.fed ?? 0,
-    played_delta: delta.played ?? 0,
-    xp_delta: delta.xp ?? 0,
-  });
-  if (error || !data) return null;
-  return { xp: data.xp ?? 0, fed: data.fed ?? 0, played: data.played ?? 0 };
+  const run = async (): Promise<ProfileStats | null> => {
+    const { data, error } = await supabase.rpc('bump_profile', {
+      fed_delta: delta.fed ?? 0,
+      played_delta: delta.played ?? 0,
+      xp_delta: delta.xp ?? 0,
+    });
+    if (error || !data) return null;
+    return { xp: data.xp ?? 0, fed: data.fed ?? 0, played: data.played ?? 0 };
+  };
+  const next = queue.then(run, run);
+  queue = next.catch(() => undefined);
+  return next;
 }
