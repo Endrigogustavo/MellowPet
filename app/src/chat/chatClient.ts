@@ -97,12 +97,21 @@ export function streamChatMessage(
       for (const line of chunk.split('\n')) {
         if (!line.startsWith('data: ')) continue;
         try {
-          const ev = JSON.parse(line.slice(6)) as { delta?: string; done?: boolean; provider?: string; action?: unknown };
+          const ev = JSON.parse(line.slice(6)) as {
+            delta?: string;
+            done?: boolean;
+            provider?: string;
+            action?: unknown;
+            reply?: string;
+          };
           if (typeof ev.delta === 'string') {
             text += ev.delta;
             onText(text);
           }
-          if (ev.done) finished = { provider: ev.provider ?? 'unknown', action: parseAction(ev.action) };
+          if (ev.done) {
+            if (typeof ev.reply === 'string' && ev.reply) text = ev.reply;
+            finished = { provider: ev.provider ?? 'unknown', action: parseAction(ev.action) };
+          }
         } catch {
           // evento corrompido: ignora e segue
         }

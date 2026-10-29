@@ -64,6 +64,7 @@ import { buildQwenPrompt, systemPrompt, tidyReply } from '../chat/prompt';
 import { pushStateToWatch, syncWatchCheckins } from '../wear/wearBridge';
 import { dismissCard as persistDismissCard, loadDismissedCards } from './dismissedCardsStore';
 import {
+  loadCapsule,
   loadDensity,
   loadEmaEnabled,
   loadEncountersEnabled,
@@ -464,6 +465,9 @@ function loadPetIdentity(userId: string, apply: (patch: Partial<State>) => void)
     .catch(() => undefined);
   loadMemory(userId)
     .then(({ enabled, notes }) => apply({ memoryEnabled: enabled, memoryNotes: notes }))
+    .catch(() => undefined);
+  loadCapsule(userId)
+    .then(({ text, saved }) => apply({ capsule: text, capsuleSaved: saved }))
     .catch(() => undefined);
 }
 
@@ -925,12 +929,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Relógio de 1s: conta a duração da emoção e os ciclos de respiração.
+    // Relógio de 1s: conta a duração da emoção na Home (quando há leitura
+    // ativa) e os ciclos de respiração. Fora disso devolve `{}` para não
+    // re-renderizar a árvore inteira a cada segundo em outras telas.
     const tick = setInterval(() => {
-      dispatch((s) => ({
-        streak: s.streak + 1,
-        breathTick: s.breathing ? s.breathTick + 1 : s.breathTick,
-      }));
+      dispatch((s) => {
+        const countStreak = s.screen === 'home' && s.signalStatus === 'ready';
+        if (!countStreak && !s.breathing) return {};
+        return {
+          ...(countStreak ? { streak: s.streak + 1 } : null),
+          ...(s.breathing ? { breathTick: s.breathTick + 1 } : null),
+        };
+      });
     }, 1000);
 
     // Fonte demo explicitamente isolada. Builds de produção sem o pipeline

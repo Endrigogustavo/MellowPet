@@ -16,6 +16,7 @@ import {
 } from '../routine/routineClient';
 import { cancelRoutineReminder, resyncRoutineReminders, scheduleRoutineReminder } from '../notifications/notifications';
 import { useApp, useTheme } from '../state/AppContext';
+import { saveCapsule } from '../state/preferencesStore';
 import { DANGER } from '../theme/palette';
 import { updateRoutineWidget } from '../widgets/widgetBridge';
 
@@ -250,13 +251,20 @@ export function RoutineScreen() {
           </Txt>
           <Field
             value={state.capsule}
-            onChangeText={(capsule) => actions.set({ capsule })}
+            onChangeText={(capsule) => {
+              actions.set({ capsule, capsuleSaved: false });
+              if (state.userId) saveCapsule(state.userId, { text: capsule, saved: false }).catch(() => undefined);
+            }}
             placeholder="Daqui a um mês eu espero…"
             containerStyle={{ marginTop: 12 }}
             style={{ backgroundColor: T.surf, borderWidth: 0, borderRadius: 14, paddingVertical: 13 }}
           />
           <Touchable
-            onPress={() => actions.set({ capsuleSaved: true })}
+            onPress={() => {
+              if (!state.capsule.trim()) return;
+              actions.set({ capsuleSaved: true });
+              if (state.userId) saveCapsule(state.userId, { text: state.capsule, saved: true }).catch(() => undefined);
+            }}
             style={{
               marginTop: 10,
               paddingVertical: 13,
