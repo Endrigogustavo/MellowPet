@@ -149,9 +149,11 @@ class GeminiProvider:
         return "".join(p.text for p in parts if getattr(p, "text", None) and not getattr(p, "thought", False))
 
     def _retry_without_thinking(self, exc: Exception) -> bool:
-        """Recua um degrau (off -> min -> none) se o erro for da config de pensamento."""
+        """Recua um degrau (off -> min -> none) só se o erro for 400/INVALID_ARGUMENT da config de pensamento."""
         msg = str(exc).lower()
-        if self._thinking == "none" or not ("think" in msg or "budget" in msg):
+        is_invalid_arg = "invalid_argument" in msg or "400" in msg
+        is_thinking_err = any(k in msg for k in ("thinking", "thinking_config", "thinking_budget"))
+        if self._thinking == "none" or not (is_invalid_arg and is_thinking_err):
             return False
         self._thinking = "min" if self._thinking == "off" else "none"
         logger.warning("Modelo %s recusou a config de pensamento; usando modo %s", self._model, self._thinking)

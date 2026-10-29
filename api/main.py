@@ -100,7 +100,7 @@ app.add_middleware(
     # mobile autentica por header, entao nao precisa de cookie.
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "X-API-Key"],
+    allow_headers=["Content-Type", "X-API-Key", "Authorization"],
     max_age=600,
 )
 

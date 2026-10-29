@@ -95,8 +95,9 @@ def test_stream_sem_ia_entrega_fallback_e_done(app_client, no_ai):
     r = app_client.post("/api/v1/chat/stream", json={"message": "oi", "emotion": "angry"}, headers=H)
     assert r.status_code == 200
     ev = _events(r.text)
-    assert ev[0]["delta"] == ai_chat_service._fallback_response("angry")
-    assert ev[-1] == {"done": True, "provider": "fallback", "action": None}
+    expected = ai_chat_service._fallback_response("angry")
+    assert ev[0]["delta"] == expected
+    assert ev[-1] == {"done": True, "provider": "fallback", "action": None, "reply": expected}
 
 
 def test_stream_nao_e_comprimido_pelo_gzip(app_client, no_ai):
@@ -120,7 +121,7 @@ def test_stream_com_crise_nunca_chama_o_modelo(app_client, monkeypatch, msg):
     r = app_client.post("/api/v1/chat/stream", json={"message": msg}, headers=H)
     ev = _events(r.text)
     assert ev[0]["delta"] == CRISIS_REPLY
-    assert ev[-1] == {"done": True, "provider": "crisis", "action": None}
+    assert ev[-1] == {"done": True, "provider": "crisis", "action": None, "reply": CRISIS_REPLY}
 
 
 @pytest.mark.parametrize(
@@ -149,7 +150,7 @@ def test_stream_provedor_falha_antes_do_primeiro_pedaco_passa_a_vez(app_client, 
     use_providers(monkeypatch, p1, p2)
     ev = _events(app_client.post("/api/v1/chat/stream", json={"message": "oi"}, headers=H).text)
     assert "".join(e["delta"] for e in ev[:-1]) == "Oi tudo bem? [[acao:respirar]]"
-    assert ev[-1] == {"done": True, "provider": "anthropic", "action": "respirar"}
+    assert ev[-1] == {"done": True, "provider": "anthropic", "action": "respirar", "reply": "Oi tudo bem?"}
 
 
 def test_stream_provedor_falha_no_meio_termina_com_o_que_chegou(app_client, monkeypatch):
@@ -309,9 +310,44 @@ def test_rota_protegida_sem_chave_401_na_pilha_real(app_client):
 def test_preflight_cors_nao_exige_chave(app_client):
     r = app_client.options(
         "/api/v1/chat/",
-        headers={"Origin": "https://exemplo.app", "Access-Control-Request-Method": "POST"},
+        headers={
+            "Origin": "https://exemplo.app",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Content-Type, X-API-Key, Authorization",
+        },
     )
-    assert r.status_code != 401
+    assert r.status_code == 200
+    allowed = r.headers.get("access-control-allow-headers", "").lower()
+    assert "authorization" in allowed
+
+
+def test_post_com_content_length_falsificado_menor_que_corpo_real_da_413(app_client, monkeypatch):
+    monkeypatch.setattr(config.settings, "max_request_bytes", 100)
+    r = app_client.post(
+        "/api/v1/chat/",
+        content=b'{"message":"' + (b"x" * 500) + b'"}',
+        headers={**H, "Content-Type": "application/json", "Content-Length": "10"},
+    )
+    assert r.status_code == 413
+
+
+def test_gemini_retry_without_thinking_so_recua_em_400_invalid_argument():
+    from services.ai_service import GeminiProvider
+
+    g = GeminiProvider.__new__(GeminiProvider)
+    g._model = "gemini-2.5-flash"
+    g._thinking = "off"
+
+    # Erro genérico com "budget" ou "think" (ex.: cota 429) não deve alterar _thinking
+    assert g._retry_without_thinking(RuntimeError("429 RESOURCE_EXHAUSTED: billing budget exceeded")) is False
+    assert g._thinking == "off"
+
+    # Erro 400 INVALID_ARGUMENT mencionando thinking_config recua off -> min -> none
+    assert g._retry_without_thinking(RuntimeError("400 INVALID_ARGUMENT: thinking_budget is not supported")) is True
+    assert g._thinking == "min"
+    assert g._retry_without_thinking(RuntimeError("400 INVALID_ARGUMENT: thinking_config invalid")) is True
+    assert g._thinking == "none"
+    assert g._retry_without_thinking(RuntimeError("400 INVALID_ARGUMENT: thinking_config invalid")) is False
 
 
 # ── Middlewares isolados ────────────────────────────────────────────────────
