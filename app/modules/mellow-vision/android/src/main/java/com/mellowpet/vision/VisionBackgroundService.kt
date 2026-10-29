@@ -144,14 +144,26 @@ class VisionBackgroundService : Service() {
       @Suppress("DEPRECATION")
       Notification.Builder(this)
     }
+    val localizedLabel = label?.let(::emotionLabel)
     return builder
-      .setContentTitle(if (label == null) "Lendo em segundo plano" else "Mellow · $label")
+      .setContentTitle(if (localizedLabel == null) "Lendo em segundo plano" else "Mellow · $localizedLabel")
       .setContentText("Uma leitura a cada $intervalMinutes min. Toque para abrir.")
       .setSmallIcon(android.R.drawable.ic_menu_camera)
       .setContentIntent(open)
       .setOngoing(true)
       .addAction(Notification.Action.Builder(null, "Parar", stop).build())
       .build()
+  }
+
+  private fun emotionLabel(key: String): String = when (key) {
+    "happy" -> "Feliz"
+    "sad" -> "Triste"
+    "angry" -> "Irritado"
+    "neutral" -> "Calmo"
+    "surprised" -> "Surpreso"
+    "disgusted" -> "Desconforto"
+    "fearful" -> "Receoso"
+    else -> key
   }
 
   override fun onDestroy() {

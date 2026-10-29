@@ -4,6 +4,16 @@ public class MellowVisionModule: Module {
   public func definition() -> ModuleDefinition {
     Name("MellowVision")
 
+    Function("thermalStatus") { () -> Int in
+      switch ProcessInfo.processInfo.thermalState {
+      case .nominal: return 0
+      case .fair: return 1
+      case .serious: return 2
+      case .critical: return 3
+      @unknown default: return -1
+      }
+    }
+
     AsyncFunction("getCapabilitiesAsync") {
       return [
         "available": true,
@@ -36,6 +46,10 @@ public class MellowVisionModule: Module {
 
       Prop("mirror") { (view: MellowVisionView, mirror: Bool) in
         view.updateMirror(mirror)
+      }
+
+      Prop("showPreview") { (view: MellowVisionView, showPreview: Bool) in
+        view.updateShowPreview(showPreview)
       }
     }
   }

@@ -46,6 +46,7 @@ internal class BackgroundReader(private val context: Context) {
   private var session: CameraCaptureSession? = null
   private var reader: ImageReader? = null
   private var landmarker: FaceLandmarker? = null
+  private val landmarkerLock = Any()
   private val busy = AtomicBoolean(false)
 
   private var framesSeen = 0
@@ -60,6 +61,11 @@ internal class BackgroundReader(private val context: Context) {
    */
   fun readOnce(callback: (Reading?) -> Unit) {
     if (!busy.compareAndSet(false, true)) {
+      callback(null)
+      return
+    }
+    if (MellowVisionView.isForegroundActive.get()) {
+      finish(null)
       callback(null)
       return
     }
@@ -91,20 +97,22 @@ internal class BackgroundReader(private val context: Context) {
   }
 
   private fun ensureLandmarker() {
-    if (landmarker != null) return
-    val options = FaceLandmarker.FaceLandmarkerOptions.builder()
-      .setBaseOptions(BaseOptions.builder().setModelAssetPath(MODEL_ASSET).build())
-      // IMAGE em vez de LIVE_STREAM: são poucas amostras avulsas, não um
-      // fluxo contínuo — e assim o resultado volta síncrono, sem depender
-      // de timestamps monotônicos entre aberturas de câmera.
-      .setRunningMode(RunningMode.IMAGE)
-      .setNumFaces(1)
-      .setMinFaceDetectionConfidence(0.55f)
-      .setMinFacePresenceConfidence(0.55f)
-      .setMinTrackingConfidence(0.55f)
-      .setOutputFaceBlendshapes(true)
-      .build()
-    landmarker = FaceLandmarker.createFromOptions(context, options)
+    synchronized(landmarkerLock) {
+      if (landmarker != null) return
+      val options = FaceLandmarker.FaceLandmarkerOptions.builder()
+        .setBaseOptions(BaseOptions.builder().setModelAssetPath(MODEL_ASSET).build())
+        // IMAGE em vez de LIVE_STREAM: são poucas amostras avulsas, não um
+        // fluxo contínuo — e assim o resultado volta síncrono, sem depender
+        // de timestamps monotônicos entre aberturas de câmera.
+        .setRunningMode(RunningMode.IMAGE)
+        .setNumFaces(1)
+        .setMinFaceDetectionConfidence(0.55f)
+        .setMinFacePresenceConfidence(0.55f)
+        .setMinTrackingConfidence(0.55f)
+        .setOutputFaceBlendshapes(true)
+        .build()
+      landmarker = FaceLandmarker.createFromOptions(context, options)
+    }
   }
 
   private fun openFrontCamera() {
@@ -179,6 +187,10 @@ internal class BackgroundReader(private val context: Context) {
 
   private fun analyze(image: android.media.Image) {
     framesSeen += 1
+    if (framesSeen <= WARMUP_FRAMES) {
+      image.close()
+      return
+    }
     val width = image.width
     val height = image.height
     val bitmap = image.use(YuvConverter::toBitmap)
@@ -187,7 +199,9 @@ internal class BackgroundReader(private val context: Context) {
       .createBitmap(bitmap, 0, 0, width, height, matrix, true)
     try {
       val mp: MPImage = BitmapImageBuilder(rotated).build()
-      val result: FaceLandmarkerResult = landmarker?.detect(mp) ?: return
+      val result: FaceLandmarkerResult = synchronized(landmarkerLock) {
+        landmarker?.detect(mp)
+      } ?: return
       if (result.faceLandmarks().isEmpty()) return
 
       val blendshapes = result.faceBlendshapes().orElse(emptyList())
@@ -221,6 +235,7 @@ internal class BackgroundReader(private val context: Context) {
 
   private fun finish(@Suppress("UNUSED_PARAMETER") reading: Reading?) {
     onDone = null
+    handler?.removeCallbacksAndMessages(null)
     try {
       session?.stopRepeating()
     } catch (_: Exception) {
@@ -241,8 +256,10 @@ internal class BackgroundReader(private val context: Context) {
   /** Libera o modelo. O serviço chama ao parar de vez. */
   fun release() {
     finish(null)
-    landmarker?.close()
-    landmarker = null
+    synchronized(landmarkerLock) {
+      landmarker?.close()
+      landmarker = null
+    }
   }
 
   private companion object {
@@ -250,7 +267,8 @@ internal class BackgroundReader(private val context: Context) {
     const val MODEL_ASSET = "face_landmarker.task"
     const val WIDTH = 640
     const val HEIGHT = 480
-    const val MAX_FRAMES = 6
+    const val WARMUP_FRAMES = 2
+    const val MAX_FRAMES = 8
     const val MIN_VALID_SAMPLES = 2
     const val MIN_CONFIDENCE = 0.30
     const val TIMEOUT_MS = 6_000L

@@ -45,13 +45,27 @@ internal object BlendshapeScorer {
 
   /** Distribuição normalizada sobre as sete classes. */
   fun score(src: Map<String, Double>): Map<String, Double> {
-    val browInner = activate(value(src, "browInnerUp"), 0.015, 0.4)
-    val browOuter = bilateral(src, "browOuterUpLeft", "browOuterUpRight", 0.03, 0.56)
-    val browDown = bilateral(src, "browDownLeft", "browDownRight", 0.03, 0.55, 0.12)
-    val cheekRaise = bilateral(src, "cheekSquintLeft", "cheekSquintRight", 0.04, 0.7)
+    val browInner = activate(value(src, "browInnerUp"), 0.055, 0.52)
+    val browOuterLeft = activate(value(src, "browOuterUpLeft"), 0.03, 0.54)
+    val browOuterRight = activate(value(src, "browOuterUpRight"), 0.03, 0.54)
+    val browOuter = bilateral(src, "browOuterUpLeft", "browOuterUpRight", 0.03, 0.54)
+    val browDownLeft = activate(value(src, "browDownLeft"), 0.03, 0.52)
+    val browDownRight = activate(value(src, "browDownRight"), 0.03, 0.52)
+    val browDown = bilateral(src, "browDownLeft", "browDownRight", 0.03, 0.52, 0.1)
+    val browDownPeak = max(browDownLeft, browDownRight)
+    val browArchAsym = clip(
+      abs(browOuterLeft - browOuterRight) * 0.85 + abs(browDownLeft - browDownRight) * 0.65,
+    )
+    val cheekRaise = bilateral(src, "cheekSquintLeft", "cheekSquintRight", 0.035, 0.6, 0.16)
     val noseWrinkle = bilateral(src, "noseSneerLeft", "noseSneerRight", 0.03, 0.42, 0.1)
-    val smile = bilateral(src, "mouthSmileLeft", "mouthSmileRight", 0.045, 0.68, 0.3)
-    val frown = bilateral(src, "mouthFrownLeft", "mouthFrownRight", 0.025, 0.46, 0.16)
+    val leftSmile = activate(value(src, "mouthSmileLeft"), 0.035, 0.56)
+    val rightSmile = activate(value(src, "mouthSmileRight"), 0.035, 0.56)
+    val smileConcordance = clip(
+      min(leftSmile, rightSmile) / max(0.05, 0.25 * max(leftSmile, rightSmile)),
+    )
+    val smile = bilateral(src, "mouthSmileLeft", "mouthSmileRight", 0.035, 0.56, 0.22) *
+      (0.25 + 0.75 * smileConcordance)
+    val frown = bilateral(src, "mouthFrownLeft", "mouthFrownRight", 0.045, 0.52, 0.18)
     val mouthStretch = bilateral(src, "mouthStretchLeft", "mouthStretchRight", 0.04, 0.58, 0.12)
     val jawOpen = activate(value(src, "jawOpen"), 0.04, 0.6)
     val eyesClosed = bilateral(src, "eyeBlinkLeft", "eyeBlinkRight", 0.08, 0.62, 0.08)
@@ -66,31 +80,57 @@ internal object BlendshapeScorer {
     val dimple = bilateral(src, "mouthDimpleLeft", "mouthDimpleRight", 0.045, 0.7, 0.2)
     val jawLateral = activate(value(src, "jawLeft", "jawRight"), 0.04, 0.6)
 
+    val laughSynergy = min(
+      smile,
+      0.6 * jawOpen + 0.45 * eyesClosed + 0.45 * cheekRaise,
+    )
     val happy = max(
       0.0,
-      (0.46 * smile + 0.18 * cheekRaise + 0.11 * dimple + 0.09 * eyeSquint +
-        0.16 * min(smile, max(cheekRaise, dimple))) * (0.55 + 0.45 * smile) -
-        0.24 * browDown - 0.18 * frown - 0.14 * mouthPress - 0.12 * noseWrinkle,
+      0.52 * smile + 0.18 * cheekRaise + 0.11 * dimple + 0.08 * eyeSquint +
+        0.18 * min(smile, max(cheekRaise, dimple)) + 0.22 * laughSynergy -
+        0.24 * browDown - 0.22 * frown - 0.16 * mouthPress -
+        0.12 * noseWrinkle * (1 - 0.5 * cheekRaise),
     )
 
     // Tristeza quieta e tristeza de choro ativam AUs bem diferentes.
-    val quietSad = 0.32 * frown + 0.3 * browInner + 0.12 * mouthLower + 0.08 * mouthPress +
-      0.06 * mouthRoll + 0.22 * min(frown, browInner)
-    val cryingSad = 0.3 * eyesClosed + 0.22 * jawOpen + 0.18 * browInner + 0.1 * mouthStretch +
-      0.2 * min(eyesClosed, jawOpen)
+    val sadCore = max(frown, 0.85 * browInner)
+    val cryingGate = (1 - 0.85 * smile) * (0.08 + 0.92 * min(1.0, 1.35 * sadCore))
+    val quietSad = 0.34 * frown + 0.24 * browInner + 0.12 * mouthLower + 0.07 * mouthPress +
+      0.06 * mouthRoll + 0.24 * min(frown, browInner)
+    val cryingSad = (0.3 * eyesClosed + 0.22 * jawOpen + 0.18 * browInner + 0.1 * mouthStretch +
+      0.2 * min(eyesClosed, jawOpen)) * cryingGate
     val sad = max(
       0.0,
       max(quietSad, cryingSad) + 0.1 * min(quietSad, cryingSad) -
-        0.24 * smile - 0.09 * cheekRaise - 0.1 * eyeWide - 0.05 * noseWrinkle,
+        0.45 * smile - 0.24 * cheekRaise - 0.12 * eyeWide - 0.08 * noseWrinkle -
+        0.28 * browDown * (1 - 0.8 * eyesClosed) - 0.14 * eyeSquint * (1 - 0.8 * eyesClosed),
     )
 
+    val glareOrTension = max(
+      eyeSquint,
+      max(
+        0.85 * browDownPeak,
+        max(0.8 * mouthPress, max(0.75 * noseWrinkle, max(0.7 * frown, 0.65 * mouthUpper))),
+      ),
+    )
+    val browArchPeak = max(browOuterLeft, max(browOuterRight, browInner))
+    val angryBrowArch = clip(
+      0.55 * browArchAsym +
+        0.55 * min(browArchPeak, glareOrTension) +
+        0.35 * min(browDownPeak, browArchPeak),
+    ) * (1 - 0.85 * eyeWide) * (1 - 0.85 * smile) * (1 - 0.7 * jawOpen)
+    val cryingPenalty = min(eyesClosed, max(jawOpen, 0.8 * browInner))
+    val surpriseFearBrowPenalty = min(max(browInner, browOuter), eyeWide)
     val angry = max(
       0.0,
-      0.4 * browDown + 0.24 * mouthPress + 0.18 * noseWrinkle + 0.11 * eyeSquint +
-        0.07 * mouthStretch + 0.04 * jawLateral + 0.03 * mouthRoll +
-        0.16 * min(browDown, max(mouthPress, max(noseWrinkle, eyeSquint))) -
-        0.24 * smile - 0.14 * cheekRaise - 0.1 * browOuter -
-        0.32 * browInner - 0.22 * eyesClosed,
+      0.38 * browDown + 0.22 * mouthPress + 0.17 * noseWrinkle + 0.12 * eyeSquint +
+        0.08 * frown + 0.06 * mouthUpper + 0.06 * mouthStretch + 0.04 * jawLateral + 0.03 * mouthRoll +
+        0.16 * min(browDownPeak, max(mouthPress, max(noseWrinkle, max(eyeSquint, frown)))) +
+        0.28 * angryBrowArch -
+        0.28 * smile - 0.16 * cheekRaise - 0.14 * eyeWide -
+        0.38 * cryingPenalty - 0.22 * surpriseFearBrowPenalty -
+        0.12 * min(noseWrinkle, min(mouthUpper, mouthPucker)) -
+        0.12 * eyesClosed * (1 - browDownPeak),
     )
 
     val surprised = max(
@@ -140,7 +180,15 @@ internal object BlendshapeScorer {
 
   /** A classe vencedora e sua confiança. */
   fun top(scores: Map<String, Double>): Pair<String, Double> {
-    val best = scores.maxByOrNull { it.value } ?: return "neutral" to 0.0
-    return best.key to best.value
+    val ranked = scores.entries.sortedByDescending { it.value }
+    val first = ranked.getOrNull(0) ?: return "neutral" to 0.0
+    if (first.key == "neutral" && first.value < 0.62 && ranked.size >= 2) {
+      val runnerUp = ranked[1]
+      val thirdScore = ranked.getOrNull(2)?.value ?: 0.0
+      if (runnerUp.value >= 0.30 && runnerUp.value - thirdScore >= 0.035) {
+        return runnerUp.key to runnerUp.value
+      }
+    }
+    return first.key to first.value
   }
 }

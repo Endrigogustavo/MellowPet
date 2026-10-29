@@ -68,6 +68,10 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
     previewLayer.connection?.isVideoMirrored = value
   }
 
+  func updateShowPreview(_ value: Bool) {
+    previewLayer.isHidden = !value
+  }
+
   private func startPipeline() {
     guard active, window != nil else { return }
     guard AVCaptureDevice.authorizationStatus(for: .video) == .authorized else {
@@ -158,16 +162,17 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
     from connection: AVCaptureConnection
   ) {
     guard active else { return }
-    let timestamp = Int(CACurrentMediaTime() * 1_000)
+    let rawTimestamp = Int(CACurrentMediaTime() * 1_000)
     let interval = 1_000 / effectiveMaxFps()
     stateLock.lock()
     let generation = pipelineGeneration
     receivedFrames += 1
-    if timestamp - lastSubmittedAtMs < interval || inFlight {
+    if rawTimestamp - lastSubmittedAtMs < interval || inFlight {
       droppedFrames += 1
       stateLock.unlock()
       return
     }
+    let timestamp = max(rawTimestamp, lastSubmittedAtMs + 1)
     lastSubmittedAtMs = timestamp
     inFlight = true
     let meta = computeFrameStats(sampleBuffer: sampleBuffer)
@@ -176,13 +181,15 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
       contrast: meta.contrast,
       sharpness: meta.sharpness,
       capturedAtMs: meta.capturedAtMs,
-      generation: generation
+      generation: generation,
+      pixelBuffer: meta.pixelBuffer
     )
     stateLock.unlock()
 
     do {
-      let orientation: UIImage.Orientation = mirror ? .leftMirrored : .right
-      let image = try MPImage(sampleBuffer: sampleBuffer, orientation: orientation)
+      // A conexão de captura já aplica videoOrientation = .portrait e
+      // isVideoMirrored = mirror no buffer entregue ao delegate.
+      let image = try MPImage(sampleBuffer: sampleBuffer, orientation: .up)
       try faceLandmarker?.detectAsync(image: image, timestampInMilliseconds: timestamp)
     } catch {
       stateLock.lock()
@@ -228,7 +235,8 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
       return
     }
 
-    let geometry = computeGeometry(points: landmarks.map { Point(x: Double($0.x), y: Double($0.y)) })
+    let points = landmarks.map { Point(x: Double($0.x), y: Double($0.y)) }
+    let geometry = computeGeometry(points: points)
     var blendshapes: [String: Double] = [:]
     if let classifications = result.faceBlendshapes.first {
       for category in classifications.categories {
@@ -236,6 +244,7 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
       }
     }
     let reasons = qualityReasons(meta: meta, geometry: geometry)
+    let skin = skinRgb(points: points, pixelBuffer: meta.pixelBuffer)
     emitResult(
       status: reasons.isEmpty ? "ready" : "insufficient_quality",
       qualityScore: qualityScore(meta: meta, geometry: geometry),
@@ -247,7 +256,47 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
       dropped: dropped,
       received: received,
       processed: processed,
-      initializationLatency: initializationLatency)
+      initializationLatency: initializationLatency,
+      skin: skin)
+  }
+
+  private func skinRgb(points: [Point], pixelBuffer: CVPixelBuffer?) -> [Double]? {
+    guard points.count >= 455, let buffer = pixelBuffer else { return nil }
+    CVPixelBufferLockBaseAddress(buffer, .readOnly)
+    defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+    guard let base = CVPixelBufferGetBaseAddress(buffer) else { return nil }
+    let w = CVPixelBufferGetWidth(buffer)
+    let h = CVPixelBufferGetHeight(buffer)
+    let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+    let pointer = base.assumingMemoryBound(to: UInt8.self)
+    let faceWidth = abs(points[454].x - points[234].x) * Double(w)
+    let half = max(3, Int(faceWidth * 0.06))
+    // 151 = centro da testa; 50 e 280 = maçãs do rosto.
+    let centers = [151, 50, 280]
+    var r = 0.0
+    var g = 0.0
+    var b = 0.0
+    var n = 0
+    for index in centers {
+      let cx = Int(points[index].x * Double(w))
+      let cy = Int(points[index].y * Double(h))
+      if cx - half < 0 || cy - half < 0 || cx + half >= w || cy + half >= h { return nil }
+      var y = cy - half
+      while y <= cy + half {
+        var x = cx - half
+        while x <= cx + half {
+          let offset = y * bytesPerRow + x * 4
+          b += Double(pointer[offset])
+          g += Double(pointer[offset + 1])
+          r += Double(pointer[offset + 2])
+          n += 1
+          x += 2
+        }
+        y += 2
+      }
+    }
+    guard n > 0 else { return nil }
+    return [r / Double(n), g / Double(n), b / Double(n)]
   }
 
   private func emitResult(
@@ -261,7 +310,8 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
     dropped: Int,
     received: Int,
     processed: Int,
-    initializationLatency: Int
+    initializationLatency: Int,
+    skin: [Double]? = nil
   ) {
     let payload: [String: Any] = [
       "status": status,
@@ -285,6 +335,7 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
       "initializationLatencyMs": initializationLatency,
       "modelVersion": Self.modelVersion,
       "pipelineVersion": Self.pipelineVersion,
+      "skinRgb": skin as Any,
     ]
     DispatchQueue.main.async { [weak self] in
       guard let self, self.active, self.window != nil else { return }
@@ -311,37 +362,57 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
     let stepY = max(1, height / 64)
     var values: [Double] = []
     values.reserveCapacity(4_096)
+    var cols = 0
+    var rows = 0
     var y = 0
     while y < height {
       var x = 0
+      var rowCols = 0
       while x < width {
         let offset = y * bytesPerRow + x * 4
         let b = Double(pointer[offset])
         let g = Double(pointer[offset + 1])
         let r = Double(pointer[offset + 2])
         values.append((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0)
+        rowCols += 1
         x += stepX
       }
+      if cols == 0 { cols = rowCols }
+      rows += 1
       y += stepY
     }
-    guard !values.isEmpty else { return FrameMeta() }
+    guard !values.isEmpty, cols > 1, rows > 1 else { return FrameMeta(pixelBuffer: buffer) }
     let mean = values.reduce(0, +) / Double(values.count)
     let variance = values.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Double(values.count)
     var gradient = 0.0
-    for index in 1..<values.count { gradient += abs(values[index] - values[index - 1]) }
+    var gradientCount = 0
+    for row in 1..<rows {
+      for col in 1..<cols {
+        let index = row * cols + col
+        gradient += abs(values[index] - values[index - 1]) + abs(values[index] - values[index - cols])
+        gradientCount += 2
+      }
+    }
     return FrameMeta(
       brightness: min(1, max(0, mean)),
       contrast: min(1, max(0, sqrt(variance) * 2)),
-      sharpness: min(1, max(0, gradient / Double(max(1, values.count - 1)) * 8)),
-      capturedAtMs: Int(Date().timeIntervalSince1970 * 1_000))
+      sharpness: min(1, max(0, gradient / Double(max(1, gradientCount)) * 8)),
+      capturedAtMs: Int(Date().timeIntervalSince1970 * 1_000),
+      pixelBuffer: buffer)
   }
 
   private func computeGeometry(points: [Point]) -> FaceGeometry {
     guard points.count > 263 else { return FaceGeometry() }
-    let minX = points.map(\.x).min() ?? 0
-    let maxX = points.map(\.x).max() ?? 0
-    let minY = points.map(\.y).min() ?? 0
-    let maxY = points.map(\.y).max() ?? 0
+    var minX = Double.infinity
+    var maxX = -Double.infinity
+    var minY = Double.infinity
+    var maxY = -Double.infinity
+    for p in points {
+      if p.x < minX { minX = p.x }
+      if p.x > maxX { maxX = p.x }
+      if p.y < minY { minY = p.y }
+      if p.y > maxY { maxY = p.y }
+    }
     let width = max(0.001, maxX - minX)
     let height = max(0.001, maxY - minY)
     let nose = points[1]
@@ -405,14 +476,17 @@ final class MellowVisionView: ExpoView, AVCaptureVideoDataOutputSampleBufferDele
     let sharpness: Double
     let capturedAtMs: Int
     let generation: Int
+    let pixelBuffer: CVPixelBuffer?
 
     init(brightness: Double = 0, contrast: Double = 0, sharpness: Double = 0,
-         capturedAtMs: Int = Int(Date().timeIntervalSince1970 * 1_000), generation: Int = 0) {
+         capturedAtMs: Int = Int(Date().timeIntervalSince1970 * 1_000), generation: Int = 0,
+         pixelBuffer: CVPixelBuffer? = nil) {
       self.brightness = brightness
       self.contrast = contrast
       self.sharpness = sharpness
       self.capturedAtMs = capturedAtMs
       self.generation = generation
+      self.pixelBuffer = pixelBuffer
     }
   }
 
