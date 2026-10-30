@@ -46,9 +46,12 @@ const PUBLIC = ['splash', 'login'];
 const USER_ONLY = [
   'onboarding', 'home', 'tools', 'routine', 'music', 'playlisteditor', 'playlistdetail', 'spotifyimport',
   'spotifyplayer', 'checkin', 'heatmap', 'friends', 'fairness', 'lullaby', 'sos', 'caremirror', 'groups',
-  'crisisplan', 'wardrobe', 'guide', 'plans', 'vision',
+  'crisisplan', 'wardrobe', 'guide', 'plans', 'vision', 'caredcare', 'acceptinvite',
 ];
-const CARE_ONLY = ['caresignup', 'care', 'carealerts', 'careaudit', 'careplan', 'careguide', 'agenda', 'caretools'];
+const CARE_ONLY = [
+  'caresignup', 'care', 'carealerts', 'careaudit', 'careplan', 'careguide', 'agenda', 'caretools',
+  'carehistory', 'carenotes', 'carealertrules', 'carenotify',
+];
 const BOTH = ['dashboard', 'settings', 'chat'];
 
 const USER = { authed: true, role: 'user' };
@@ -56,7 +59,7 @@ const CARE = { authed: true, role: 'care' };
 const ANON = { authed: false, role: null };
 
 test('lista de telas lida do código está completa (sanidade do próprio teste)', () => {
-  assert.equal(ALL_SCREENS.length, 35, `telas: ${ALL_SCREENS}`);
+  assert.equal(ALL_SCREENS.length, 41, `telas: ${ALL_SCREENS}`);
   const classified = [...PUBLIC, ...USER_ONLY, ...CARE_ONLY, ...BOTH].sort();
   assert.deepEqual(classified, [...ALL_SCREENS].sort());
 });
