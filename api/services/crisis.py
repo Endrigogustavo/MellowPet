@@ -13,7 +13,7 @@ import re
 import unicodedata
 
 _PATTERNS = [
-    r"\b(me matar|me mato|suicid|tirar (a )?minha (propria )?vida|acabar com (a )?minha vida)",
+    r"\b(me matar|se matar|me mato|suicid|tirar (a )?minha (propria )?vida|acabar com (a )?minha vida)",
     r"\b(quero|vou|penso em|pensando em) morrer\b",
     # "queria morrer", "quero muito morrer", "tenho vontade de morrer",
     # "eu desejo morrer", "só queria sumir e morrer".

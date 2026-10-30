@@ -108,19 +108,37 @@ export function updateDashboardWidgets(input: {
 
 export type CarePerson = { name: string; state: string; wellbeing: number };
 
+/**
+ * Texto do alerta no widget do cuidador. A tela inicial do celular fica à
+ * vista de qualquer um (e na tela de bloqueio): o título e o detalhe do
+ * alerta falam do estado emocional da pessoa, então ali só aparece que há
+ * algo para ver. Os detalhes ficam dentro do app.
+ */
+export function neutralAlertText(count: number): { title: string; sub: string } | null {
+  if (count <= 0) return null;
+  return {
+    title: count === 1 ? '1 alerta para ver' : `${count} alertas para ver`,
+    sub: 'Abra o MellowPet para ver',
+  };
+}
+
 export function updateCareWidgets(input: {
   people: CarePerson[];
+  /** Só a presença conta: título e detalhe nunca vão para o widget. */
   alert: { title: string; sub: string } | null;
+  /** Quantos alertas abertos; sem o número, um alerta presente conta como 1. */
+  alertCount?: number;
   checkin: { when: string; title: string; question: string } | null;
 }): void {
   const people = input.people.slice(0, 2);
+  const alert = neutralAlertText(input.alertCount ?? (input.alert ? 1 : 0));
   safely(() =>
     MellowWidget!.updateCare(
       people.map((p) => p.name),
       people.map((p) => p.state),
       people.map((p) => p.wellbeing),
-      input.alert?.title ?? null,
-      input.alert?.sub ?? null,
+      alert?.title ?? null,
+      alert?.sub ?? null,
       input.checkin?.when ?? null,
       input.checkin?.title ?? null,
       input.checkin?.question ?? null

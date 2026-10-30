@@ -253,7 +253,7 @@ export function VisionEngine() {
       const kind = tracker.push(
         {
           atMs: nativeEvent.capturedAtMs ?? Date.now(),
-          ready: result.signalStatus === 'ready',
+          ready: nativeEvent.status === 'ready',
           tension: result.tensionSignal,
           blink: ((bs.eyeBlinkLeft ?? 0) + (bs.eyeBlinkRight ?? 0)) / 2,
           yaw: nativeEvent.yaw ?? 0,
@@ -267,7 +267,7 @@ export function VisionEngine() {
       // pessoa está parada olhando. Rosto virado conta como quadro perdido.
       if (stateRef.current.screen === 'vision') {
         const at = nativeEvent.capturedAtMs ?? Date.now();
-        const usable = result.signalStatus === 'ready' && Math.abs(nativeEvent.yaw ?? 0) < 20;
+        const usable = result.signalStatus === 'ready' && Math.abs(nativeEvent.yaw ?? 0) < 0.25;
         pulse.buffer.push({ t: at, rgb: usable ? (nativeEvent.skinRgb ?? null) : null });
         if (at >= pulse.nextAt) {
           pulse.nextAt = at + 2000;
@@ -328,6 +328,9 @@ export function VisionEngine() {
         actions.set({
           visionMode: 'device',
           observedExpression: result.observedExpression,
+          ...(result.signalStatus === 'ready' && result.observedExpression !== 'unknown'
+            ? { petMood: result.observedExpression }
+            : null),
           signalStatus: result.signalStatus,
           signalConfidence: result.signalConfidence,
           qualityScore: result.qualityScore,

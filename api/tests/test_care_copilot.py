@@ -25,6 +25,17 @@ def test_crise_responde_fixo_sem_modelo(client, monkeypatch):
     assert r.json()["provider"] == "crisis"
     assert "192" in r.json()["response"]
 
+    # Crise nas últimas mensagens do usuário no histórico também aciona resposta fixa
+    r_hist = client.post(
+        "/api/v1/care/chat",
+        json={
+            "message": "o que eu faço agora?",
+            "history": [{"role": "user", "content": "ele falou que quer se matar"}],
+        },
+    )
+    assert r_hist.json()["provider"] == "crisis"
+    assert "192" in r_hist.json()["response"]
+
 
 def test_sem_ia_devolve_fallback(client, monkeypatch):
     monkeypatch.setattr(ai_chat_service, "available", False)

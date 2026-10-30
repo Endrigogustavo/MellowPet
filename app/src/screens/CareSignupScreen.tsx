@@ -8,6 +8,7 @@ import { Field } from '../components/Field';
 import { Icon } from '../components/Icon';
 import { Chip, PrimaryButton, Touchable, Txt } from '../components/ui';
 import { CARE_RELS, ICONS } from '../data/content';
+import { stepBackCareSignup } from '../navigation/flowBack';
 import { useApp, useTheme } from '../state/AppContext';
 
 const TITLES = ['Quem você cuida?', 'Acesso do cuidador', 'Convide a pessoa'];
@@ -94,13 +95,9 @@ export function CareSignupScreen() {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Touchable
-            onPress={() =>
-              // A conta já existe neste ponto: voltar ao login sem sair deixava
-              // a sessão aberta por baixo. No passo 0, voltar é sair de verdade.
-              step === 0
-                ? actions.logout().catch(() => undefined)
-                : actions.set((s) => ({ careStep: s.careStep - 1 }))
-            }
+            // A conta já existe neste ponto: no passo 0, voltar é sair dela
+            // (com confirmação). Mesma regra do voltar físico (RootNavigator).
+            onPress={() => stepBackCareSignup(step, actions)}
             accessibilityLabel="Voltar"
             style={{
               width: 36,

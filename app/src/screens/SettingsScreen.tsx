@@ -157,7 +157,16 @@ export function SettingsScreen() {
   // PUT por tecla digitada no nome do bichinho.
   const skipFirstSave = useRef(true);
   // O que falta salvar: sair da tela antes do debounce não pode perder a mudança.
-  const pendingSave = useRef<null | (() => Promise<unknown>)>(null);
+  const latestPayloadRef = useRef<{
+    pet_name: string;
+    pet_type: typeof state.petType;
+    no_face_alert_minutes: number;
+    music_enabled: boolean;
+    alerts_enabled: boolean;
+  } | null>(null);
+  const latestUserIdRef = useRef<string | null>(state.userId);
+  latestUserIdRef.current = state.userId;
+
   useEffect(() => {
     if (skipFirstSave.current) {
       skipFirstSave.current = false;
@@ -165,28 +174,30 @@ export function SettingsScreen() {
     }
     if (!state.userId || !settingsLoaded) return;
     const userId = state.userId;
-    const patch = {
+    const payload = {
       pet_name: state.petName.trim() || 'Mellow',
       pet_type: state.petType,
       no_face_alert_minutes: state.noFaceMin,
       music_enabled: !!state.toggles.music,
       alerts_enabled: !!state.toggles.alerts,
     };
-    const run = () =>
-      saveSettings(userId, patch)
+    latestPayloadRef.current = payload;
+    latestUserIdRef.current = userId;
+    const timer = setTimeout(() => {
+      latestPayloadRef.current = null;
+      saveSettings(userId, payload)
         .then(() => setSaveError(null))
         .catch(() => setSaveError('Não foi possível salvar seus ajustes. Eles serão enviados de novo na próxima mudança.'));
-    pendingSave.current = run;
-    const timer = setTimeout(() => {
-      pendingSave.current = null;
-      run();
     }, 700);
     return () => clearTimeout(timer);
   }, [state.userId, settingsLoaded, state.petName, state.petType, state.noFaceMin, state.toggles.music, state.toggles.alerts]);
   useEffect(
     () => () => {
       // Ao sair da tela: envia o que ficou pendente.
-      pendingSave.current?.().catch(() => undefined);
+      if (latestUserIdRef.current && latestPayloadRef.current) {
+        saveSettings(latestUserIdRef.current, latestPayloadRef.current).catch(() => undefined);
+        latestPayloadRef.current = null;
+      }
     },
     []
   );
@@ -547,23 +558,6 @@ export function SettingsScreen() {
                 onPress={submitInviteCode}
               />
             </View>
-          ) : null}
-
-          {state.accountRole === 'care' ? (
-            <Touchable
-              onPress={() => actions.setRole('care')}
-              style={{
-                marginTop: 14,
-                paddingVertical: 13,
-                borderRadius: 14,
-                alignItems: 'center',
-                backgroundColor: T.priL,
-              }}
-            >
-              <Txt s={13.5} w={800} c={T.pri}>
-                Ver painel de cuidador
-              </Txt>
-            </Touchable>
           ) : null}
 
           {primaryLink ? <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>Ao aceitar a conexão, {linkName} recebe acesso integral ao módulo de cuidado. Não há permissões separadas por recurso.</Txt> : null}

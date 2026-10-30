@@ -46,12 +46,14 @@ def _is_public(path: str) -> bool:
 
 
 class RequestSizeLimitMiddleware:
-    """Corta corpos grandes antes do handler, inclusive requests chunked.
+    """Corta corpos grandes antes do handler, inclusive requests chunked ou com
+    Content-Length falsificado.
 
-    Content-Length é só uma otimização: clientes podem omiti-lo e enviar o
-    corpo em chunks. Nessa situação o middleware acumula no máximo um corpo
-    permitido mais o chunk que ultrapassou o limite e só então entrega o
-    request ao app, evitando bypass sem introduzir leitura ilimitada.
+    Content-Length é só uma otimização rápida: clientes podem omiti-lo (chunked)
+    ou declarar um valor menor que o corpo real. Por isso o middleware sempre
+    lê os chunks até no máximo `settings.max_request_bytes` antes de entregar
+    o request ao app, recusando com 413 assim que o total real ultrapassa o
+    limite (sem depender de exception handlers internos).
     """
 
     def __init__(self, app: ASGIApp):
@@ -72,18 +74,21 @@ class RequestSizeLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
+        max_bytes = settings.max_request_bytes
         headers = dict(scope.get("headers", []))
         raw_length = headers.get(b"content-length")
         if raw_length is not None:
             try:
-                if int(raw_length) > settings.max_request_bytes:
-                    await self._reject(send, 413, '{"error":"Request body too large"}')
-                    return
+                declared = int(raw_length)
             except ValueError:
                 await self._reject(send, 400, '{"error":"Invalid Content-Length header"}')
                 return
-            await self.app(scope, receive, send)
-            return
+            if declared < 0:
+                await self._reject(send, 400, '{"error":"Invalid Content-Length header"}')
+                return
+            if declared > max_bytes:
+                await self._reject(send, 413, '{"error":"Request body too large"}')
+                return
 
         chunks: list[bytes] = []
         total = 0
@@ -95,7 +100,7 @@ class RequestSizeLimitMiddleware:
                 continue
             chunk = message.get("body", b"")
             total += len(chunk)
-            if total > settings.max_request_bytes:
+            if total > max_bytes:
                 await self._reject(send, 413, '{"error":"Request body too large"}')
                 return
             chunks.append(chunk)

@@ -74,12 +74,14 @@ internal object ServiceGuard {
   /** Reergue o que a pessoa deixou ligado. Chamado pelo vigia e no boot. */
   fun restoreEnabled(context: Context) {
     val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    val bg = prefs.getBoolean("bg_enabled", false)
+    val vision = prefs.getBoolean("vision_bg_enabled", false)
 
-    if (prefs.getBoolean("bg_enabled", false)) {
+    if (bg) {
       startService(context, Intent(context, MellowBackgroundService::class.java))
     }
 
-    if (prefs.getBoolean("vision_bg_enabled", false)) {
+    if (vision) {
       // Componente por nome: este módulo não conhece o de visão em tempo de
       // compilação, e criar a dependência entre os dois só por isto não se
       // paga.
@@ -90,7 +92,11 @@ internal object ServiceGuard {
       startService(context, intent)
     }
 
-    scheduleNextCheck(context)
+    if (bg || vision) {
+      scheduleNextCheck(context)
+    } else {
+      cancelCheck(context)
+    }
   }
 
   private fun startService(context: Context, intent: Intent) {

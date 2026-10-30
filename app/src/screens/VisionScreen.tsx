@@ -51,7 +51,7 @@ export function VisionScreen() {
           ) : (
             <PrimaryButton label="Permitir câmera" onPress={requestPermission} />
           )}
-          <Touchable onPress={() => actions.go('home')} style={styles.secondaryButton}>
+          <Touchable onPress={() => actions.goTab('home')} style={styles.secondaryButton}>
             <Txt s={14} w={800} c={T.t2}>
               Continuar sem câmera
             </Txt>

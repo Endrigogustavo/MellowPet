@@ -155,7 +155,7 @@ export function SpotifyImportScreen() {
         color: moment.color,
         tracks: importedTracks,
       });
-      actions.go('music');
+      actions.replace('music');
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Não foi possível salvar a playlist.');
     } finally {
@@ -174,7 +174,7 @@ export function SpotifyImportScreen() {
               músicas curtidas.
             </Txt>
             <Touchable
-              onPress={() => actions.go('music')}
+              onPress={() => actions.replace('music')}
               style={{
                 marginTop: 14,
                 paddingVertical: 13,
@@ -325,7 +325,7 @@ export function SpotifyImportScreen() {
 
         <Section>
           <Touchable
-            onPress={() => actions.go('music')}
+            onPress={() => actions.back()}
             style={{ alignSelf: 'center', paddingHorizontal: 18, paddingVertical: 14 }}
           >
             <Txt s={13.5} w={700} c={T.t3}>

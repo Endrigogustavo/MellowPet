@@ -71,10 +71,10 @@ const CALIBRATION_MAX_ROLL = 0.3;
 // mesmo havendo sinal real espalhado entre 2-3 emocoes. Precisa de uma
 // maioria clara (80%) pra ser aceito — abaixo disso, a segunda colocada
 // tem preferencia (ver o fallback em process()).
-const NEUTRAL_ENTRY_SCORE = 0.8;
-const NEUTRAL_ENTRY_MARGIN = 0.15;
+const NEUTRAL_ENTRY_SCORE = 0.62;
+const NEUTRAL_ENTRY_MARGIN = 0.12;
 
-export const EXPRESSION_CLASSIFIER_VERSION = 'expression-v3.5.0-absolute-evidence';
+export const EXPRESSION_CLASSIFIER_VERSION = 'expression-v3.6.0-balanced-affect';
 
 const average = (values: number[]) =>
   values.length ? values.reduce((sum, item) => sum + item, 0) / values.length : 0;
@@ -133,13 +133,28 @@ function scoreBlendshapeDetails(
   // e clara, o valor bruto raramente passa de ~0.3-0.4. Saturar bem mais
   // cedo (~0.38-0.45) e o que faz tristeza/nojo/medo ficarem tao sensiveis
   // quanto feliz/raiva/surpresa, que ja funcionavam bem.
-  const browInner = activate(value(source, 'browInnerUp'), 0.015, 0.4);
-  const browOuter = bilateral(source, 'browOuterUpLeft', 'browOuterUpRight', 0.03, 0.56);
-  const browDown = bilateral(source, 'browDownLeft', 'browDownRight', 0.03, 0.55, 0.12);
-  const cheekRaise = bilateral(source, 'cheekSquintLeft', 'cheekSquintRight', 0.04, 0.7);
+  const browInner = activate(value(source, 'browInnerUp'), 0.055, 0.52);
+  const browOuterLeft = activate(value(source, 'browOuterUpLeft'), 0.03, 0.54);
+  const browOuterRight = activate(value(source, 'browOuterUpRight'), 0.03, 0.54);
+  const browOuter = bilateral(source, 'browOuterUpLeft', 'browOuterUpRight', 0.03, 0.54);
+  const browDownLeft = activate(value(source, 'browDownLeft'), 0.03, 0.52);
+  const browDownRight = activate(value(source, 'browDownRight'), 0.03, 0.52);
+  const browDown = bilateral(source, 'browDownLeft', 'browDownRight', 0.03, 0.52, 0.1);
+  const browDownPeak = Math.max(browDownLeft, browDownRight);
+  const browArchAsym = clip(
+    Math.abs(browOuterLeft - browOuterRight) * 0.85 + Math.abs(browDownLeft - browDownRight) * 0.65
+  );
+  const cheekRaise = bilateral(source, 'cheekSquintLeft', 'cheekSquintRight', 0.035, 0.6, 0.16);
   const noseWrinkle = bilateral(source, 'noseSneerLeft', 'noseSneerRight', 0.03, 0.42, 0.1);
-  const smile = bilateral(source, 'mouthSmileLeft', 'mouthSmileRight', 0.045, 0.68, 0.3);
-  const frown = bilateral(source, 'mouthFrownLeft', 'mouthFrownRight', 0.025, 0.46, 0.16);
+  const leftSmile = activate(value(source, 'mouthSmileLeft'), 0.035, 0.56);
+  const rightSmile = activate(value(source, 'mouthSmileRight'), 0.035, 0.56);
+  const smileConcordance = clip(
+    Math.min(leftSmile, rightSmile) / Math.max(0.05, 0.25 * Math.max(leftSmile, rightSmile))
+  );
+  const smile =
+    bilateral(source, 'mouthSmileLeft', 'mouthSmileRight', 0.035, 0.56, 0.22) *
+    (0.25 + 0.75 * smileConcordance);
+  const frown = bilateral(source, 'mouthFrownLeft', 'mouthFrownRight', 0.045, 0.52, 0.18);
   const mouthStretch = bilateral(source, 'mouthStretchLeft', 'mouthStretchRight', 0.04, 0.58, 0.12);
   const jawOpen = activate(value(source, 'jawOpen'), 0.04, 0.6);
   // Chorar de verdade costuma fechar os olhos com força — bem mais que um
@@ -157,41 +172,71 @@ function scoreBlendshapeDetails(
   const dimple = bilateral(source, 'mouthDimpleLeft', 'mouthDimpleRight', 0.045, 0.7, 0.2);
   const jawLateral = activate(value(source, 'jawLeft', 'jawRight'), 0.04, 0.6);
 
+  const laughSynergy = Math.min(
+    smile,
+    0.6 * jawOpen + 0.45 * eyesClosed + 0.45 * cheekRaise
+  );
   const happy = Math.max(
     0,
-    (0.46 * smile + 0.18 * cheekRaise + 0.11 * dimple + 0.09 * eyeSquint +
-      0.16 * Math.min(smile, Math.max(cheekRaise, dimple))) * (0.55 + 0.45 * smile) -
-      0.24 * browDown - 0.18 * frown - 0.14 * mouthPress - 0.12 * noseWrinkle
+    0.52 * smile + 0.18 * cheekRaise + 0.11 * dimple + 0.08 * eyeSquint +
+      0.18 * Math.min(smile, Math.max(cheekRaise, dimple)) + 0.22 * laughSynergy -
+      0.24 * browDown - 0.22 * frown - 0.16 * mouthPress -
+      0.12 * noseWrinkle * (1 - 0.5 * cheekRaise)
   );
 
   // Duas formas de tristeza: a "quieta" (boca fechada, cantos pra baixo,
   // sobrancelha interna erguida) e a de choro de verdade (olhos apertados,
-  // boca aberta num muxoxo, testa tensa). Sao AUs bem diferentes — somar as
-  // duas em paralelo evita que o choro (sem frown de boca fechada) fique sem
-  // pontuacao nenhuma de tristeza.
+  // boca aberta num muxoxo, testa tensa). O choro exige nucleo real de
+  // tristeza (frown ou browInner) e ausencia de sorriso para que gargalhadas
+  // ou piscadas com boca aberta nunca acendam tristeza.
+  const sadCore = Math.max(frown, 0.85 * browInner);
+  const cryingGate =
+    (1 - 0.85 * smile) * (0.08 + 0.92 * Math.min(1, 1.35 * sadCore));
   const quietSad =
-    0.32 * frown + 0.3 * browInner + 0.12 * mouthLower + 0.08 * mouthPress +
-    0.06 * mouthRoll + 0.22 * Math.min(frown, browInner);
+    0.34 * frown + 0.24 * browInner + 0.12 * mouthLower + 0.07 * mouthPress +
+    0.06 * mouthRoll + 0.24 * Math.min(frown, browInner);
   const cryingSad =
-    0.3 * eyesClosed + 0.22 * jawOpen + 0.18 * browInner + 0.1 * mouthStretch +
-    0.2 * Math.min(eyesClosed, jawOpen);
+    (0.3 * eyesClosed + 0.22 * jawOpen + 0.18 * browInner + 0.1 * mouthStretch +
+      0.2 * Math.min(eyesClosed, jawOpen)) * cryingGate;
   const sad = Math.max(
     0,
     Math.max(quietSad, cryingSad) + 0.1 * Math.min(quietSad, cryingSad) -
-      0.24 * smile - 0.09 * cheekRaise - 0.1 * eyeWide - 0.05 * noseWrinkle
+      0.45 * smile - 0.24 * cheekRaise - 0.12 * eyeWide - 0.08 * noseWrinkle -
+      0.28 * browDown * (1 - 0.8 * eyesClosed) - 0.14 * eyeSquint * (1 - 0.8 * eyesClosed)
   );
 
+  // Raiva cobre tanto a testa franzida classica quanto arquear a sobrancelha
+  // de raiva (assimetria de sobrancelha ou sobrancelha arqueada combinada com
+  // olhar semicerrado, labios tensos ou franzido).
+  const glareOrTension = Math.max(
+    eyeSquint,
+    0.85 * browDownPeak,
+    0.8 * mouthPress,
+    0.75 * noseWrinkle,
+    0.7 * frown,
+    0.65 * mouthUpper
+  );
+  const angryBrowArch =
+    clip(
+      0.55 * browArchAsym +
+        0.55 * Math.min(Math.max(browOuterLeft, browOuterRight, browInner), glareOrTension) +
+        0.35 * Math.min(browDownPeak, Math.max(browOuterLeft, browOuterRight, browInner))
+    ) *
+    (1 - 0.85 * eyeWide) *
+    (1 - 0.85 * smile) *
+    (1 - 0.7 * jawOpen);
+  const cryingPenalty = Math.min(eyesClosed, Math.max(jawOpen, 0.8 * browInner));
+  const surpriseFearBrowPenalty = Math.min(Math.max(browInner, browOuter), eyeWide);
   const angry = Math.max(
     0,
-    0.4 * browDown + 0.24 * mouthPress + 0.18 * noseWrinkle + 0.11 * eyeSquint +
-      0.07 * mouthStretch + 0.04 * jawLateral + 0.03 * mouthRoll +
-      0.16 * Math.min(browDown, Math.max(mouthPress, noseWrinkle, eyeSquint)) -
-      0.24 * smile - 0.14 * cheekRaise - 0.1 * browOuter -
-      // Sobrancelha interna erguida e olhos fechados sao tipicos de
-      // preocupacao/choro, nao de raiva (que tende a olhar fixo, olhos
-      // abertos) — sem esse desconto mais forte, testa franzida + choro
-      // vencia como raiva em vez de tristeza.
-      0.32 * browInner - 0.22 * eyesClosed
+    0.38 * browDown + 0.22 * mouthPress + 0.17 * noseWrinkle + 0.12 * eyeSquint +
+      0.08 * frown + 0.06 * mouthUpper + 0.06 * mouthStretch + 0.04 * jawLateral + 0.03 * mouthRoll +
+      0.16 * Math.min(browDownPeak, Math.max(mouthPress, noseWrinkle, eyeSquint, frown)) +
+      0.28 * angryBrowArch -
+      0.28 * smile - 0.16 * cheekRaise - 0.14 * eyeWide -
+      0.38 * cryingPenalty - 0.22 * surpriseFearBrowPenalty -
+      0.12 * Math.min(noseWrinkle, mouthUpper, mouthPucker) -
+      0.12 * eyesClosed * (1 - browDownPeak)
   );
 
   const surprised = Math.max(
@@ -373,17 +418,32 @@ export class ExpressionEngine {
     const corrected = this.subtractBaseline(frame.blendshapes);
     const { scores: rawScores, evidence: rawEvidence, aus } = scoreBlendshapeDetails(corrected);
     this.lastActionUnits = aus;
-    const voted = this.vote(this.adjustScores(rawScores));
+    const adjustedScores = this.adjustScores(rawScores);
+    const neutralRatio =
+      rawScores.neutral > 1e-6 && adjustedScores.neutral > 1e-6
+        ? adjustedScores.neutral / rawScores.neutral
+        : 1;
+    const adjustedEvidence =
+      adjustedScores === rawScores
+        ? rawEvidence
+        : (Object.fromEntries(
+            EXPRESSIONS.map((expression) => {
+              const raw = rawScores[expression];
+              const scale = raw > 1e-6 ? adjustedScores[expression] / raw / neutralRatio : 1;
+              return [expression, clip(rawEvidence[expression] * scale)];
+            })
+          ) as Scores);
+    const voted = this.vote(adjustedScores);
     const topRaw = Math.max(...EXPRESSIONS.map((expression) => voted[expression]));
     const alpha = clip(0.38 + 0.34 * frame.qualityScore + 0.2 * topRaw);
     this.evidenceEma = this.evidenceEma
       ? Object.fromEntries(
           EXPRESSIONS.map((expression) => [
             expression,
-            (1 - alpha) * this.evidenceEma![expression] + alpha * rawEvidence[expression],
+            (1 - alpha) * this.evidenceEma![expression] + alpha * adjustedEvidence[expression],
           ])
         ) as Scores
-      : rawEvidence;
+      : adjustedEvidence;
     this.ema = this.ema
       ? normalize(
           Object.fromEntries(
@@ -412,7 +472,11 @@ export class ExpressionEngine {
       const runnerUp = ranking[1];
       const runnerUpScore = this.ema[runnerUp];
       const runnerUpMargin = runnerUpScore - this.ema[ranking[2]];
-      if (runnerUpScore >= ENTRY_SCORE * 0.85 && runnerUpMargin >= ENTRY_MARGIN * 0.7) {
+      if (
+        runnerUpScore >= ENTRY_SCORE * 0.82 &&
+        runnerUpMargin >= ENTRY_MARGIN * 0.7 &&
+        this.evidenceEma[runnerUp] >= 0.14
+      ) {
         candidate = runnerUp;
         candidateScore = runnerUpScore;
         margin = runnerUpMargin;
@@ -452,8 +516,8 @@ export class ExpressionEngine {
       }
       if (
         this.pendingCount >= ENTRY_UPDATES &&
-        candidateScore >= ENTRY_SCORE &&
-        margin >= ENTRY_MARGIN
+        candidateScore >= (candidate === 'neutral' ? NEUTRAL_ENTRY_SCORE : ENTRY_SCORE) &&
+        margin >= (candidate === 'neutral' ? NEUTRAL_ENTRY_MARGIN : ENTRY_MARGIN)
       ) {
         this.current = candidate;
         this.pending = null;
@@ -463,6 +527,15 @@ export class ExpressionEngine {
       this.pending = null;
       this.pendingCount = 0;
       this.ambiguityCount += 1;
+      if (this.ambiguityCount >= ABSTAIN_UPDATES) {
+        if (this.ema.neutral >= 0.52 && this.ema.neutral - this.ema[ranking[1]] >= 0.08) {
+          this.current = 'neutral';
+          this.ambiguityCount = 0;
+        } else {
+          this.current = null;
+          return this.result(frame, 'unknown', 'uncertain', 0, this.ema, computeTensionSignal(corrected));
+        }
+      }
     }
 
     const rankingConfidence = clip(this.ema[this.current]);

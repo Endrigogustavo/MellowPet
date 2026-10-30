@@ -40,15 +40,18 @@ class MellowVisionModule : Module() {
      */
     Function("setBackgroundVision") { enabled: Boolean, intervalMinutes: Int ->
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
-      if (enabled) {
-        VisionBackgroundService.start(context, intervalMinutes)
-      } else {
-        VisionBackgroundService.stop(context)
-      }
       context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
         .putBoolean(KEY_ENABLED, enabled)
         .putInt(KEY_INTERVAL, intervalMinutes)
         .apply()
+      if (enabled) {
+        VisionBackgroundService.start(context, intervalMinutes)
+      } else {
+        VisionBackgroundService.stop(context)
+        context.sendBroadcast(
+          android.content.Intent("com.mellowpet.widget.WATCHDOG_CHECK").setPackage(context.packageName),
+        )
+      }
     }
 
     Function("getBackgroundVision") {

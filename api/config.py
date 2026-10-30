@@ -106,6 +106,8 @@ class Settings(BaseSettings):
             problems.append("CORS_ORIGINS='*' libera qualquer origem. Defina os dominios do ""app, ex.: CORS_ORIGINS=https://app.mellowpet.app")
         if not self.api_key:
             problems.append("API_KEY nao definida — a API aceita chamadas de qualquer cliente. "f"Sugestao de valor: {secrets.token_urlsafe(32)}")
+        elif len(self.api_key.strip()) < 16:
+            problems.append("API_KEY muito curta — use ao menos 16 caracteres aleatorios.")
         if self.debug:
             problems.append("DEBUG=true expõe detalhes de erro nas respostas.")
         if self.enable_docs and self.is_production:

@@ -80,9 +80,9 @@ const LABEL: Record<ActionUnit, string> = {
  * daquela emoção. Um driver que não eleva nada é tabela desatualizada.
  */
 const DRIVERS: Record<Exclude<EmotionKey, 'neutral' | 'unknown'>, ActionUnit[]> = {
-  happy: ['smile', 'cheekRaise', 'dimple'],
-  sad: ['frown', 'browInner', 'eyesClosed', 'mouthLower'],
-  angry: ['browDown', 'mouthPress', 'noseWrinkle', 'eyeSquint'],
+  happy: ['smile', 'cheekRaise', 'dimple', 'eyeSquint'],
+  sad: ['frown', 'browInner', 'eyesClosed', 'jawOpen', 'mouthLower', 'mouthPress'],
+  angry: ['browDown', 'mouthPress', 'noseWrinkle', 'eyeSquint', 'frown'],
   surprised: ['jawOpen', 'eyeWide', 'browOuter', 'browInner'],
   fearful: ['eyeWide', 'mouthStretch', 'browInner', 'browOuter'],
   disgusted: ['noseWrinkle', 'mouthUpper', 'mouthPucker', 'frown'],

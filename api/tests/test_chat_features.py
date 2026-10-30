@@ -74,7 +74,7 @@ def test_crisis_never_reaches_the_model(client, monkeypatch):
     s = client.post("/api/v1/chat/stream", json={"message": "quero morrer"})
     events = _events(s.text)
     assert events[0]["delta"] == CRISIS_REPLY
-    assert events[-1] == {"done": True, "provider": "crisis", "action": None}
+    assert events[-1] == {"done": True, "provider": "crisis", "action": None, "reply": CRISIS_REPLY}
 
 
 def test_stream_sends_pieces_then_action(client, monkeypatch):
@@ -87,7 +87,7 @@ def test_stream_sends_pieces_then_action(client, monkeypatch):
     assert r.headers["content-type"].startswith("text/event-stream")
     events = _events(r.text)
     assert [e["delta"] for e in events[:-1]] == ["Vamos ", "respirar? ", "[[acao:respirar]]"]
-    assert events[-1] == {"done": True, "provider": "gemini", "action": "respirar"}
+    assert events[-1] == {"done": True, "provider": "gemini", "action": "respirar", "reply": "Vamos respirar?"}
 
 
 def test_stream_without_ai_falls_back(client, monkeypatch):
