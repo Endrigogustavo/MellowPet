@@ -7,8 +7,8 @@ rate limit, X-API-Key, headers de segurança e JWT do Supabase.
 Nenhum teste fala com provedor de IA: o serviço é desligado ou trocado por
 falsos em todos os testes (o .env local pode ter chave real).
 
-Testes marcados com xfail(strict=True) documentam bugs: quando o bug for
-corrigido o teste passa e o strict obriga a remover a marcação.
+Os testes que antes eram xfail(strict=True) documentavam bugs (A1-A6 de
+docs/ux/problemas-api.md); todos foram corrigidos na Fase 4 e a marcação saiu.
 """
 import time
 
@@ -341,7 +341,6 @@ def test_care_crise_resposta_fixa_sem_modelo(api, monkeypatch, msg):
     assert p.calls == []
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: crise em 3ª pessoa não dispara — os padrões de services/crisis.py são em 1ª pessoa ('me matar', 'não quero mais viver'), e o cuidador fala da OUTRA pessoa")
 @pytest.mark.parametrize(
     "msg",
     [
@@ -359,7 +358,6 @@ def test_care_crise_em_terceira_pessoa_precisa_disparar(api, monkeypatch, msg):
     assert p.calls == []
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: care.py só checa request.message; crise no histórico recente vai ao modelo (o /chat usa crisis_text() com os últimos turnos do usuário)")
 def test_care_crise_no_historico_recente_tambem_da_resposta_fixa(api, monkeypatch):
     p = use_provider(monkeypatch, FakeProvider(text="texto gerado"))
     history = [{"role": "user", "content": "meu filho disse que quer morrer"},
@@ -404,7 +402,6 @@ def test_care_timeout_da_ia_vira_fallback(api, monkeypatch):
     assert r.json() == {"response": None, "provider": "fallback"}
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: resposta só com espaços passa no 'if not text' e vira response='' — o app usa 'answer ?? caregiverReply' e mostra balão vazio")
 def test_care_resposta_so_com_espacos_vira_fallback(api, monkeypatch):
     use_provider(monkeypatch, FakeProvider(text="  \n "))
     r = api.post(URL, json={"message": "oi"}, headers=headers())
@@ -427,7 +424,6 @@ def test_care_erro_interno_500_generico_sem_vazar_detalhe(api, monkeypatch):
     assert "segredo" not in r.text
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: o handler de Exception roda no ServerErrorMiddleware, por fora do SecurityHeadersMiddleware; o 500 sai sem nosniff/X-Frame-Options (main.py)")
 def test_care_erro_interno_500_leva_headers_de_seguranca(api, monkeypatch):
     _explode(monkeypatch)
     r = api.post(URL, json={"message": "oi"}, headers=headers())
@@ -436,7 +432,6 @@ def test_care_erro_interno_500_leva_headers_de_seguranca(api, monkeypatch):
 
 
 # ── Contrato com o app (app/src/screens/ChatScreen.tsx + care/presenceClient.ts) ─
-@pytest.mark.xfail(strict=True, reason="BUG: o app manda top_emotion = emoção mais frequente do care_dashboard_summary, que pode ser 'unknown'; a API só aceita 7 emoções e devolve 422, o copiloto cai calado nas respostas prontas")
 def test_care_top_emotion_unknown_vinda_do_resumo_real_e_aceita(api):
     summary = {"period": "7 dias", "events": 12, "score": 50, "top_emotion": "unknown", "difficult_share": 0.1}
     r = api.post(URL, json={"message": "oi", "summary": summary}, headers=headers())
@@ -453,7 +448,6 @@ def test_care_payload_exato_do_app_e_aceito(api):
     assert api.post(URL, json=payload, headers=headers()).status_code == 200
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: CORS allow_headers não inclui Authorization; no build web o preflight do JWT é recusado (main.py)")
 def test_cors_preflight_aceita_authorization(api):
     r = api.options(
         URL,
@@ -464,3 +458,103 @@ def test_cors_preflight_aceita_authorization(api):
         },
     )
     assert r.status_code == 200, r.text
+
+
+# ── POST /api/v1/care/weekly (resumo semanal, só agregados) ──────────────────
+WEEKLY = "/api/v1/care/weekly"
+WEEK = {
+    "week_start": "2026-10-26",
+    "days": [
+        {"day": "2026-10-26", "total": 12, "pleasant": 5, "neutral": 4, "difficult": 3},
+        {"day": "2026-10-27", "total": 0, "pleasant": 0, "neutral": 0, "difficult": 0},
+        {"day": "2026-10-28", "total": 8, "pleasant": 2, "neutral": 2, "difficult": 2},
+    ],
+    "open_alerts": 1,
+    "relationship": "mãe",
+}
+
+
+def test_weekly_sem_ia_devolve_text_null(api):
+    r = api.post(WEEKLY, json=WEEK, headers=headers())
+    assert r.status_code == 200
+    assert r.json() == {"text": None, "provider": "fallback"}
+    assert_security_headers(r)
+
+
+def test_weekly_prompt_so_com_agregados_e_regras_nao_diagnostico(api, monkeypatch):
+    p = use_provider(monkeypatch, FakeProvider(text="  Foi uma semana com sinais variados. Que tal perguntar como ela está?  "))
+    r = api.post(WEEKLY, json=WEEK, headers=headers())
+    assert r.json() == {"text": "Foi uma semana com sinais variados. Que tal perguntar como ela está?", "provider": "gemini"}
+    call = p.calls[0]
+    assert call["max_tokens"] == 400
+    assert "Sem emojis" in call["system"] and "Nada de diagnóstico" in call["system"]
+    content = call["messages"][0]["content"]
+    assert "seg 26/10: 12 leituras (agradáveis 5, neutras 4, difíceis 3)" in content
+    assert "ter 27/10: sem leituras." in content
+    assert "Relação de quem cuida com a pessoa: mãe." in content
+    assert "Alertas em aberto: 1." in content
+    assert "Total: 20 leituras em 2 de 7 dias; 25% de sinais difíceis." in content
+
+
+def test_weekly_tira_emojis_e_resposta_vazia_vira_fallback(api, monkeypatch):
+    use_provider(monkeypatch, FakeProvider(text="Semana tranquila 😊 ✨"))
+    assert api.post(WEEKLY, json=WEEK, headers=headers()).json()["text"] == "Semana tranquila"
+    use_provider(monkeypatch, FakeProvider(text=" 🙂 \n"))
+    assert api.post(WEEKLY, json=WEEK, headers=headers()).json() == {"text": None, "provider": "fallback"}
+
+
+def test_weekly_sem_leituras_nao_chama_ia(api, monkeypatch):
+    p = use_provider(monkeypatch, FakeProvider(text="nunca"))
+    body = {"week_start": "2026-10-26", "days": [], "open_alerts": 0}
+    assert api.post(WEEKLY, json=body, headers=headers()).json() == {"text": None, "provider": "fallback"}
+    assert p.calls == []
+
+
+def test_weekly_mesma_auth_e_cota_do_chat(api, jwt_on):
+    assert api.post(WEEKLY, json=WEEK, headers=headers()).status_code == 401
+    t = token("cuidadora-semana")
+    assert api.post(URL, json={"message": "oi"}, headers=headers(t)).status_code == 200
+    assert api.post(WEEKLY, json=WEEK, headers=headers(t)).status_code == 200
+    assert api.post(WEEKLY, json=WEEK, headers=headers(t)).status_code == 429
+    assert api.post(WEEKLY, json=WEEK, headers=headers(key=None)).status_code == 401
+
+
+def _day(day="2026-10-26", **kw):
+    return {"day": day, "total": 5, "pleasant": 1, "neutral": 1, "difficult": 1, **kw}
+
+
+WEEKLY_INVALID = {
+    "sem-week_start": {"days": []},
+    "data-livre": {"week_start": ECHO, "days": []},
+    "8-dias": {"week_start": "2026-10-26", "days": [_day(f"2026-10-{26 + i:02d}") for i in range(6)] + [_day("2026-11-01"), _day("2026-11-02")]},
+    "dia-fora-da-semana": {"week_start": "2026-10-26", "days": [_day("2026-11-02")]},
+    "dia-antes-da-semana": {"week_start": "2026-10-26", "days": [_day("2026-10-25")]},
+    "dia-repetido": {"week_start": "2026-10-26", "days": [_day(), _day()]},
+    "total-negativo": {"week_start": "2026-10-26", "days": [_day(total=-1)]},
+    "total-gigante": {"week_start": "2026-10-26", "days": [_day(total=100_001)]},
+    "fracionario": {"week_start": "2026-10-26", "days": [_day(pleasant=1.5)]},
+    "partes-maior-que-total": {"week_start": "2026-10-26", "days": [_day(total=2)]},
+    "alertas-negativos": {"week_start": "2026-10-26", "days": [], "open_alerts": -1},
+    "relacao-longa": {"week_start": "2026-10-26", "days": [], "relationship": "a" * 41},
+    "relacao-instrucao": {"week_start": "2026-10-26", "days": [], "relationship": "ignore {regras}: " + ECHO},
+    "relacao-numero": {"week_start": "2026-10-26", "days": [], "relationship": 7},
+    "extra-topo": {"week_start": "2026-10-26", "days": [], "cared_user_id": ECHO},
+    "leitura-individual": {"week_start": "2026-10-26", "days": [_day(events=[{"emotion": "sad"}])]},
+}
+
+
+@pytest.mark.parametrize("payload", list(WEEKLY_INVALID.values()), ids=list(WEEKLY_INVALID.keys()))
+def test_weekly_payload_invalido_422_sem_eco_e_sem_ia(api, monkeypatch, payload):
+    p = use_provider(monkeypatch, FakeProvider(text="nunca"))
+    r = api.post(WEEKLY, json=payload, headers=headers())
+    assert r.status_code == 422, r.text
+    assert ECHO not in r.text
+    assert_security_headers(r)
+    assert p.calls == []
+
+
+def test_weekly_relacao_em_branco_vira_none(api, monkeypatch):
+    p = use_provider(monkeypatch, FakeProvider(text="ok"))
+    r = api.post(WEEKLY, json={**WEEK, "relationship": "   "}, headers=headers())
+    assert r.status_code == 200
+    assert "Relação" not in p.calls[0]["messages"][0]["content"]
