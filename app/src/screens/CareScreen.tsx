@@ -174,14 +174,19 @@ export function CareScreen() {
 
   // Widget: texto neutro (a tela inicial do aparelho fica à vista de terceiros).
   useEffect(() => {
-    if (!current || !summary) return;
+    // Sem vínculo ou com o compartilhamento pausado, o widget não mostra ninguém.
+    if (!current || paused) {
+      updateCareWidgets({ people: [], alert: null, checkin: null });
+      return;
+    }
+    if (!summary) return;
     updateCareWidgets({
       people: [{ name: linkName(current), state: score !== null && score < 40 ? 'precisa de atenção' : 'dados disponíveis', wellbeing: score ?? 0 }],
       alert: null,
       alertCount: activeAlerts.length,
       checkin: null,
     });
-  }, [current, summary, score, activeAlerts.length, linkName]);
+  }, [current, paused, summary, score, activeAlerts.length, linkName]);
 
   const endCareRelationship = () => {
     if (!current || revoking) return;

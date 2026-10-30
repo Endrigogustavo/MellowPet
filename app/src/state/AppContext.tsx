@@ -42,6 +42,7 @@ import { fetchSettings } from '../settings/settingsClient';
 import {
   drainPendingWidgetActions,
   moodPctFor,
+  updateCareWidgets,
   updateMoodWidget,
 } from '../widgets/widgetBridge';
 import { fetchStreak } from '../dashboard/streak';
@@ -884,6 +885,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // O destino pendente de notificação/widget era da conta que saiu.
         pendingScreen.current = null;
         Speech.stop();
+        // O widget do cuidador fica na tela inicial do aparelho: sai junto.
+        updateCareWidgets({ people: [], alert: null, checkin: null });
         dispatch((s) => ({
           ...INITIAL,
           theme: s.theme,
