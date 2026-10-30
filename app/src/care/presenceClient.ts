@@ -105,7 +105,8 @@ export async function listOpenRequests(caredUserId: string): Promise<CareRequest
     .is('acknowledged_at', null)
     .order('created_at', { ascending: false })
     .limit(5);
-  if (error) return [];
+  // Falha ≠ "sem pedidos": quem chama mostra o aviso e tenta de novo.
+  if (error) throw fail(error, 'Não foi possível verificar os pedidos de contato');
   return (data ?? []) as CareRequest[];
 }
 

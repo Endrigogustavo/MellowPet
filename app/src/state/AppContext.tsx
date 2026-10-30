@@ -33,7 +33,7 @@ import {
 } from '../auth/authClient';
 import { SERVER_CONFIGURED, sendChatMessage, streamChatMessage } from '../chat/chatClient';
 import { fetchToolContent } from '../tools/toolsClient';
-import { acceptInvite, listLinks } from '../care/careClient';
+import { listLinks } from '../care/careClient';
 import { bumpProfileStats, fetchProfileStats, levelFromXp } from '../profile/profileClient';
 import { grewUp, localDay, stageForDays, type PetStage } from '../pet/growth';
 import { registerMeal, type MealRecord } from '../pet/feeding';
@@ -135,6 +135,12 @@ export type Screen =
   | 'careguide'
   | 'agenda'
   | 'caretools'
+  | 'carehistory'
+  | 'carenotes'
+  | 'carealertrules'
+  | 'carenotify'
+  | 'caredcare'
+  | 'acceptinvite'
   | 'chat'
   | 'guide'
   | 'plans'
@@ -1364,15 +1370,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             coach: s.signup && !isCareSignup ? 0 : cur.coach,
             navSeq: cur.navSeq + 1,
           }));
-          // Código de convite colado no cadastro: conecta com o cuidador já.
-          const code = s.signup && !isCareSignup ? s.pairCode.trim() : '';
-          const linkCheck = code
-            ? acceptInvite(code, user.userId)
-                .then(() => dispatch({ linked: true, pairCode: '', inviteNotice: 'Pronto: você está conectado ao seu cuidador.' }))
-                .catch((e: Error) => dispatch({ inviteNotice: `O código de convite não funcionou: ${e.message}` }))
-            : Promise.resolve();
-          linkCheck
-            .then(() => listLinks(user.userId, 'user'))
+          // Código de convite colado no cadastro: não conecta sozinho. A Home
+          // leva à prévia do que será compartilhado, e o aceite grava o termo.
+          if (s.signup && !isCareSignup && s.pairCode.trim()) {
+            dispatch({ inviteNotice: 'Seu cuidador mandou um convite. Veja o que ele vai poder ver antes de aceitar.' });
+          }
+          listLinks(user.userId, 'user')
             .then((res) => dispatch({ linked: res.links.length > 0 }))
             .catch(() => undefined);
           fetchProfileStats(user.userId).then((stats) => dispatch(stats));

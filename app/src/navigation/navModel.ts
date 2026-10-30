@@ -54,26 +54,13 @@ export const SCREEN_ACCESS: Record<Screen, Access> = {
   dashboard: 'both',
   settings: 'both',
   chat: 'both',
-};
-
-/**
- * Telas da nova área do cuidador que ainda não existem no tipo `Screen` nem no
- * RootNavigator. Quem criar a tela move a entrada para `SCREEN_ACCESS` (o tipo
- * `Record<Screen, Access>` acusa a falta assim que o id entrar em `Screen`).
- */
-export const PLANNED_SCREEN_ACCESS = {
   carehistory: 'care',
   carenotes: 'care',
   carealertrules: 'care',
   carenotify: 'care',
   caredcare: 'user',
   acceptinvite: 'user',
-} as const satisfies Record<string, Access>;
-
-export type PlannedScreen = Exclude<keyof typeof PLANNED_SCREEN_ACCESS, Screen>;
-
-/** Qualquer id de rota conhecido, inclusive os que ainda vão ganhar tela. */
-export type RouteId = Screen | PlannedScreen;
+};
 
 /** Telas que não entram no histórico (não faz sentido "voltar" para elas). */
 export const NO_HISTORY: readonly Screen[] = ['splash', 'login', 'onboarding', 'caresignup'];
@@ -87,9 +74,6 @@ export const MAX_HISTORY = 30;
 
 function accessOf(screen: string): Access | null {
   if (Object.prototype.hasOwnProperty.call(SCREEN_ACCESS, screen)) return SCREEN_ACCESS[screen as Screen];
-  if (Object.prototype.hasOwnProperty.call(PLANNED_SCREEN_ACCESS, screen)) {
-    return PLANNED_SCREEN_ACCESS[screen as keyof typeof PLANNED_SCREEN_ACCESS];
-  }
   return null;
 }
 

@@ -47,6 +47,12 @@ import { GroupsScreen } from '../screens/GroupsScreen';
 import { CareMirrorScreen } from '../screens/CareMirrorScreen';
 import { canAccess, homeFor, isTabRoot } from './navModel';
 import { stepBackCareSignup } from './flowBack';
+import { CareHistoryScreen } from '../screens/CareHistoryScreen';
+import { CareNotesScreen } from '../screens/CareNotesScreen';
+import { CareAlertRulesScreen } from '../screens/CareAlertRulesScreen';
+import { CareNotifyScreen } from '../screens/CareNotifyScreen';
+import { CaredCareScreen } from '../screens/CaredCareScreen';
+import { AcceptInviteScreen } from '../screens/AcceptInviteScreen';
 
 const SCREENS: Record<Screen, React.ComponentType> = {
   splash: SplashScreen,
@@ -79,6 +85,12 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   careguide: CareGuideScreen,
   agenda: AgendaScreen,
   caretools: CareToolsScreen,
+  carehistory: CareHistoryScreen,
+  carenotes: CareNotesScreen,
+  carealertrules: CareAlertRulesScreen,
+  carenotify: CareNotifyScreen,
+  caredcare: CaredCareScreen,
+  acceptinvite: AcceptInviteScreen,
   chat: ChatScreen,
   guide: GuideScreen,
   plans: PlansScreen,

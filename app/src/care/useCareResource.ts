@@ -12,6 +12,8 @@ export function useCareResource<T>(key: string | null, fetcher: () => Promise<T>
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(Boolean(key));
+  /** Hora do último sucesso — para "mostrando dados de HH:mm" quando a atualização falha. */
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const request = useRef(0);
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
@@ -28,7 +30,10 @@ export function useCareResource<T>(key: string | null, fetcher: () => Promise<T>
     setError(null);
     try {
       const result = await fetcherRef.current();
-      if (id === request.current) setData(result);
+      if (id === request.current) {
+        setData(result);
+        setUpdatedAt(Date.now());
+      }
     } catch (reason) {
       if (id === request.current) {
         setError(reason instanceof Error ? reason : new Error('Não foi possível carregar.'));
@@ -40,8 +45,9 @@ export function useCareResource<T>(key: string | null, fetcher: () => Promise<T>
 
   useEffect(() => {
     setData(null);
+    setUpdatedAt(null);
     refresh().catch(() => undefined);
   }, [refresh]);
 
-  return { data, error, loading, refresh, setData };
+  return { data, error, loading, refresh, setData, updatedAt };
 }

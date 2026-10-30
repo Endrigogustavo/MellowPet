@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { acceptInvite, listLinks, revokeCareLink, type CaregiverLink } from '../care/careClient';
 import { CalibrationCard } from '../components/CalibrationCard';
 import { OfflineMellowCard } from '../components/OfflineMellowCard';
 import { Field } from '../components/Field';
@@ -11,7 +10,6 @@ import { ScreenScroll, Section } from '../components/ScreenScroll';
 import {
   Card,
   LinkButton,
-  PrimaryButton,
   ScreenTitle,
   Segmented,
   Toggle,
@@ -39,7 +37,7 @@ import {
   getBackgroundVision,
   setBackgroundVision,
 } from '../vision/backgroundVision';
-import { PauseSharing } from '../components/CaredPresence';
+import { CareConnectionsCard } from '../components/CareConnections';
 
 export function SettingsScreen() {
   const { state, actions } = useApp();
@@ -55,13 +53,6 @@ export function SettingsScreen() {
   // saber se a pessoa concedeu a isenção.
   const [health, setHealth] = useState(() => getBackgroundHealth());
   const backgroundOn = background || bgVision.enabled;
-
-  const [links, setLinks] = useState<CaregiverLink[]>([]);
-  const [codeInput, setCodeInput] = useState('');
-  const [acceptError, setAcceptError] = useState<string | null>(null);
-  const [accepting, setAccepting] = useState(false);
-  const [connectionMessage, setConnectionMessage] = useState<{ text: string; tone: 'error' | 'success' } | null>(null);
-  const [disconnecting, setDisconnecting] = useState(false);
 
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [contactName, setContactName] = useState('');
@@ -116,22 +107,6 @@ export function SettingsScreen() {
     ]);
   };
 
-  const refreshLinks = async () => {
-    if (!state.userId) return false;
-    try {
-      const res = await listLinks(state.userId, 'user');
-      setLinks(res.links);
-      actions.set({ linked: res.links.length > 0 });
-      return true;
-    } catch (error) {
-      setConnectionMessage({
-        tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível carregar suas conexões de cuidado.',
-      });
-      return false;
-    }
-  };
-
   // Carrega preferências e vínculos reais de cuidador ao entrar na tela.
   const loadSettings = () => {
     if (!state.userId) return;
@@ -152,7 +127,6 @@ export function SettingsScreen() {
   };
   useEffect(() => {
     loadSettings();
-    refreshLinks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.userId]);
 
@@ -204,59 +178,6 @@ export function SettingsScreen() {
     },
     []
   );
-
-  const submitInviteCode = () => {
-    const code = codeInput.trim();
-    if (!code || !state.userId) return;
-    setAccepting(true);
-    setAcceptError(null);
-    setConnectionMessage(null);
-    acceptInvite(code, state.userId)
-      .then(() => {
-        setCodeInput('');
-        refreshLinks();
-      })
-      .catch((error) => setAcceptError(error instanceof Error ? error.message : 'Código inválido'))
-      .finally(() => setAccepting(false));
-  };
-
-  const primaryLink = links[0];
-  const linkLabel = primaryLink ? 'Conectado' : 'Nenhum cuidador conectado';
-  const linkColor = primaryLink ? OK : T.t3;
-  const linkName =
-    primaryLink?.caregiver_display_name || primaryLink?.caregiver_email || 'Cuidador';
-
-  const disconnectCaregiver = () => {
-    if (!primaryLink || disconnecting) return;
-    Alert.alert(
-      'Encerrar conexão?',
-      'O acesso do cuidador será interrompido agora. O registro operacional do vínculo será preservado.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Encerrar conexão',
-          style: 'destructive',
-          onPress: () => {
-            setDisconnecting(true);
-            setConnectionMessage(null);
-            revokeCareLink(primaryLink.id)
-              .then(async () => {
-                if (await refreshLinks()) {
-                  setConnectionMessage({ tone: 'success', text: 'Conexão encerrada. O cuidador não pode mais acessar seus dados.' });
-                }
-              })
-              .catch((error) => {
-                setConnectionMessage({
-                  tone: 'error',
-                  text: error instanceof Error ? error.message : 'Não foi possível encerrar a conexão.',
-                });
-              })
-              .finally(() => setDisconnecting(false));
-          },
-        },
-      ]
-    );
-  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -464,108 +385,9 @@ export function SettingsScreen() {
         </Card>
       </Section>
 
-      {/* conexões */}
+      {/* conexões: todos os cuidadores, pausar/encerrar por vínculo e aceite com prévia */}
       <Section>
-        <Card radius={24} padding={18}>
-          <Txt s={12} w={800} c={T.t2} style={{ marginBottom: 12 }}>
-            Conexões
-          </Txt>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
-            <View
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 999,
-                backgroundColor: T.priL,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Txt s={15} w={800} c={T.pri}>
-                {linkName.charAt(0).toUpperCase()}
-              </Txt>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Txt s={14} w={700} c={T.t1}>
-                {primaryLink ? linkName : 'Ninguém conectado'}
-              </Txt>
-              <Txt s={11.5} w={700} c={linkColor} style={{ marginTop: 2 }}>
-                {linkLabel}
-              </Txt>
-            </View>
-            {primaryLink ? (
-              <Touchable
-                onPress={disconnectCaregiver}
-                disabled={disconnecting}
-                accessibilityRole="button"
-                accessibilityLabel="Encerrar conexão com cuidador"
-                accessibilityHint="Interrompe imediatamente o acesso do cuidador aos seus dados"
-                style={{
-                  paddingVertical: 9,
-                  paddingHorizontal: 14,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: T.bd,
-                }}
-              >
-                <Txt s={11.5} w={800} c={T.t2}>
-                  {disconnecting ? 'Encerrando…' : 'Desconectar'}
-                </Txt>
-              </Touchable>
-            ) : null}
-          </View>
-
-          {primaryLink ? (
-            <>
-              <PauseSharing link={primaryLink} onChange={() => refreshLinks().catch(() => undefined)} />
-              <Touchable onPress={() => actions.go('caremirror')} accessibilityRole="button" style={{ marginTop: 12 }}>
-                <Txt s={12.5} w={800} c={T.pri}>
-                  Ver o que meu cuidador vê
-                </Txt>
-              </Touchable>
-            </>
-          ) : null}
-          <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>
-            A conexão é sempre sua escolha. Ao desconectar, o painel dela fica vazio na hora.
-          </Txt>
-          {connectionMessage ? (
-            <Txt
-              s={11.5}
-              lh={1.45}
-              c={connectionMessage.tone === 'error' ? DANGER : T.pri}
-              accessibilityRole={connectionMessage.tone === 'error' ? 'alert' : undefined}
-              accessibilityLiveRegion="polite"
-              style={{ marginTop: 8 }}
-            >
-              {connectionMessage.text}
-            </Txt>
-          ) : null}
-
-          {!primaryLink ? (
-            <View style={{ marginTop: 13, gap: 8 }}>
-              <Field
-                label="Código de convite de um cuidador"
-                value={codeInput}
-                onChangeText={setCodeInput}
-                placeholder="MEL-4821"
-                autoCapitalize="characters"
-                style={{ letterSpacing: 2, fontWeight: '700' }}
-              />
-              {acceptError ? (
-                <Txt s={12} c={DANGER}>
-                  {acceptError}
-                </Txt>
-              ) : null}
-              <PrimaryButton
-                label={accepting ? 'Aguarde…' : 'Conectar com o código'}
-                disabled={accepting || !codeInput.trim()}
-                onPress={submitInviteCode}
-              />
-            </View>
-          ) : null}
-
-          {primaryLink ? <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>Ao aceitar a conexão, {linkName} recebe acesso integral ao módulo de cuidado. Não há permissões separadas por recurso.</Txt> : null}
-        </Card>
+        <CareConnectionsCard />
       </Section>
         </>
       ) : null}

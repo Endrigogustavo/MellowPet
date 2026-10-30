@@ -300,8 +300,12 @@ export function HomeScreen() {
               {state.inviteNotice}
             </Txt>
             <LinkButton
-              label="Entendi"
-              onPress={() => actions.set({ inviteNotice: null })}
+              label={state.pairCode.trim() ? 'Ver o convite' : 'Entendi'}
+              onPress={() => {
+                const hasInvite = state.pairCode.trim().length > 0;
+                actions.set({ inviteNotice: null });
+                if (hasInvite) actions.go('acceptinvite');
+              }}
               style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
             />
           </Card>
