@@ -4,7 +4,7 @@ import Svg, { Circle, G } from 'react-native-svg';
 
 import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Card, ScreenTitle, Segmented, Touchable, Txt } from '../components/ui';
+import { Card, LinkButton, ScreenTitle, Segmented, Touchable, Txt } from '../components/ui';
 import { ICONS, PERIOD_LABELS, type Period } from '../data/content';
 import { fetchDashboardPeriod } from '../dashboard/dashboardClient';
 import { subscribeToEmotionEvents } from '../dashboard/aggregate';
@@ -29,9 +29,15 @@ export function DashboardScreen() {
   const { state, actions } = useApp();
   const { T, isDark, full } = useTheme();
 
-  // null = ainda buscando ou sem leituras reais nesse recorte — a tela
-  // mostra um estado vazio de verdade, nunca um exemplo fabricado.
-  const [loaded, setLoaded] = useState<{ key: string; period: Period | null } | null>(null);
+  // period null = sem leituras reais nesse recorte — a tela mostra um estado
+  // vazio de verdade, nunca um exemplo fabricado. `error` separa "falhou a
+  // busca" de "não há leituras", para o erro não se passar por vazio.
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    period: Period | null;
+    error: boolean;
+  } | null>(null);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let alive = true;
     if (!state.userId) return;
@@ -43,10 +49,14 @@ export function DashboardScreen() {
       lastRefreshStartedAt = Date.now();
       fetchDashboardPeriod(state.userId!, state.period)
         .then((period) => {
-          if (alive) setLoaded({ key, period });
+          if (alive) setLoaded({ key, period, error: false });
         })
         .catch(() => {
-          if (alive) setLoaded({ key, period: null });
+          if (!alive) return;
+          // Falha numa atualização em segundo plano não apaga o que já está na tela.
+          setLoaded((prev) =>
+            prev && prev.key === key && prev.period ? prev : { key, period: null, error: true }
+          );
         });
     };
     refresh();
@@ -65,7 +75,7 @@ export function DashboardScreen() {
       if (refreshTimer) clearTimeout(refreshTimer);
       unsubscribe();
     };
-  }, [state.userId, state.period]);
+  }, [state.userId, state.period, attempt]);
 
   // Widget "Sequência" — independe do recorte escolhido na tela, por isso
   // fica num efeito próprio, preso só ao usuário.
@@ -79,6 +89,7 @@ export function DashboardScreen() {
   const requestKey = state.userId ? `${state.userId}:${state.period}` : null;
   const loading = requestKey !== null && loaded?.key !== requestKey;
   const P = requestKey && loaded?.key === requestKey ? loaded.period : null;
+  const failed = !loading && !P && !!loaded?.error;
 
   const wbColor = P ? scoreColor(P.wb) : T.t3;
   const dayTimeline = P?.timeline ?? [];
@@ -161,20 +172,39 @@ export function DashboardScreen() {
 
       {!P ? (
         <Section top={0}>
-          <Card radius={24} padding={22} style={{ alignItems: 'center', gap: 8 }}>
-            {loading ? (
-              <ActivityIndicator size="small" color={T.pri} />
-            ) : (
-              <Icon d={ICONS.robot} size={26} color={T.t3} />
-            )}
-            <Txt s={14.5} w={800} c={T.t1} style={{ textAlign: 'center' }}>
-              {loading ? 'Carregando suas leituras…' : 'Ainda não há leituras suficientes'}
-            </Txt>
-            {!loading ? (
-              <Txt s={12.5} lh={1.55} c={T.t3} style={{ textAlign: 'center' }}>
-                Seus padrões aparecem aqui assim que o Mellow tiver leituras reais registradas
-                nesse período.
+          <Card
+            radius={24}
+            padding={22}
+            style={{ alignItems: 'center', gap: 8 }}
+          >
+            <View
+              accessible
+              accessibilityLiveRegion="polite"
+              accessibilityRole={failed ? 'alert' : undefined}
+              style={{ alignItems: 'center', gap: 8 }}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={T.pri} />
+              ) : (
+                <Icon d={failed ? ICONS.alert : ICONS.robot} size={26} color={failed ? DANGER : T.t3} />
+              )}
+              <Txt s={14.5} w={800} c={T.t1} style={{ textAlign: 'center' }}>
+                {loading
+                  ? 'Carregando suas leituras…'
+                  : failed
+                    ? 'Não foi possível carregar suas leituras'
+                    : 'Ainda não há leituras suficientes'}
               </Txt>
+              {!loading ? (
+                <Txt s={12.5} lh={1.55} c={T.t3} style={{ textAlign: 'center' }}>
+                  {failed
+                    ? 'Confira a conexão e tente de novo. Suas leituras continuam guardadas.'
+                    : 'Seus padrões aparecem aqui assim que o Mellow tiver leituras reais registradas nesse período.'}
+                </Txt>
+              ) : null}
+            </View>
+            {failed ? (
+              <LinkButton label="Tentar novamente" onPress={() => setAttempt((n) => n + 1)} />
             ) : null}
           </Card>
         </Section>
