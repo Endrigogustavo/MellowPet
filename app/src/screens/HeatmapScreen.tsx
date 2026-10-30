@@ -190,7 +190,7 @@ export function HeatmapScreen() {
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 16 }}>
             {WEEKDAYS.map((w, i) => (
               <View key={i} style={{ width: cell, alignItems: 'center' }}>
-                <Txt s={10} w={800} c={T.t3}>
+                <Txt numberOfLines={1} adjustsFontSizeToFit s={11} w={800} c={T.t3}>
                   {w}
                 </Txt>
               </View>
@@ -224,13 +224,13 @@ export function HeatmapScreen() {
             {LEGEND.map((k) => (
               <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                 <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: EMOTIONS[k].c }} />
-                <Txt s={10.5} c={T.t3}>
+                <Txt s={11} c={T.t3}>
                   {EMOTIONS[k].label}
                 </Txt>
               </View>
             ))}
           </View>
-          <Txt s={10.5} lh={1.45} c={T.t3} style={{ marginTop: 8 }}>
+          <Txt s={11} lh={1.45} c={T.t3} style={{ marginTop: 8 }}>
             Cor cheia: você disse. Cor clara: só a câmera viu.
           </Txt>
         </Card>
@@ -240,7 +240,7 @@ export function HeatmapScreen() {
       {selected && (selectedMood || selectedCheckins.length > 0) ? (
         <Section>
           <Card radius={22} padding={18}>
-            <Txt s={10.5} w={800} c={T.t3} ls={1.6}>
+            <Txt s={11} w={800} c={T.t3} ls={1.6}>
               {selected.split('-').reverse().slice(0, 2).join('/')}
             </Txt>
             {selectedCheckins.length === 0 && selectedMood ? (
@@ -272,7 +272,7 @@ export function HeatmapScreen() {
                           </Txt>
                         ) : null}
                         {c.tags.length > 0 ? (
-                          <Txt s={10.5} c={T.t3} style={{ marginTop: 3 }}>
+                          <Txt s={11} c={T.t3} style={{ marginTop: 3 }}>
                             {c.tags.map((t) => CHECKIN_TAGS.find(([k]) => k === t)?.[1] ?? t).join(' · ')}
                           </Txt>
                         ) : null}
@@ -323,7 +323,7 @@ export function HeatmapScreen() {
               </View>
               {agreement.mismatches.length > 0 ? (
                 <View style={{ marginTop: 12, gap: 6 }}>
-                  <Txt s={10.5} w={800} c={T.t3} ls={1.4}>
+                  <Txt s={11} w={800} c={T.t3} ls={1.4}>
                     QUANDO DIVERGE
                   </Txt>
                   {agreement.mismatches.map((m) => (
@@ -380,7 +380,7 @@ export function HeatmapScreen() {
                   <View style={{ marginTop: 6 }}>
                     <Bar pct={t.negativeShare} color={t.negativeShare >= 50 ? DANGER : OK} height={5} />
                   </View>
-                  <Txt s={10.5} c={T.t3} style={{ marginTop: 3 }}>
+                  <Txt s={11} c={T.t3} style={{ marginTop: 3 }}>
                     {t.negativeShare}% de sentimentos difíceis
                   </Txt>
                 </View>

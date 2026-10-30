@@ -118,7 +118,7 @@ function Comparison({ checkin, onDone }: { checkin: Checkin; onDone: () => void 
         >
           <Icon d={[FACE_ICON[k], 'M9 9.5h.01', 'M15 9.5h.01']} size={34} color={e.c} sw={1.9} circle />
         </View>
-        <Txt s={10.5} w={800} c={T.t3} ls={1.2}>
+        <Txt s={11} w={800} c={T.t3} ls={1.2}>
           {tag}
         </Txt>
         <Txt s={13} w={800} c={e.c}>
@@ -136,7 +136,7 @@ function Comparison({ checkin, onDone }: { checkin: Checkin; onDone: () => void 
       }}
     >
       <Card radius={24} padding={20}>
-        <Txt s={10.5} w={800} c={T.t3} ls={1.6}>
+        <Txt s={11} w={800} c={T.t3} ls={1.6}>
           CHECK-IN SALVO
         </Txt>
         {seen ? (
@@ -403,7 +403,7 @@ export function CheckinScreen() {
                         <Txt s={15} w={800} c={on ? T.onPri : T.t1}>
                           {v}
                         </Txt>
-                        <Txt s={9.5} w={700} c={on ? T.onPri : T.t3} style={{ marginTop: 2 }}>
+                        <Txt numberOfLines={1} adjustsFontSizeToFit s={11} w={700} c={on ? T.onPri : T.t3} style={{ marginTop: 2 }}>
                           {label}
                         </Txt>
                       </Touchable>
@@ -551,7 +551,7 @@ export function CheckinScreen() {
                         </Txt>
                       ) : null}
                       {c.tags.length > 0 || c.sleepQuality != null ? (
-                        <Txt s={10.5} c={T.t3} style={{ marginTop: 4 }} numberOfLines={1}>
+                        <Txt s={11} c={T.t3} style={{ marginTop: 4 }} numberOfLines={1}>
                           {[
                             ...c.tags.map((t) => CHECKIN_TAGS.find(([k]) => k === t)?.[1] ?? t),
                             ...(c.sleepQuality != null ? [`sono ${SLEEP_LABELS[c.sleepQuality - 1].toLowerCase()}`] : []),

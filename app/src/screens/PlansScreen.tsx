@@ -42,7 +42,7 @@ export function PlansScreen() {
                       backgroundColor: T.pri,
                     }}
                   >
-                    <Txt s={9.5} w={800} c={T.onPri} ls={0.6}>
+                    <Txt s={11} w={800} c={T.onPri} ls={0.6}>
                       MAIS ESCOLHIDO
                     </Txt>
                   </View>

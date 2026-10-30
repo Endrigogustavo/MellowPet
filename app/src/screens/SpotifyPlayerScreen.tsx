@@ -364,7 +364,7 @@ export function SpotifyPlayerScreen() {
                         >
                           {track.title}
                         </Txt>
-                        <Txt s={10.5} c={T.t3} numberOfLines={1} style={{ marginTop: 1 }}>
+                        <Txt s={11} c={T.t3} numberOfLines={1} style={{ marginTop: 1 }}>
                           {track.artist}
                         </Txt>
                       </View>

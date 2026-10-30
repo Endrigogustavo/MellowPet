@@ -35,8 +35,10 @@ export const LIGHT: Palette = {
   bd: '#EBEBF0',
   bdL: '#F2F2F7',
   t1: '#1A1A2E',
-  t2: '#6B7280',
-  t3: '#9CA3AF',
+  // Contraste WCAG sobre `surf` (#FFFFFF): t2 7,56:1 · t3 4,83:1 (antes 4,83 e
+  // 2,54:1). Desce um degrau na mesma escala de cinza para manter a hierarquia.
+  t2: '#4B5563',
+  t3: '#6B7280',
   // `onPri` sobre `pri`: 5,37:1 (antes #6C63FF dava 4,32:1 com branco).
   pri: '#5B52F0',
   onPri: '#FFFFFF',
@@ -59,7 +61,8 @@ export const DARK: Palette = {
   bdL: 'rgba(250,246,242,.09)',
   t1: '#FAF6F2',
   t2: '#C7B4D0',
-  t3: '#9B8AA6',
+  // t3 sobre `surf` (#33213D): 5,43:1 (antes 4,62:1; 4,15:1 sobre o trilho `bdL`).
+  t3: '#A897B3',
   pri: '#C6A9F0',
   // `onPri` sobre `pri`: 8,33:1 (antes o branco dava 2,03:1).
   onPri: '#241730',

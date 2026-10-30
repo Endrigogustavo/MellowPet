@@ -214,7 +214,7 @@ export function DashboardScreen() {
                   <Txt s={29} w={800} c={wbColor} ls={-1} lh={1}>
                     {P.wb}
                   </Txt>
-                  <Txt s={10} w={700} c={T.t3}>
+                  <Txt s={11} w={700} c={T.t3}>
                     /100
                   </Txt>
                 </View>
@@ -250,7 +250,7 @@ export function DashboardScreen() {
                         backgroundColor: EMOTIONS[key].c,
                       }}
                     />
-                    <Txt s={9.5} c={T.t3}>
+                    <Txt numberOfLines={1} adjustsFontSizeToFit s={11} c={T.t3}>
                       {hour}
                     </Txt>
                   </View>
@@ -374,7 +374,7 @@ export function DashboardScreen() {
                           justifyContent: 'flex-end',
                         }}
                       >
-                        <Txt s={9.5} w={700} c={T.t3}>
+                        <Txt numberOfLines={1} adjustsFontSizeToFit s={11} w={700} c={T.t3}>
                           {value}
                         </Txt>
                         <View
@@ -388,7 +388,7 @@ export function DashboardScreen() {
                             backgroundColor: T.pri,
                           }}
                         />
-                        <Txt s={9.5} c={T.t3}>
+                        <Txt numberOfLines={1} adjustsFontSizeToFit s={11} c={T.t3}>
                           {hour}
                         </Txt>
                       </View>
