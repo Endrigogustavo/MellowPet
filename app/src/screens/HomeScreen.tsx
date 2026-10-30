@@ -293,9 +293,17 @@ export function HomeScreen() {
             <Txt s={12.5} lh={1.45} c={T.t2} accessibilityLiveRegion="polite">
               {state.inviteNotice}
             </Txt>
-            <Touchable onPress={() => actions.set({ inviteNotice: null })} accessibilityRole="button" style={{ marginTop: 8 }}>
+            <Touchable
+              onPress={() => {
+                const hasInvite = state.pairCode.trim().length > 0;
+                actions.set({ inviteNotice: null });
+                if (hasInvite) actions.go('acceptinvite');
+              }}
+              accessibilityRole="button"
+              style={{ marginTop: 8 }}
+            >
               <Txt s={12} w={800} c={T.pri}>
-                Entendi
+                {state.pairCode.trim() ? 'Ver o convite' : 'Entendi'}
               </Txt>
             </Touchable>
           </Card>
