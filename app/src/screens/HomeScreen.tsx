@@ -6,7 +6,7 @@ import { Icon } from '../components/Icon';
 import { MellowMark } from '../components/PetFace';
 import { PetStage } from '../components/PetStage';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Bar, Card, PrimaryButton, Touchable, Txt } from '../components/ui';
+import { Bar, Card, LinkButton, PrimaryButton, Touchable, Txt } from '../components/ui';
 import { FACE_ICON, INTENSITY } from '../data/emotions';
 import { ICONS } from '../data/content';
 import { bumpProfileStats, levelFromXp } from '../profile/profileClient';
@@ -18,7 +18,7 @@ import { ACCESSORIES, TRAIT_LABEL, TRAIT_LINE, personality } from '../pet/habits
 import { growthProgress, localDay, STAGE_LABEL } from '../pet/growth';
 import { MEALS_PER_DAY, mealsLeft } from '../pet/feeding';
 import { useApp, useTheme } from '../state/AppContext';
-import { OK } from '../theme/palette';
+import { DANGER, OK } from '../theme/palette';
 import { DivergenceCard } from '../components/DivergenceCard';
 import { GestureDelivery, NeedYouCard } from '../components/CaredPresence';
 
@@ -260,6 +260,9 @@ export function HomeScreen() {
       >
         <Touchable
           onPress={() => actions.set((s) => ({ focus: !s.focus, breathing: false }))}
+          accessibilityRole="switch"
+          accessibilityLabel="Modo foco"
+          accessibilityState={{ checked: state.focus }}
           style={modePill(state.focus)}
         >
           <Icon d={ICONS.focus} size={17} color={state.focus ? T.pri : T.t2} circle />
@@ -276,6 +279,9 @@ export function HomeScreen() {
             actions.set((s) => ({ breathing: !s.breathing, breathTick: 0, focus: false }));
           }
           }
+          accessibilityRole="switch"
+          accessibilityLabel="Respiração guiada"
+          accessibilityState={{ checked: state.breathing }}
           style={modePill(state.breathing)}
         >
           <Icon d={ICONS.heart} size={17} color={state.breathing ? T.pri : T.t2} />
@@ -293,11 +299,11 @@ export function HomeScreen() {
             <Txt s={12.5} lh={1.45} c={T.t2} accessibilityLiveRegion="polite">
               {state.inviteNotice}
             </Txt>
-            <Touchable onPress={() => actions.set({ inviteNotice: null })} accessibilityRole="button" style={{ marginTop: 8 }}>
-              <Txt s={12} w={800} c={T.pri}>
-                Entendi
-              </Txt>
-            </Touchable>
+            <LinkButton
+              label="Entendi"
+              onPress={() => actions.set({ inviteNotice: null })}
+              style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
+            />
           </Card>
         </Section>
       ) : null}
@@ -331,11 +337,7 @@ export function HomeScreen() {
                 }}
                 style={{ flex: 1 }}
               />
-              <Touchable onPress={() => actions.set({ unlockEvent: null })} accessibilityLabel="Depois">
-                <Txt s={12.5} w={800} c={T.t3}>
-                  Depois
-                </Txt>
-              </Touchable>
+              <LinkButton label="Depois" color={T.t2} onPress={() => actions.set({ unlockEvent: null })} />
             </View>
           </Card>
         </Section>
@@ -371,8 +373,8 @@ export function HomeScreen() {
               </View>
               <Touchable
                 onPress={() => actions.dismissCard('caregiver_connect')}
-                accessibilityLabel="Fechar"
-                style={{ padding: 6 }}
+                accessibilityLabel="Fechar aviso de cuidador"
+                style={{ width: 44, height: 44, margin: -8, alignItems: 'center', justifyContent: 'center' }}
               >
                 <Icon d={ICONS.close} size={16} color={T.t3} />
               </Touchable>
@@ -398,7 +400,7 @@ export function HomeScreen() {
       {state.feedback !== null ? (
         <Section>
           <View style={{ padding: 12, paddingHorizontal: 15, borderRadius: 16, backgroundColor: emoLight }}>
-            <Txt s={12.5} c={T.t2}>
+            <Txt s={12.5} c={T.t2} accessibilityLiveRegion="polite">
               {state.feedback === 'yes'
                 ? 'Obrigado — a leitura reforça um pouco o que acertou no seu rosto.'
                 : state.feedback === 'no'
@@ -600,8 +602,8 @@ export function HomeScreen() {
               onPress={() => actions.giveFeedback('yes')}
               accessibilityLabel="Leitura correta"
               style={{
-                width: 34,
-                height: 34,
+                width: 44,
+                height: 44,
                 borderRadius: 999,
                 backgroundColor: T.surf,
                 alignItems: 'center',
@@ -614,22 +616,22 @@ export function HomeScreen() {
               onPress={() => actions.giveFeedback('no')}
               accessibilityLabel="Leitura incorreta"
               style={{
-                width: 34,
-                height: 34,
+                width: 44,
+                height: 44,
                 borderRadius: 999,
                 backgroundColor: T.surf,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Icon d={ICONS.close} size={16} color="#EF4444" sw={2} />
+              <Icon d={ICONS.close} size={16} color={DANGER} sw={2} />
             </Touchable>
             <Touchable
               onPress={() => actions.giveFeedback('unsure')}
               accessibilityLabel="Não tenho certeza sobre a leitura"
               style={{
-                width: 34,
-                height: 34,
+                width: 44,
+                height: 44,
                 borderRadius: 999,
                 backgroundColor: T.surf,
                 alignItems: 'center',
