@@ -390,6 +390,7 @@ export function CheckinScreen() {
                         key={v}
                         onPress={() => setSleep(on ? null : v)}
                         accessibilityLabel={`Sono: ${label}`}
+                        accessibilityState={{ selected: on }}
                         style={{
                           flex: 1,
                           alignItems: 'center',
@@ -469,15 +470,24 @@ export function CheckinScreen() {
 
           <Section>
             {error ? (
-              <Txt s={12.5} lh={1.5} c={DANGER} style={{ marginBottom: 10 }}>
+              <Txt
+                s={12.5}
+                lh={1.5}
+                c={DANGER}
+                style={{ marginBottom: 10 }}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+              >
                 {error}
               </Txt>
             ) : null}
-            {saving ? (
-              <ActivityIndicator color={T.pri} />
-            ) : (
-              <PrimaryButton label="Registrar" onPress={save} disabled={!emotion} />
-            )}
+            <PrimaryButton
+              label="Registrar"
+              onPress={save}
+              loading={saving}
+              disabled={!emotion}
+              accessibilityHint={!emotion ? 'Escolha antes como você se sente' : undefined}
+            />
             {!emotion ? (
               <Txt s={11.5} c={T.t3} style={{ marginTop: 8, textAlign: 'center' }}>
                 Escolha como se sente para registrar.
@@ -500,7 +510,14 @@ export function CheckinScreen() {
           </Touchable>
         </View>
         {recentError ? (
-          <Txt s={12} lh={1.45} c={DANGER} style={{ marginTop: 8 }}>
+          <Txt
+            s={12}
+            lh={1.45}
+            c={DANGER}
+            style={{ marginTop: 8 }}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
             {recentError}
           </Txt>
         ) : null}
@@ -559,7 +576,11 @@ export function CheckinScreen() {
                         </Txt>
                       ) : null}
                     </View>
-                    <Touchable onPress={() => remove(c)} accessibilityLabel="Apagar check-in" style={{ padding: 6 }}>
+                    <Touchable
+                      onPress={() => remove(c)}
+                      accessibilityLabel={`Apagar check-in de ${when(c.createdAt)}`}
+                      style={{ width: 44, height: 44, margin: -8, alignItems: 'center', justifyContent: 'center' }}
+                    >
                       <Icon d={ICONS.trash} size={15} color={T.t3} sw={1.8} />
                     </Touchable>
                   </View>
