@@ -140,7 +140,7 @@ export function OnboardingScreen() {
             backgroundColor: T.pri,
           }}
         >
-          <Txt s={15} w={800} c="#fff">
+          <Txt s={15} w={800} c={T.onPri}>
             {isLast ? 'Entrar' : 'Continuar'}
           </Txt>
         </Touchable>

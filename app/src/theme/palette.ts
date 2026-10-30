@@ -15,6 +15,8 @@ export type Palette = {
   t2: string;
   t3: string;
   pri: string;
+  /** Texto e ícone sobre fundo `pri` (botão principal, chip cheio, bolha do usuário). */
+  onPri: string;
   priL: string;
   tabBg: string;
   splashBg: string;
@@ -35,7 +37,9 @@ export const LIGHT: Palette = {
   t1: '#1A1A2E',
   t2: '#6B7280',
   t3: '#9CA3AF',
-  pri: '#6C63FF',
+  // `onPri` sobre `pri`: 5,37:1 (antes #6C63FF dava 4,32:1 com branco).
+  pri: '#5B52F0',
+  onPri: '#FFFFFF',
   priL: '#EEF0FF',
   tabBg: 'rgba(255,255,255,.92)',
   splashBg: '#4A3550',
@@ -57,6 +61,8 @@ export const DARK: Palette = {
   t2: '#C7B4D0',
   t3: '#9B8AA6',
   pri: '#C6A9F0',
+  // `onPri` sobre `pri`: 8,33:1 (antes o branco dava 2,03:1).
+  onPri: '#241730',
   priL: 'rgba(198,169,240,.15)',
   tabBg: 'rgba(36,23,48,.92)',
   splashBg: '#4A3550',

@@ -400,10 +400,10 @@ export function CheckinScreen() {
                           borderColor: on ? T.pri : T.bd,
                         }}
                       >
-                        <Txt s={15} w={800} c={on ? '#fff' : T.t1}>
+                        <Txt s={15} w={800} c={on ? T.onPri : T.t1}>
                           {v}
                         </Txt>
-                        <Txt s={9.5} w={700} c={on ? '#fff' : T.t3} style={{ marginTop: 2 }}>
+                        <Txt s={9.5} w={700} c={on ? T.onPri : T.t3} style={{ marginTop: 2 }}>
                           {label}
                         </Txt>
                       </Touchable>

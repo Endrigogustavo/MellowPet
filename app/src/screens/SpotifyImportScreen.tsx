@@ -183,7 +183,7 @@ export function SpotifyImportScreen() {
                 backgroundColor: T.pri,
               }}
             >
-              <Txt s={13} w={800} c="#fff">
+              <Txt s={13} w={800} c={T.onPri}>
                 Ir para Música
               </Txt>
             </Touchable>

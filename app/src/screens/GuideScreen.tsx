@@ -61,7 +61,7 @@ export function GuideScreen() {
               backgroundColor: T.pri,
             }}
           >
-            <Txt s={12.5} w={800} c="#fff">
+            <Txt s={12.5} w={800} c={T.onPri}>
               Iniciar
             </Txt>
           </Touchable>

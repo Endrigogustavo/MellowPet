@@ -285,7 +285,7 @@ export function Chip({
         style,
       ]}
     >
-      <Txt s={12.5} w={700} c={on ? (solid ? '#fff' : T.pri) : T.t2}>
+      <Txt s={12.5} w={700} c={on ? (solid ? T.onPri : T.pri) : T.t2}>
         {label}
       </Txt>
     </Touchable>
@@ -372,7 +372,7 @@ export function PrimaryButton({
         style,
       ]}
     >
-      <Txt s={15} w={800} c={disabled ? T.t3 : '#fff'}>
+      <Txt s={15} w={800} c={disabled ? T.t3 : T.onPri}>
         {label}
       </Txt>
     </Touchable>

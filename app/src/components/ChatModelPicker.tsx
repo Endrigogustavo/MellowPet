@@ -68,8 +68,8 @@ function ModelChip({ icon, label, on, onPress }: { icon: string; label: string; 
         backgroundColor: on ? T.pri : T.chipBg,
       }}
     >
-      <Icon d={icon} size={15} color={on ? '#fff' : T.t2} sw={1.9} />
-      <Txt s={12.5} w={700} c={on ? '#fff' : T.t2}>
+      <Icon d={icon} size={15} color={on ? T.onPri : T.t2} sw={1.9} />
+      <Txt s={12.5} w={700} c={on ? T.onPri : T.t2}>
         {label}
       </Txt>
     </Touchable>

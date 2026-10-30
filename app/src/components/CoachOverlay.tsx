@@ -90,7 +90,7 @@ export function CoachOverlay() {
               backgroundColor: T.pri,
             }}
           >
-            <Txt s={14} w={800} c="#fff">
+            <Txt s={14} w={800} c={T.onPri}>
               Entendi
             </Txt>
           </Touchable>

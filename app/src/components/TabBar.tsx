@@ -96,7 +96,7 @@ export function TabBar() {
           elevation: 6,
         }}
       >
-        <Icon d={ICONS.chat} size={20} color="#fff" sw={2} />
+        <Icon d={ICONS.chat} size={20} color={T.onPri} sw={2} />
       </Touchable>
     </View>
   );

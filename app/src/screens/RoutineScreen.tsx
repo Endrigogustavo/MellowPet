@@ -230,7 +230,7 @@ export function RoutineScreen() {
               backgroundColor: T.pri,
             }}
           >
-            <Txt s={13.5} w={800} c="#fff">
+            <Txt s={13.5} w={800} c={T.onPri}>
               + Adicionar
             </Txt>
           </Touchable>
@@ -273,7 +273,7 @@ export function RoutineScreen() {
               backgroundColor: state.capsuleSaved ? T.bg : T.pri,
             }}
           >
-            <Txt s={13.5} w={800} c={state.capsuleSaved ? T.t2 : '#fff'}>
+            <Txt s={13.5} w={800} c={state.capsuleSaved ? T.t2 : T.onPri}>
               {state.capsuleSaved ? 'Guardado para daqui a 30 dias' : 'Selar por 30 dias'}
             </Txt>
           </Touchable>

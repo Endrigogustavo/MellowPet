@@ -239,7 +239,7 @@ export function PlaylistDetailScreen() {
                 backgroundColor: T.pri,
               }}
             >
-              <Txt s={13} w={800} c="#fff">
+              <Txt s={13} w={800} c={T.onPri}>
                 Voltar para Música
               </Txt>
             </Touchable>
@@ -290,7 +290,7 @@ export function PlaylistDetailScreen() {
               backgroundColor: playlist.tracks.length === 0 ? T.bd : T.pri,
             }}
           >
-            <Txt s={13} w={800} c={playlist.tracks.length === 0 ? T.t3 : '#fff'}>
+            <Txt s={13} w={800} c={playlist.tracks.length === 0 ? T.t3 : T.onPri}>
               Tocar
             </Txt>
           </Touchable>
