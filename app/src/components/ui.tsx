@@ -231,8 +231,23 @@ export function LinkButton({
 
 /* ── Controles ──────────────────────────────────────────────────────────── */
 
-/** Interruptor 50×29 do design. */
-export function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
+/**
+ * Interruptor 50×29 do design. `label` é o que o leitor de tela anuncia
+ * ("Lembrete de Água, interruptor, ligado").
+ */
+export function Toggle({
+  on,
+  onPress,
+  label,
+  hint,
+  disabled,
+}: {
+  on: boolean;
+  onPress: () => void;
+  label?: string;
+  hint?: string;
+  disabled?: boolean;
+}) {
   const { T } = useTheme();
   const [v] = useState(() => new Animated.Value(on ? 1 : 0));
 
@@ -246,7 +261,15 @@ export function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
   }, [on, v]);
 
   return (
-    <Touchable onPress={onPress} hitSlop={8}>
+    <Touchable
+      onPress={onPress}
+      hitSlop={8}
+      disabled={disabled}
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      accessibilityState={{ checked: on }}
+    >
       <View
         style={{
           width: 50,
@@ -261,7 +284,8 @@ export function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
             width: 23,
             height: 23,
             borderRadius: 999,
-            backgroundColor: '#fff',
+            // Ligado, a bolinha fica sobre `pri`: usa `onPri` (branco some no lilás escuro).
+            backgroundColor: on ? T.onPri : '#fff',
             shadowColor: '#000',
             shadowOpacity: 0.2,
             shadowRadius: 3,
@@ -308,7 +332,7 @@ export function ToggleRow({
           {sub}
         </Txt>
       </View>
-      <Toggle on={on} onPress={onPress} />
+      <Toggle on={on} onPress={onPress} label={label} hint={sub} />
     </View>
   );
 }
@@ -367,6 +391,8 @@ export function Chip({
   return (
     <Touchable
       onPress={onPress}
+      accessibilityLabel={label}
+      accessibilityState={{ selected: on }}
       style={[
         {
           paddingHorizontal: 14,
@@ -400,6 +426,7 @@ export function Segmented({
   const { T } = useTheme();
   return (
     <View
+      accessibilityRole="tablist"
       style={[
         { flexDirection: 'row', padding: 3, backgroundColor: T.bdL, borderRadius: 999 },
         style,
@@ -411,8 +438,13 @@ export function Segmented({
           <Touchable
             key={label}
             onPress={() => onChange(i)}
+            accessibilityRole="tab"
+            accessibilityLabel={label}
+            accessibilityState={{ selected: on }}
             style={{
               flex: 1,
+              minHeight: 40,
+              justifyContent: 'center',
               paddingVertical: 9,
               borderRadius: 999,
               alignItems: 'center',
@@ -428,7 +460,8 @@ export function Segmented({
                 : null),
             }}
           >
-            <Txt s={13} w={700} c={on ? T.t1 : T.t3}>
+            {/* t2: o t3 sobre o trilho `bdL` fica abaixo de 4,5:1 no claro. */}
+            <Txt s={13} w={700} c={on ? T.t1 : T.t2}>
               {label}
             </Txt>
           </Touchable>

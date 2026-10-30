@@ -650,6 +650,7 @@ export function MusicScreen() {
                   </Txt>
                 </View>
                 <Toggle
+                  label={`${when}: tocar ${then}`}
                   on={!!state.rules[key]}
                   onPress={() =>
                     actions.set((s) => ({ rules: { ...s.rules, [key]: !s.rules[key] } }))

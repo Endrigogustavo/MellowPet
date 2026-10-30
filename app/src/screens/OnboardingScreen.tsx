@@ -105,7 +105,7 @@ export function OnboardingScreen() {
               <Txt s={14} w={700} c={T.t1}>
                 Tema escuro
               </Txt>
-              <Toggle on={isDark} onPress={actions.toggleTheme} />
+              <Toggle label="Tema escuro" on={isDark} onPress={actions.toggleTheme} />
             </View>
             <View style={{ height: 1, backgroundColor: T.bd }} />
             <Txt s={14} w={700} c={T.t1}>

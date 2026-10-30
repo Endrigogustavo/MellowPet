@@ -62,6 +62,9 @@ export function TabBar() {
           <Touchable
             key={key}
             onPress={() => actions.goTab(key)}
+            accessibilityRole="tab"
+            accessibilityLabel={label}
+            accessibilityState={{ selected: on }}
             style={{
               flex: 1,
               alignItems: 'center',

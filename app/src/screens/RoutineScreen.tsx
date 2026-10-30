@@ -173,7 +173,7 @@ export function RoutineScreen() {
                 <Txt s={13.5} c={T.t1} style={{ flex: 1 }}>
                   {item.name}
                 </Txt>
-                <Toggle on={item.notify} onPress={() => toggleNotify(item)} />
+                <Toggle label={`Lembrete de ${item.name}`} on={item.notify} onPress={() => toggleNotify(item)} />
                 <Touchable onPress={() => removeItem(item)} style={{ padding: 4 }}>
                   <Icon d={ICONS.close} size={16} color={DANGER} />
                 </Touchable>
