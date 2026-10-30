@@ -50,7 +50,7 @@ function Stat({ label, value, sub, color }: { label: string; value: string; sub:
   const { T } = useTheme();
   return (
     <Card style={{ flex: 1 }} radius={20} padding={14}>
-      <Txt s={10} w={800} c={T.t3} ls={0.7} caps>
+      <Txt s={11} w={800} c={T.t3} ls={0.7} caps>
         {label}
       </Txt>
       <Txt s={21} w={800} c={color} style={{ marginTop: 5 }}>
@@ -101,7 +101,7 @@ function CareAction({
         {label}
       </Txt>
       {sub ? (
-        <Txt s={9.5} c={T.t3}>
+        <Txt numberOfLines={1} adjustsFontSizeToFit s={11} c={T.t3}>
           {sub}
         </Txt>
       ) : null}
@@ -387,7 +387,7 @@ export function HomeScreen() {
                 backgroundColor: T.pri,
               }}
             >
-              <Txt s={13} w={800} c="#fff">
+              <Txt s={13} w={800} c={T.onPri}>
                 Ir para Ajustes
               </Txt>
             </Touchable>

@@ -5,7 +5,7 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import { Field } from '../components/Field';
 import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Card, ScreenTitle, Toggle, Touchable, Txt } from '../components/ui';
+import { Card, LinkButton, PrimaryButton, ScreenTitle, Toggle, Touchable, Txt } from '../components/ui';
 import { ICONS } from '../data/content';
 import {
   createRoutineItem,
@@ -37,6 +37,7 @@ export function RoutineScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
 
   // Sem rede, "nenhum item ainda" seria mentira: mostra carregando e erro.
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -119,11 +120,12 @@ export function RoutineScreen() {
 
   const toggleNotify = (item: RoutineItem) => {
     const notify = !item.notify;
+    setListError(null);
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, notify } : i)));
     updateRoutineItem(item.id, { notify }).catch(() => {
       // Volta o interruptor se o servidor não aceitou.
       setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, notify: !notify } : i)));
-      setFormError('Não foi possível mudar o lembrete agora.');
+      setListError('Não foi possível mudar o lembrete agora.');
     });
     if (notify) scheduleRoutineReminder(item.id, item.time, item.name).catch(() => undefined);
     else cancelRoutineReminder(item.id).catch(() => undefined);
@@ -139,7 +141,7 @@ export function RoutineScreen() {
           setItems((prev) => prev.filter((i) => i.id !== item.id));
           cancelRoutineReminder(item.id).catch(() => undefined);
           deleteRoutineItem(item.id).catch(() => {
-            setFormError('Não foi possível remover agora; o item voltou para a lista.');
+            setListError('Não foi possível remover agora; o item voltou para a lista.');
             loadItems();
           });
         },
@@ -153,13 +155,23 @@ export function RoutineScreen() {
       <Section top={0}>
         <Card radius={24} padding={18} style={{ gap: 14 }}>
           {loadState === 'loading' && items.length === 0 ? (
-            <ActivityIndicator color={T.pri} />
-          ) : loadState === 'error' && items.length === 0 ? (
-            <Touchable onPress={loadItems} accessibilityRole="button">
-              <Txt s={12.5} c={DANGER}>
-                Não foi possível carregar sua rotina. Toque para tentar de novo.
+            <View
+              accessible
+              accessibilityLabel="Carregando sua rotina"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            >
+              <ActivityIndicator color={T.pri} />
+              <Txt s={12.5} c={T.t3}>
+                Carregando sua rotina…
               </Txt>
-            </Touchable>
+            </View>
+          ) : loadState === 'error' && items.length === 0 ? (
+            <View accessibilityRole="alert" accessibilityLiveRegion="polite">
+              <Txt s={12.5} lh={1.5} c={DANGER}>
+                Não foi possível carregar sua rotina.
+              </Txt>
+              <LinkButton label="Tentar novamente" onPress={loadItems} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }} />
+            </View>
           ) : items.length === 0 ? (
             <Txt s={12.5} c={T.t3}>
               Nenhum item na rotina ainda. Adicione um abaixo.
@@ -173,13 +185,23 @@ export function RoutineScreen() {
                 <Txt s={13.5} c={T.t1} style={{ flex: 1 }}>
                   {item.name}
                 </Txt>
-                <Toggle on={item.notify} onPress={() => toggleNotify(item)} />
-                <Touchable onPress={() => removeItem(item)} style={{ padding: 4 }}>
+                <Toggle label={`Lembrete de ${item.name}`} on={item.notify} onPress={() => toggleNotify(item)} />
+                <Touchable
+                  onPress={() => removeItem(item)}
+                  accessibilityLabel={`Remover ${item.name}`}
+                  style={{ width: 44, height: 44, marginVertical: -8, marginRight: -10, alignItems: 'center', justifyContent: 'center' }}
+                >
                   <Icon d={ICONS.close} size={16} color={DANGER} />
                 </Touchable>
               </View>
             ))
           )}
+          {/* Falhas de lembrete/remoção aparecem aqui, junto da lista. */}
+          {listError ? (
+            <Txt s={12} lh={1.45} c={DANGER} accessibilityRole="alert" accessibilityLiveRegion="polite">
+              {listError}
+            </Txt>
+          ) : null}
         </Card>
       </Section>
 
@@ -191,6 +213,7 @@ export function RoutineScreen() {
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Touchable
               onPress={() => setShowPicker(true)}
+              accessibilityLabel={`Horário: ${formatTime(timeValue)}, alterar`}
               style={{
                 width: 96,
                 paddingVertical: 13,
@@ -209,6 +232,7 @@ export function RoutineScreen() {
               value={nameInput}
               onChangeText={setNameInput}
               placeholder="Nome do item"
+              accessibilityLabel="Nome do item da rotina"
               containerStyle={{ flex: 1 }}
             />
           </View>
@@ -216,24 +240,16 @@ export function RoutineScreen() {
             <DateTimePicker value={timeValue} mode="time" is24Hour display="default" onChange={onTimeChange} />
           ) : null}
           {formError ? (
-            <Txt s={12} c={DANGER} style={{ marginTop: 8 }}>
+            <Txt s={12} c={DANGER} style={{ marginTop: 8 }} accessibilityRole="alert" accessibilityLiveRegion="polite">
               {formError}
             </Txt>
           ) : null}
-          <Touchable
+          <PrimaryButton
+            label="+ Adicionar"
             onPress={addItem}
-            style={{
-              marginTop: 12,
-              paddingVertical: 13,
-              borderRadius: 14,
-              alignItems: 'center',
-              backgroundColor: T.pri,
-            }}
-          >
-            <Txt s={13.5} w={800} c="#fff">
-              + Adicionar
-            </Txt>
-          </Touchable>
+            loading={saving}
+            style={{ marginTop: 12, paddingVertical: 13, minHeight: 48, borderRadius: 14 }}
+          />
           <Txt s={11.5} c={T.t3} style={{ marginTop: 10 }}>
             Cada item ativa um lembrete diário no horário escolhido.
           </Txt>
@@ -273,7 +289,7 @@ export function RoutineScreen() {
               backgroundColor: state.capsuleSaved ? T.bg : T.pri,
             }}
           >
-            <Txt s={13.5} w={800} c={state.capsuleSaved ? T.t2 : '#fff'}>
+            <Txt s={13.5} w={800} c={state.capsuleSaved ? T.t2 : T.onPri}>
               {state.capsuleSaved ? 'Guardado para daqui a 30 dias' : 'Selar por 30 dias'}
             </Txt>
           </Touchable>

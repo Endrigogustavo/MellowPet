@@ -216,7 +216,7 @@ export function ToolsScreen() {
               backgroundColor: canSave ? T.pri : T.bd,
             }}
           >
-            <Txt s={13.5} w={800} c={canSave ? '#fff' : T.t3}>
+            <Txt s={13.5} w={800} c={canSave ? T.onPri : T.t3}>
               Guardar
             </Txt>
           </Touchable>
@@ -278,7 +278,7 @@ export function ToolsScreen() {
                   backgroundColor: T.pri,
                 }}
               >
-                <Txt s={13.5} w={800} c="#fff">
+                <Txt s={13.5} w={800} c={T.onPri}>
                   {state.ground >= 4 ? 'Terminei' : 'Próximo'}
                 </Txt>
               </Touchable>

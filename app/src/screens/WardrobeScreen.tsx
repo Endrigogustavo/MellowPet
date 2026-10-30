@@ -65,13 +65,13 @@ export function WardrobeScreen() {
                   <Txt s={12.5} w={800} c={T.t1} style={{ marginTop: 4 }}>
                     {a.label}
                   </Txt>
-                  <Txt s={10.5} lh={1.4} c={T.t3} center>
+                  <Txt s={11} lh={1.4} c={T.t3} center>
                     {unlocked ? (on ? 'vestindo' : 'toque para vestir') : a.how}
                   </Txt>
                   {!unlocked ? (
                     <View style={{ alignSelf: 'stretch', marginTop: 6 }}>
                       <Bar pct={(Math.min(done, goal) / goal) * 100} color={T.pri} height={4} />
-                      <Txt s={10} c={T.t3} center style={{ marginTop: 3 }}>
+                      <Txt numberOfLines={1} adjustsFontSizeToFit s={11} c={T.t3} center style={{ marginTop: 3 }}>
                         {Math.min(done, goal)} de {goal}
                       </Txt>
                     </View>

@@ -42,7 +42,7 @@ export function PlansScreen() {
                       backgroundColor: T.pri,
                     }}
                   >
-                    <Txt s={9.5} w={800} c="#fff" ls={0.6}>
+                    <Txt s={11} w={800} c={T.onPri} ls={0.6}>
                       MAIS ESCOLHIDO
                     </Txt>
                   </View>
@@ -83,7 +83,7 @@ export function PlansScreen() {
                   backgroundColor: on ? T.pri : T.bg,
                 }}
               >
-                <Txt s={13.5} w={800} c={on ? '#fff' : T.t2}>
+                <Txt s={13.5} w={800} c={on ? T.onPri : T.t2}>
                   {on ? 'Plano atual' : 'Escolher'}
                 </Txt>
               </Touchable>

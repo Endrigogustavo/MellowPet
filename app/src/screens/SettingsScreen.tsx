@@ -578,7 +578,11 @@ export function SettingsScreen() {
                 Sem avisos em aula ou reunião - a leitura continua
               </Txt>
             </View>
-            <Toggle on={state.quiet} onPress={() => actions.set((s) => ({ quiet: !s.quiet }))} />
+            <Toggle
+              label="Modo silencioso"
+              on={state.quiet}
+              onPress={() => actions.set((s) => ({ quiet: !s.quiet }))}
+            />
           </View>
 
           {/* Modo de exibição: até agora só dava para escolher no onboarding,
@@ -697,7 +701,7 @@ export function SettingsScreen() {
                     backgroundColor: T.pri,
                   }}
                 >
-                  <Txt s={12.5} w={800} c="#fff">
+                  <Txt s={12.5} w={800} c={T.onPri}>
                     1. Liberar bateria sem restrição
                   </Txt>
                 </Touchable>

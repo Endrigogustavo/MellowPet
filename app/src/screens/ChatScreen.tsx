@@ -61,7 +61,7 @@ function Dot({ delay, color }: { delay: number; color: string }) {
 
 export function ChatScreen() {
   const { state, actions } = useApp();
-  const { T, isDark, emo, emoColor, emoLight } = useTheme();
+  const { T, emo, emoColor, emoLight } = useTheme();
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollView>(null);
   const keyboard = useKeyboardHeight();
@@ -268,16 +268,16 @@ export function ChatScreen() {
                   s={14}
                   lh={1.55}
                   w={bot ? 400 : 600}
-                  c={bot ? T.t1 : isDark ? '#241730' : '#fff'}
+                  c={bot ? T.t1 : T.onPri}
                 >
                   {m.content}
                 </Txt>
                 {bot && m.source === 'device' ? (
-                  <Txt s={10} w={800} c={T.t3} ls={0.8} style={{ marginTop: 5 }}>
+                  <Txt s={11} w={800} c={T.t3} ls={0.8} style={{ marginTop: 5 }}>
                     NO APARELHO · NADA FOI ENVIADO
                   </Txt>
                 ) : bot && m.source === 'server' ? (
-                  <Txt s={10} w={800} c={T.t3} ls={0.8} style={{ marginTop: 5 }}>
+                  <Txt s={11} w={800} c={T.t3} ls={0.8} style={{ marginTop: 5 }}>
                     NUVEM
                   </Txt>
                 ) : null}
@@ -312,7 +312,7 @@ export function ChatScreen() {
                       backgroundColor: T.pri,
                     }}
                   >
-                    <Txt s={12.5} w={800} c="#fff">
+                    <Txt s={12.5} w={800} c={T.onPri}>
                       {ACTION_LABEL[m.action]}
                     </Txt>
                   </Touchable>
@@ -389,7 +389,7 @@ export function ChatScreen() {
               backgroundColor: canSend ? T.pri : T.bd,
             }}
           >
-            <Icon d={ICONS.send} size={19} color="#fff" sw={2.3} />
+            <Icon d={ICONS.send} size={19} color={canSend ? T.onPri : T.t3} sw={2.3} />
           </Touchable>
         </View>
       </View>

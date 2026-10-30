@@ -273,10 +273,10 @@ export function NowPlayingBar() {
       </View>
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
-        <Txt s={10} c={T.t3}>
+        <Txt s={11} c={T.t3}>
           {formatTime(position)}
         </Txt>
-        <Txt s={10} c={T.t3}>
+        <Txt s={11} c={T.t3}>
           {formatTime(duration)}
         </Txt>
       </View>

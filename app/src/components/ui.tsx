@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
+  type Insets,
+  type LayoutChangeEvent,
   Pressable,
   type PressableProps,
   type StyleProp,
+  StyleSheet,
   Text,
   type TextProps,
   type TextStyle,
@@ -127,20 +131,125 @@ export function Card({ children, style, bg, radius = 22, padding = 16, bordered 
   );
 }
 
-/** Botão genérico com feedback de toque. */
-export function Touchable({ style, ...rest }: PressableProps & { style?: StyleProp<ViewStyle> }) {
+/** Área mínima de toque recomendada (WCAG 2.5.5 / Material / HIG). */
+export const MIN_TOUCH = 44;
+
+/** Folga que falta para um eixo de `size` dp chegar a {@link MIN_TOUCH}. */
+function slopFor(size: number): number {
+  return size > 0 && size < MIN_TOUCH ? Math.ceil((MIN_TOUCH - size) / 2) : 0;
+}
+
+type TouchableProps = PressableProps & { style?: StyleProp<ViewStyle> };
+
+/**
+ * Botão genérico com feedback de toque.
+ *
+ * - Papel `button` por padrão (passe `accessibilityRole` para trocar).
+ * - `disabled` vai para `accessibilityState`, junto com o estado que vier.
+ * - Sem `hitSlop` explícito, mede o próprio tamanho e estende a área de toque
+ *   até 44×44 sem mexer no layout.
+ * - A opacidade do `style` (ex.: item apagado) é multiplicada pelo feedback de
+ *   toque em vez de anulá-lo.
+ */
+export function Touchable({
+  style,
+  accessibilityRole = 'button',
+  accessibilityState,
+  disabled,
+  hitSlop,
+  onLayout,
+  ...rest
+}: TouchableProps) {
+  const [slop, setSlop] = useState<Insets | undefined>(undefined);
+  const flat = StyleSheet.flatten(style) as ViewStyle | undefined;
+  const baseOpacity = typeof flat?.opacity === 'number' ? flat.opacity : 1;
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    onLayout?.(e);
+    if (hitSlop !== undefined) return;
+    const { width, height } = e.nativeEvent.layout;
+    const h = slopFor(width);
+    const v = slopFor(height);
+    setSlop((prev) => {
+      if (prev && prev.left === h && prev.top === v) return prev;
+      return h || v ? { left: h, right: h, top: v, bottom: v } : undefined;
+    });
+  };
+
   return (
     <Pressable
       {...rest}
-      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }, style as ViewStyle]}
+      disabled={disabled}
+      accessibilityRole={accessibilityRole}
+      accessibilityState={{ disabled: !!disabled, ...accessibilityState }}
+      hitSlop={hitSlop ?? slop}
+      onLayout={handleLayout}
+      style={({ pressed }) => [style, { opacity: baseOpacity * (pressed ? 0.7 : 1) }]}
     />
+  );
+}
+
+/**
+ * Ação só de texto ("Tentar novamente", "Remover", "Depois"…) com altura mínima
+ * de 44 px. Use no lugar de um `Touchable` com `Txt` solto.
+ */
+export function LinkButton({
+  label,
+  onPress,
+  color,
+  size = 12.5,
+  disabled,
+  accessibilityLabel,
+  accessibilityHint,
+  style,
+}: {
+  label: string;
+  onPress: () => void;
+  color?: string;
+  size?: number;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { T } = useTheme();
+  return (
+    <Touchable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={accessibilityHint}
+      style={[
+        { minHeight: MIN_TOUCH, justifyContent: 'center', paddingHorizontal: 8, opacity: disabled ? 0.5 : 1 },
+        style,
+      ]}
+    >
+      <Txt s={size} w={800} c={color ?? T.pri}>
+        {label}
+      </Txt>
+    </Touchable>
   );
 }
 
 /* ── Controles ──────────────────────────────────────────────────────────── */
 
-/** Interruptor 50×29 do design. */
-export function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
+/**
+ * Interruptor 50×29 do design. `label` é o que o leitor de tela anuncia
+ * ("Lembrete de Água, interruptor, ligado").
+ */
+export function Toggle({
+  on,
+  onPress,
+  label,
+  hint,
+  disabled,
+}: {
+  on: boolean;
+  onPress: () => void;
+  label?: string;
+  hint?: string;
+  disabled?: boolean;
+}) {
   const { T } = useTheme();
   const [v] = useState(() => new Animated.Value(on ? 1 : 0));
 
@@ -154,7 +263,15 @@ export function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
   }, [on, v]);
 
   return (
-    <Touchable onPress={onPress} hitSlop={8}>
+    <Touchable
+      onPress={onPress}
+      hitSlop={8}
+      disabled={disabled}
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      accessibilityState={{ checked: on }}
+    >
       <View
         style={{
           width: 50,
@@ -169,7 +286,8 @@ export function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
             width: 23,
             height: 23,
             borderRadius: 999,
-            backgroundColor: '#fff',
+            // Ligado, a bolinha fica sobre `pri`: usa `onPri` (branco some no lilás escuro).
+            backgroundColor: on ? T.onPri : '#fff',
             shadowColor: '#000',
             shadowOpacity: 0.2,
             shadowRadius: 3,
@@ -216,7 +334,7 @@ export function ToggleRow({
           {sub}
         </Txt>
       </View>
-      <Toggle on={on} onPress={onPress} />
+      <Toggle on={on} onPress={onPress} label={label} hint={sub} />
     </View>
   );
 }
@@ -275,6 +393,8 @@ export function Chip({
   return (
     <Touchable
       onPress={onPress}
+      accessibilityLabel={label}
+      accessibilityState={{ selected: on }}
       style={[
         {
           paddingHorizontal: 14,
@@ -286,7 +406,7 @@ export function Chip({
         style,
       ]}
     >
-      <Txt s={12.5} w={700} c={on ? (solid ? '#fff' : T.pri) : T.t2}>
+      <Txt s={12.5} w={700} c={on ? (solid ? T.onPri : T.pri) : T.t2}>
         {label}
       </Txt>
     </Touchable>
@@ -308,6 +428,7 @@ export function Segmented({
   const { T } = useTheme();
   return (
     <View
+      accessibilityRole="tablist"
       style={[
         { flexDirection: 'row', padding: 3, backgroundColor: T.bdL, borderRadius: 999 },
         style,
@@ -319,8 +440,13 @@ export function Segmented({
           <Touchable
             key={label}
             onPress={() => onChange(i)}
+            accessibilityRole="tab"
+            accessibilityLabel={label}
+            accessibilityState={{ selected: on }}
             style={{
               flex: 1,
+              minHeight: 40,
+              justifyContent: 'center',
               paddingVertical: 9,
               borderRadius: 999,
               alignItems: 'center',
@@ -336,7 +462,8 @@ export function Segmented({
                 : null),
             }}
           >
-            <Txt s={13} w={700} c={on ? T.t1 : T.t3}>
+            {/* t2: o t3 sobre o trilho `bdL` fica abaixo de 4,5:1 no claro. */}
+            <Txt s={13} w={700} c={on ? T.t1 : T.t2}>
               {label}
             </Txt>
           </Touchable>
@@ -351,31 +478,46 @@ export function PrimaryButton({
   label,
   onPress,
   disabled,
+  loading,
+  accessibilityHint,
   style,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  /** Mostra um indicador no lugar do rótulo, trava o toque e anuncia "ocupado". */
+  loading?: boolean;
+  accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
 }) {
   const { T } = useTheme();
+  const off = disabled || loading;
   return (
     <Touchable
       onPress={onPress}
-      disabled={disabled}
+      disabled={off}
+      accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ busy: !!loading }}
       style={[
         {
+          minHeight: 52,
           paddingVertical: 16,
           borderRadius: 18,
           alignItems: 'center',
+          justifyContent: 'center',
           backgroundColor: disabled ? T.bd : T.pri,
         },
         style,
       ]}
     >
-      <Txt s={15} w={800} c={disabled ? T.t3 : '#fff'}>
-        {label}
-      </Txt>
+      {loading ? (
+        <ActivityIndicator color={T.onPri} />
+      ) : (
+        <Txt s={15} w={800} c={disabled ? T.t3 : T.onPri}>
+          {label}
+        </Txt>
+      )}
     </Touchable>
   );
 }
