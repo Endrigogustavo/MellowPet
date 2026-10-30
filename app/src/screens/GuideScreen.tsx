@@ -52,7 +52,9 @@ export function GuideScreen() {
           </View>
           <Touchable
             onPress={() =>
-              actions.set((s) => ({ screen: 'home', coach: 0, navSeq: s.navSeq + 1 }))
+              // Home como aba (pilha zerada): o voltar fecha o tour e depois
+              // sai do app, em vez de reabrir o Guia.
+              actions.set((s) => ({ screen: 'home', history: [], coach: 0, navSeq: s.navSeq + 1 }))
             }
             style={{
               paddingVertical: 11,

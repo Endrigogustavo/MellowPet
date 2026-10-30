@@ -153,7 +153,7 @@ export function PlaylistEditorScreen() {
         );
         setSaving(false);
       } else {
-        actions.go('music');
+        actions.replace('music');
       }
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Não foi possível salvar a playlist.');
@@ -339,7 +339,7 @@ export function PlaylistEditorScreen() {
                 {mirrorNotice}
               </Txt>
             </Card>
-            <PrimaryButton label="Ir para Música" onPress={() => actions.go('music')} />
+            <PrimaryButton label="Ir para Música" onPress={() => actions.replace('music')} />
           </>
         ) : (
           <>
@@ -349,7 +349,7 @@ export function PlaylistEditorScreen() {
               onPress={save}
             />
             <Touchable
-              onPress={() => actions.go('music')}
+              onPress={() => actions.back()}
               style={{ alignSelf: 'center', paddingHorizontal: 18, paddingVertical: 14 }}
             >
               <Txt s={13.5} w={700} c={T.t3}>

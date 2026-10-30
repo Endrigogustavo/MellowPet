@@ -20,6 +20,7 @@ from utils.security import (
     RequestSizeLimitMiddleware,
     SecurityHeadersMiddleware,
     client_ip,
+    security_headers,
 )
 
 logger = setup_logger(__name__)
@@ -181,4 +182,6 @@ async def global_exception_handler(request: Request, exc: Exception):
     body = {"error": "Internal server error"}
     if settings.debug and not settings.is_production:
         body["detail"] = str(exc)
-    return JSONResponse(status_code=500, content=body)
+    # Este handler roda no ServerErrorMiddleware, por fora do
+    # SecurityHeadersMiddleware: os headers precisam ir aqui mesmo.
+    return JSONResponse(status_code=500, content=body, headers=security_headers())

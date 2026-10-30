@@ -560,23 +560,6 @@ export function SettingsScreen() {
             </View>
           ) : null}
 
-          {state.accountRole === 'care' ? (
-            <Touchable
-              onPress={() => actions.setRole('care')}
-              style={{
-                marginTop: 14,
-                paddingVertical: 13,
-                borderRadius: 14,
-                alignItems: 'center',
-                backgroundColor: T.priL,
-              }}
-            >
-              <Txt s={13.5} w={800} c={T.pri}>
-                Ver painel de cuidador
-              </Txt>
-            </Touchable>
-          ) : null}
-
           {primaryLink ? <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>Ao aceitar a conexão, {linkName} recebe acesso integral ao módulo de cuidado. Não há permissões separadas por recurso.</Txt> : null}
         </Card>
       </Section>
