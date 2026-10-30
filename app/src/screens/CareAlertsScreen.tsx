@@ -8,7 +8,7 @@ import { FEEDBACK_LABEL, giveAlertFeedback, type AlertFeedback } from '../care/p
 import { Icon } from '../components/Icon';
 import { EXTRA_ICONS } from '../data/content';
 import { useCareResource } from '../care/useCareResource';
-import { ActionError, CareGate, ErrorCard, LoadingCard, useCurrentCareLink } from '../components/CareStates';
+import { ActionError, CareGate, CareLinkButton, ErrorCard, LoadingCard, StaleNotice, useCurrentCareLink } from '../components/CareStates';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { Card, ScreenTitle, Touchable, Txt } from '../components/ui';
 import { useApp, useTheme } from '../state/AppContext';
@@ -64,8 +64,20 @@ export function CareAlertsScreen() {
                 <ActionError message={actionError} onClose={() => setActionError(null)} />
               </Section>
             ) : null}
-            {alerts.error ? (
-              <Section top={actionError ? 10 : 0}>
+            <Section top={actionError ? 10 : 0} style={{ marginBottom: 10 }}>
+              <CareLinkButton
+                label="Ajustar quando avisar (regras de alerta)"
+                onPress={() => actions.go('carealertrules')}
+                hint="Abre as regras de alerta desta pessoa"
+              />
+            </Section>
+            {alerts.error && alerts.data ? (
+              <Section top={0} style={{ marginBottom: 10 }}>
+                <StaleNotice at={alerts.updatedAt} onRetry={alerts.refresh} />
+              </Section>
+            ) : null}
+            {alerts.error && !alerts.data ? (
+              <Section top={0}>
                 <ErrorCard title="Não foi possível carregar os alertas" error={alerts.error} onRetry={alerts.refresh} />
               </Section>
             ) : alerts.data === null ? (
@@ -84,7 +96,7 @@ export function CareAlertsScreen() {
                 </Card>
               </Section>
             ) : (
-              <Section top={actionError ? 10 : 0} gap={10}>
+              <Section top={0} gap={10}>
                 {alerts.data.map((alert) => {
                   const color = alert.severity === 'urgent' ? DANGER : alert.severity === 'attention' ? WARN : T.pri;
                   const working = busy === alert.id;
