@@ -92,6 +92,16 @@ import {
   type Habits,
 } from '../pet/habits';
 import { ritualDay, type Ritual } from '../pet/rituals';
+import {
+  NO_HISTORY,
+  canAccess,
+  homeFor,
+  isTabRoot,
+  popHistory,
+  pushHistory,
+  replaceHistory,
+} from '../navigation/navModel';
+import { parseWidgetLink } from '../navigation/deepLinks';
 import { recordEncounter, requestEncounterPermissions, startEncounters } from '../pet/encounters';
 
 export type Screen =
@@ -424,17 +434,51 @@ const INITIAL: State = {
 
 type Patch = Partial<State> | ((s: State) => Partial<State>);
 
-/** Telas que não entram no histórico (não faz sentido "voltar" para elas). */
-const NO_HISTORY: Screen[] = ['splash', 'login', 'onboarding', 'caresignup'];
+/** Aonde um toque de fora do app (notificação, widget) quer levar. */
+type Destination = {
+  screen: Screen;
+  /** Estado que a tela precisa ao abrir (playlist, modo respiração...). */
+  patch?: Partial<State>;
+  /** Pessoa do alerta, para o cuidador abrir já nela. */
+  caredUserId?: string;
+};
+
+/**
+ * Toda troca de tela passa aqui, venha de onde vier (botão, notificação,
+ * widget, Chat): o guard por perfil do navModel e a pilha do "voltar".
+ * Quem já define `history` (voltar, substituir) manda na pilha; raiz de aba
+ * sempre recomeça a pilha, para o voltar visual e o físico concordarem.
+ */
+function routeChanges(s: State, changes: Partial<State>, screen: Screen): Partial<State> {
+  const authed = Boolean('userId' in changes ? changes.userId : s.userId);
+  const role = changes.role ?? s.role;
+  let to = screen;
+  if (!canAccess(to, { authed, role })) {
+    if (!authed) {
+      // Sem sessão a troca não vale (o restore da sessão ainda pode chegar);
+      // o RootNavigator já mostra o login.
+      const rest = { ...changes };
+      delete rest.screen;
+      delete rest.navSeq;
+      return rest;
+    }
+    to = homeFor(role, authed);
+  }
+  const history = isTabRoot(to, role)
+    ? s.history.length === 0
+      ? s.history
+      : []
+    : changes.history
+      ? changes.history
+      : to === s.screen
+        ? s.history
+        : pushHistory(s.history, s.screen, to);
+  return { ...changes, screen: to, history };
+}
 
 function reducer(s: State, patch: Patch): State {
   let changes = typeof patch === 'function' ? patch(s) : patch;
-  // Toda troca de tela empilha a anterior, venha de onde vier (botão,
-  // notificação, widget). Quem já define `history` (voltar, abas) manda.
-  if (changes.screen && changes.screen !== s.screen && !('history' in changes)) {
-    const previous = NO_HISTORY.includes(s.screen) ? s.history : [...s.history, s.screen];
-    changes = { ...changes, history: previous.slice(-20) };
-  }
+  if (changes.screen) changes = routeChanges(s, changes, changes.screen);
   const keys = Object.keys(changes) as (keyof State)[];
   if (keys.length === 0 || keys.every((key) => Object.is(s[key], changes[key]))) {
     return s;
@@ -474,10 +518,14 @@ function loadPetIdentity(userId: string, apply: (patch: Partial<State>) => void)
 export type Actions = {
   set: (patch: Patch) => void;
   go: (screen: Screen) => void;
-  /** Volta para a tela anterior; devolve false se não há para onde voltar. */
+  /** Volta para a tela anterior que o perfil pode abrir (sem nenhuma, a
+   * inicial do perfil); devolve false só sem sessão. */
   back: () => boolean;
   /** Troca de aba: recomeça o histórico a partir dela. */
   goTab: (screen: Screen) => void;
+  /** Troca a tela atual sem empilhá-la (fim de fluxo: salvar, cancelar,
+   * excluir). O voltar físico não reabre o formulário. */
+  replace: (screen: Screen) => void;
   pet: () => void;
   send: () => void;
   sendBot: (content: string, screen?: Screen) => void;
@@ -632,13 +680,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, []);
 
+  /**
+   * Destino vindo de fora do app (notificação, widget). Com o app frio o toque
+   * chega antes do restore da sessão; durante o login, o onboarding ou o
+   * cadastro de cuidador ele também espera. Fica guardado e só é aplicado
+   * quando a tela inicial do perfil aparecer — e só se o perfil puder abri-lo.
+   */
+  const pendingScreen = useRef<Destination | null>(null);
+
+  const applyDestination = useCallback((dest: Destination) => {
+    const s = ref.current;
+    if (!canAccess(dest.screen, { authed: Boolean(s.userId), role: s.role })) return;
+    const navigate = (person: string | null) =>
+      dispatch((cur) => ({
+        ...dest.patch,
+        ...(person ? { person } : null),
+        screen: dest.screen,
+        navSeq: cur.navSeq + 1,
+      }));
+    // Alerta de uma pessoa específica: seleciona ela antes de abrir, senão a
+    // tela mostra quem foi selecionado por último.
+    if (dest.caredUserId && s.userId && s.role === 'care') {
+      const caredUserId = dest.caredUserId;
+      listLinks(s.userId, 'care')
+        .then((res) => navigate(res.links.find((l) => l.cared_user_id === caredUserId)?.id ?? null))
+        .catch(() => navigate(null));
+      return;
+    }
+    navigate(null);
+  }, []);
+
+  const openExternal = useCallback(
+    (dest: Destination) => {
+      const s = ref.current;
+      if (!s.userId || NO_HISTORY.includes(s.screen)) {
+        pendingScreen.current = dest;
+        return;
+      }
+      applyDestination(dest);
+    },
+    [applyDestination]
+  );
+
   useEffect(() => {
-    const target = pendingScreen.current;
-    // A tela inicial do cuidador é 'care'; a da pessoa, 'home'.
-    if (!target || !state.userId || (state.screen !== 'home' && state.screen !== 'care')) return;
+    const dest = pendingScreen.current;
+    if (!dest || !state.userId || state.screen !== homeFor(state.role, true)) return;
     pendingScreen.current = null;
-    if (target !== state.screen) dispatch((s) => ({ screen: target, navSeq: s.navSeq + 1 }));
-  }, [state.userId, state.screen]);
+    if (dest.screen !== state.screen || dest.patch || dest.caredUserId) applyDestination(dest);
+  }, [state.userId, state.screen, state.role, applyDestination]);
 
   const encounterStage = stageForDays(state.careDays);
   const encounterTimes = useRef<number[]>([]);
@@ -786,6 +875,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       subscribeToSignOut(() => {
         // Tudo que é da conta sai junto (histórico do chat, pessoa
         // acompanhada, memória, pet, papel); só ficam preferências do aparelho.
+        // O destino pendente de notificação/widget era da conta que saiu.
+        pendingScreen.current = null;
         Speech.stop();
         dispatch((s) => ({
           ...INITIAL,
@@ -805,89 +896,91 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  /** Conclui o login com Google quando o navegador volta pro app via deep
-   * link. `getInitialURL` cobre o caso do Android matar o processo enquanto
-   * o navegador estava em primeiro plano; o listener cobre o caso comum de
-   * app só suspenso. */
+  /** Deep links dos widgets da tela inicial (`mellowpet://widget/...`).
+   * `getInitialURL` cobre o app aberto pelo próprio toque; o listener, o app
+   * já aberto. A tela vai pelo mesmo caminho das notificações (guard por
+   * perfil e espera do restore da sessão). */
   const widgetMoodAt = useRef(0);
   const widgetCareAt = useRef(0);
   useEffect(() => {
     const handleUrl = (url: string) => {
-      if (url.startsWith('mellowpet://widget/')) {
-        const [, query] = url.split('?');
-        const params = new URLSearchParams(query ?? '');
-        if (url.includes('/widget/open')) {
-          const target = params.get('screen');
-          const allowed: Screen[] = ['home', 'music', 'routine', 'spotifyplayer', 'checkin', 'heatmap', 'dashboard'];
-          if (target && (allowed as string[]).includes(target)) {
-            dispatch((s) => ({ screen: target as Screen, navSeq: s.navSeq + 1 }));
-          }
-        } else if (url.includes('/widget/mood')) {
-          // Qualquer app pode abrir este link: só aceita emoção conhecida e no
-          // máximo um registro por minuto (senão forjava alertas para o cuidador).
-          const raw = params.get('value');
-          const value = raw && Object.prototype.hasOwnProperty.call(EMOTIONS, raw) && raw !== 'unknown' ? (raw as EmotionKey) : null;
-          const userId = ref.current.userId;
-          const now = Date.now();
-          if (value && userId && now - widgetMoodAt.current > 60_000) {
-            widgetMoodAt.current = now;
-            logManualEmotion(userId, value).catch(() => undefined);
-          }
-          dispatch((s) => ({
-            observedExpression: value ?? s.observedExpression,
-            screen: 'home',
-            navSeq: s.navSeq + 1,
-          }));
-        } else if (url.includes('/widget/care')) {
-          // Mesmos deltas dos botões da Home (ver HomeScreen.bumpCare): o
-          // widget é um atalho pra mesma ação, não uma economia paralela.
-          const action = params.get('action');
-          const delta =
-            action === 'feed'
-              ? { fed: 1, xp: 6 }
-              : action === 'play'
-                ? { played: 1, xp: 4 }
-                : action === 'rest'
-                  ? { xp: 3 }
-                  : null;
-          if (!delta) return;
-          // XP pelo link é limitado: no máximo um cuidado a cada 30 s.
-          if (Date.now() - widgetCareAt.current < 30_000) return;
-          widgetCareAt.current = Date.now();
-          if (action === 'feed' && !consumeMeal()) {
-            // Já comeu o bastante hoje: a Home abre mostrando o aviso.
-            dispatch((s) => ({ screen: 'home', navSeq: s.navSeq + 1, fedFull: true }));
-            return;
-          }
-          if (action !== 'feed') updateHabits((h) => recordHabit(h, action === 'play' ? 'play' : 'rest', localDay()));
-          const mood: Partial<State> =
-            action === 'feed'
-              ? { petMood: 'happy' }
-              : action === 'play'
-                ? { petMood: 'surprised' }
-                : { petMood: 'neutral', breathing: true, breathTick: 0 };
-          dispatch((s) => ({
-            fed: s.fed + (delta.fed ?? 0),
-            played: s.played + (delta.played ?? 0),
-            xp: s.xp + (delta.xp ?? 0),
-            streak: 0,
-            screen: 'home',
-            navSeq: s.navSeq + 1,
-            ...mood,
-          }));
-          if (ref.current.userId) {
-            bumpProfileStats(delta)
-              .then((stats) => {
-                if (stats) dispatch(stats);
-              })
-              .catch(() => undefined);
-          }
+      const link = parseWidgetLink(url);
+      if (!link) return;
+      // Os widgets do pet (humor, cuidar) são da conta pessoal: no cuidador
+      // gravariam humor e XP na conta errada.
+      const petWidget = ref.current.role !== 'care';
+      if (link.kind === 'open') {
+        openExternal({ screen: link.screen });
+      } else if (link.kind === 'playlist') {
+        openExternal({ screen: 'playlistdetail', patch: { openPlaylistId: link.id } });
+      } else if (link.kind === 'tool') {
+        const patch: Partial<State> =
+          link.tool === 'breathe'
+            ? { breathing: true, breathTick: 0, focus: false }
+            : link.tool === 'focus'
+              ? { focus: true, breathing: false }
+              : link.tool === 'ground'
+                ? { ground: 0 }
+                : {};
+        openExternal({ screen: link.screen, patch });
+      } else if (link.kind === 'mood') {
+        if (!petWidget) return;
+        // Qualquer app pode abrir este link: só aceita emoção conhecida e no
+        // máximo um registro por minuto (senão forjava alertas para o cuidador).
+        const raw = link.value;
+        const value = raw && Object.prototype.hasOwnProperty.call(EMOTIONS, raw) && raw !== 'unknown' ? (raw as EmotionKey) : null;
+        const userId = ref.current.userId;
+        const now = Date.now();
+        if (value && userId && now - widgetMoodAt.current > 60_000) {
+          widgetMoodAt.current = now;
+          logManualEmotion(userId, value).catch(() => undefined);
         }
-        return;
+        openExternal({ screen: 'home', patch: value ? { observedExpression: value } : undefined });
+      } else if (link.kind === 'care') {
+        if (!petWidget) return;
+        // Mesmos deltas dos botões da Home (ver HomeScreen.bumpCare): o
+        // widget é um atalho pra mesma ação, não uma economia paralela.
+        const action = link.action;
+        const delta =
+          action === 'feed'
+            ? { fed: 1, xp: 6 }
+            : action === 'play'
+              ? { played: 1, xp: 4 }
+              : action === 'rest'
+                ? { xp: 3 }
+                : null;
+        if (!delta) return;
+        // XP pelo link é limitado: no máximo um cuidado a cada 30 s.
+        if (Date.now() - widgetCareAt.current < 30_000) return;
+        widgetCareAt.current = Date.now();
+        if (action === 'feed' && !consumeMeal()) {
+          // Já comeu o bastante hoje: a Home abre mostrando o aviso.
+          openExternal({ screen: 'home', patch: { fedFull: true } });
+          return;
+        }
+        if (action !== 'feed') updateHabits((h) => recordHabit(h, action === 'play' ? 'play' : 'rest', localDay()));
+        const mood: Partial<State> =
+          action === 'feed'
+            ? { petMood: 'happy' }
+            : action === 'play'
+              ? { petMood: 'surprised' }
+              : { petMood: 'neutral', breathing: true, breathTick: 0 };
+        dispatch((s) => ({
+          fed: s.fed + (delta.fed ?? 0),
+          played: s.played + (delta.played ?? 0),
+          xp: s.xp + (delta.xp ?? 0),
+          streak: 0,
+          ...mood,
+        }));
+        openExternal({ screen: 'home' });
+        if (ref.current.userId) {
+          bumpProfileStats(delta)
+            .then((stats) => {
+              if (stats) dispatch(stats);
+            })
+            .catch(() => undefined);
+        }
       }
-
-      // Fora os deep links de widget, nada mais chega aqui: o login com
-      // Google foi removido, então não há callback de OAuth para tratar.
     };
 
     Linking.getInitialURL().then((url) => {
@@ -895,13 +988,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url));
     return () => subscription.remove();
-  }, [consumeMeal, updateHabits]);
+  }, [consumeMeal, updateHabits, openExternal]);
 
   // Toque numa notificação: microcheck-in abre o check-in; pausa de água
-  // volta para a Home (o pet comemora a pausa por lá).
-  // Com o app frio, o toque chega antes do login terminar; a tela fica
-  // guardada e só abre quando a Home aparecer (senão o splash a atropela).
-  const pendingScreen = useRef<Screen | null>(null);
+  // volta para a Home (o pet comemora a pausa por lá); as do cuidador abrem
+  // o painel ou os alertas. O guard decide: um usuário que recebe um push
+  // `care_*` antigo (ou um cuidador que toca um lembrete local de água) fica
+  // onde está.
   useEffect(() => {
     const open = (data: Record<string, unknown> | undefined) => {
       const kind = data?.kind;
@@ -916,17 +1009,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 ? 'care'
                 : null;
       if (!target) return;
-      if (ref.current.userId && ref.current.screen !== 'splash') {
-        dispatch((s) => ({ screen: target, navSeq: s.navSeq + 1 }));
-      } else {
-        pendingScreen.current = target;
-      }
+      // O push pode trazer quem gerou o alerta; sem o campo, fica a seleção atual.
+      const cared = data?.cared_user_id;
+      openExternal({ screen: target, caredUserId: typeof cared === 'string' && cared ? cared : undefined });
     };
     const last = Notifications.getLastNotificationResponse();
     if (last) open(last.notification.request.content.data);
     const sub = Notifications.addNotificationResponseReceivedListener((r) => open(r.notification.request.content.data));
     return () => sub.remove();
-  }, []);
+  }, [openExternal]);
 
   useEffect(() => {
     // Relógio de 1s: conta a duração da emoção na Home (quando há leitura
@@ -973,14 +1064,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     return {
       back: () => {
-        const history = ref.current.history;
-        if (history.length === 0) return false;
-        const target = history[history.length - 1];
-        dispatch((s) => ({ screen: target, history: s.history.slice(0, -1), navSeq: s.navSeq + 1 }));
+        if (!ref.current.userId) return false;
+        // Calculado dentro do dispatch: dois toques rápidos voltam duas telas,
+        // em vez de os dois lerem a mesma pilha antiga.
+        dispatch((s) => {
+          const { screen, history } = popHistory(s.history, s.role, Boolean(s.userId));
+          return { screen, history, navSeq: s.navSeq + 1 };
+        });
         return true;
       },
 
       goTab: (screen) => dispatch((s) => ({ screen, history: [], navSeq: s.navSeq + 1 })),
+
+      replace: (screen) =>
+        dispatch((s) => ({ screen, history: replaceHistory(s.history, screen), navSeq: s.navSeq + 1 })),
 
       set,
       go,
@@ -1352,12 +1449,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       runChatAction: (action) => {
+        const target: Screen =
+          action === 'respirar' ? 'home' : action === 'musica' ? 'music' : action === 'ninar' ? 'lullaby' : 'checkin';
+        // As ações levam a telas do pet; no copiloto do cuidador não valem.
+        const s = ref.current;
+        if (!canAccess(target, { authed: Boolean(s.userId), role: s.role })) return;
         if (action === 'respirar') {
           updateHabits((h) => recordHabit(h, 'breath', localDay()));
           dispatch((st) => ({ screen: 'home', navSeq: st.navSeq + 1, breathing: true, breathTick: 0, focus: false }));
-        } else if (action === 'musica') go('music');
-        else if (action === 'ninar') go('lullaby');
-        else go('checkin');
+        } else go(target);
       },
 
       setEma: async (enabled: boolean) => {
