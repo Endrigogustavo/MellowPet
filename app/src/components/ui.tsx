@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   type Insets,
@@ -476,31 +477,46 @@ export function PrimaryButton({
   label,
   onPress,
   disabled,
+  loading,
+  accessibilityHint,
   style,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  /** Mostra um indicador no lugar do rótulo, trava o toque e anuncia "ocupado". */
+  loading?: boolean;
+  accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
 }) {
   const { T } = useTheme();
+  const off = disabled || loading;
   return (
     <Touchable
       onPress={onPress}
-      disabled={disabled}
+      disabled={off}
+      accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ busy: !!loading }}
       style={[
         {
+          minHeight: 52,
           paddingVertical: 16,
           borderRadius: 18,
           alignItems: 'center',
+          justifyContent: 'center',
           backgroundColor: disabled ? T.bd : T.pri,
         },
         style,
       ]}
     >
-      <Txt s={15} w={800} c={disabled ? T.t3 : T.onPri}>
-        {label}
-      </Txt>
+      {loading ? (
+        <ActivityIndicator color={T.onPri} />
+      ) : (
+        <Txt s={15} w={800} c={disabled ? T.t3 : T.onPri}>
+          {label}
+        </Txt>
+      )}
     </Touchable>
   );
 }
