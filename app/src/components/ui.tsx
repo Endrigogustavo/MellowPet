@@ -2,9 +2,12 @@ import React, { useEffect, useState } from 'react';
 import {
   Animated,
   Easing,
+  type Insets,
+  type LayoutChangeEvent,
   Pressable,
   type PressableProps,
   type StyleProp,
+  StyleSheet,
   Text,
   type TextProps,
   type TextStyle,
@@ -126,13 +129,103 @@ export function Card({ children, style, bg, radius = 22, padding = 16, bordered 
   );
 }
 
-/** Botão genérico com feedback de toque. */
-export function Touchable({ style, ...rest }: PressableProps & { style?: StyleProp<ViewStyle> }) {
+/** Área mínima de toque recomendada (WCAG 2.5.5 / Material / HIG). */
+export const MIN_TOUCH = 44;
+
+/** Folga que falta para um eixo de `size` dp chegar a {@link MIN_TOUCH}. */
+function slopFor(size: number): number {
+  return size > 0 && size < MIN_TOUCH ? Math.ceil((MIN_TOUCH - size) / 2) : 0;
+}
+
+type TouchableProps = PressableProps & { style?: StyleProp<ViewStyle> };
+
+/**
+ * Botão genérico com feedback de toque.
+ *
+ * - Papel `button` por padrão (passe `accessibilityRole` para trocar).
+ * - `disabled` vai para `accessibilityState`, junto com o estado que vier.
+ * - Sem `hitSlop` explícito, mede o próprio tamanho e estende a área de toque
+ *   até 44×44 sem mexer no layout.
+ * - A opacidade do `style` (ex.: item apagado) é multiplicada pelo feedback de
+ *   toque em vez de anulá-lo.
+ */
+export function Touchable({
+  style,
+  accessibilityRole = 'button',
+  accessibilityState,
+  disabled,
+  hitSlop,
+  onLayout,
+  ...rest
+}: TouchableProps) {
+  const [slop, setSlop] = useState<Insets | undefined>(undefined);
+  const flat = StyleSheet.flatten(style) as ViewStyle | undefined;
+  const baseOpacity = typeof flat?.opacity === 'number' ? flat.opacity : 1;
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    onLayout?.(e);
+    if (hitSlop !== undefined) return;
+    const { width, height } = e.nativeEvent.layout;
+    const h = slopFor(width);
+    const v = slopFor(height);
+    setSlop((prev) => {
+      if (prev && prev.left === h && prev.top === v) return prev;
+      return h || v ? { left: h, right: h, top: v, bottom: v } : undefined;
+    });
+  };
+
   return (
     <Pressable
       {...rest}
-      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }, style as ViewStyle]}
+      disabled={disabled}
+      accessibilityRole={accessibilityRole}
+      accessibilityState={{ disabled: !!disabled, ...accessibilityState }}
+      hitSlop={hitSlop ?? slop}
+      onLayout={handleLayout}
+      style={({ pressed }) => [style, { opacity: baseOpacity * (pressed ? 0.7 : 1) }]}
     />
+  );
+}
+
+/**
+ * Ação só de texto ("Tentar novamente", "Remover", "Depois"…) com altura mínima
+ * de 44 px. Use no lugar de um `Touchable` com `Txt` solto.
+ */
+export function LinkButton({
+  label,
+  onPress,
+  color,
+  size = 12.5,
+  disabled,
+  accessibilityLabel,
+  accessibilityHint,
+  style,
+}: {
+  label: string;
+  onPress: () => void;
+  color?: string;
+  size?: number;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { T } = useTheme();
+  return (
+    <Touchable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={accessibilityHint}
+      style={[
+        { minHeight: MIN_TOUCH, justifyContent: 'center', paddingHorizontal: 8, opacity: disabled ? 0.5 : 1 },
+        style,
+      ]}
+    >
+      <Txt s={size} w={800} c={color ?? T.pri}>
+        {label}
+      </Txt>
+    </Touchable>
   );
 }
 
