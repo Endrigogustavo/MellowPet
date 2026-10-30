@@ -112,7 +112,7 @@ export function CareSignupScreen() {
           >
             <Icon d={ICONS.back} size={16} color={T.t1} sw={2.2} />
           </Touchable>
-          <Txt s={10.5} w={800} c={T.t3} ls={1.6}>
+          <Txt s={11} w={800} c={T.t3} ls={1.6}>
             CONTA DE CUIDADOR · {step + 1} de 3
           </Txt>
         </View>

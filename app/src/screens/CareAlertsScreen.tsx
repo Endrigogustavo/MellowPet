@@ -114,14 +114,14 @@ export function CareAlertsScreen() {
                             {alert.title}
                           </Txt>
                         </View>
-                        <Txt s={10.5} c={T.t3}>
+                        <Txt s={11} c={T.t3}>
                           {formatInDeviceTimeZone(alert.occurred_at)}
                         </Txt>
                       </View>
                       <Txt s={12.5} lh={1.55} c={T.t2} style={{ marginTop: 8 }}>
                         {alert.detail}
                       </Txt>
-                      <Txt s={10.5} lh={1.45} c={T.t3} style={{ marginTop: 9 }}>
+                      <Txt s={11} lh={1.45} c={T.t3} style={{ marginTop: 9 }}>
                         Um alerta descreve um padrão de sinais e não uma emergência ou diagnóstico por si só.
                       </Txt>
                       {alert.status === 'open' ? (

@@ -74,7 +74,7 @@ export function TabBar() {
             }}
           >
             <Icon d={TAB_ICONS[key]} size={21} color={on ? T.pri : T.t3} sw={1.9} />
-            <Txt s={9.5} w={700} c={on ? T.pri : T.t3}>
+            <Txt s={11} w={700} c={on ? T.pri : T.t3}>
               {label}
             </Txt>
           </Touchable>

@@ -81,7 +81,7 @@ export function CareDataScreen() {
                     <Txt s={12.5} lh={1.55} c={T.t2} style={{ marginTop: 12 }}>
                       {safeInsight(data)}
                     </Txt>
-                    <Txt s={10.5} c={T.t3} style={{ marginTop: 10 }}>
+                    <Txt s={11} c={T.t3} style={{ marginTop: 10 }}>
                       {data.events} leituras agregadas · confiança média {data.mean_confidence}%
                     </Txt>
                     {data.events > 0 ? (
@@ -110,7 +110,7 @@ export function CareDataScreen() {
                       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 5, height: 118, marginTop: 16 }}>
                         {data.daily.slice(-14).map((day) => (
                           <View key={day.at} style={{ flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center', gap: 5 }}>
-                            <Txt s={9} c={T.t3}>
+                            <Txt s={11} c={T.t3}>
                               {day.count}
                             </Txt>
                             <View
