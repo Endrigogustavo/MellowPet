@@ -134,7 +134,7 @@ export function CarePillButton({
         style,
       ]}
     >
-      <Txt s={12.5} w={800} c={selected ? '#fff' /* onPri */ : danger ? DANGER : T.pri}>
+      <Txt s={12.5} w={800} c={selected ? T.onPri : danger ? DANGER : T.pri}>
         {label}
       </Txt>
     </Touchable>

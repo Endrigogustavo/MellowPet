@@ -265,7 +265,7 @@ export function CareSignupScreen() {
                   backgroundColor: state.invited ? T.bg : inviteCode ? T.pri : T.bd,
                 }}
               >
-                <Txt s={14} w={800} c={state.invited ? T.t2 : '#fff'}>
+                <Txt s={14} w={800} c={state.invited ? T.t2 : T.onPri}>
                   {state.invited ? 'Convite marcado como enviado' : 'Marquei que enviei'}
                 </Txt>
               </Touchable>

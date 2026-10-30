@@ -177,9 +177,9 @@ export function CareScreen() {
     if (!current || !summary) return;
     updateCareWidgets({
       people: [{ name: linkName(current), state: score !== null && score < 40 ? 'precisa de atenção' : 'dados disponíveis', wellbeing: score ?? 0 }],
-      alert: activeAlerts.length > 0 ? { title: 'Há um sinal para acompanhar', sub: 'Abra o MellowPet para ver' } : null,
+      alert: null,
+      alertCount: activeAlerts.length,
       checkin: null,
-      // merge com G: passar `alertCount: activeAlerts.length` (campo novo do widgetBridge) e remover `alert`.
     });
   }, [current, summary, score, activeAlerts.length, linkName]);
 

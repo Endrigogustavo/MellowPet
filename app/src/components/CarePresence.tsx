@@ -473,7 +473,7 @@ export function CaregiverWellbeingCard({ opens }: { opens: number }) {
             accessibilityState={{ selected: feeling === f }}
             style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: feeling === f ? T.pri : T.chipBg }}
           >
-            <Txt s={12} w={800} c={feeling === f ? '#fff' /* onPri */ : T.t2}>
+            <Txt s={12} w={800} c={feeling === f ? T.onPri : T.t2}>
               {f}
             </Txt>
           </Touchable>

@@ -165,7 +165,7 @@ export function AcceptInviteScreen() {
                 justifyContent: 'center',
               }}
             >
-              {agreed ? <Icon d={ICONS.check} size={14} color="#fff" /* onPri */ sw={2.6} /> : null}
+              {agreed ? <Icon d={ICONS.check} size={14} color={T.onPri} sw={2.6} /> : null}
             </View>
             <Txt s={12.5} lh={1.45} c={T.t1} style={{ flex: 1 }}>
               Li o que será e o que não será compartilhado e quero me conectar.
