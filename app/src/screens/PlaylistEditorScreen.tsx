@@ -312,7 +312,7 @@ export function PlaylistEditorScreen() {
                 <Txt s={12.5} c={T.t2} numberOfLines={1} style={{ flex: 1 }}>
                   {track.name}
                 </Txt>
-                <Touchable onPress={() => toggleTrack(track)} style={{ padding: 4 }}>
+                <Touchable onPress={() => toggleTrack(track)} accessibilityLabel={'Tirar ' + track.name + ' da playlist'} style={{ padding: 4 }}>
                   <Icon d={ICONS.close} size={15} color={T.t3} />
                 </Touchable>
               </View>

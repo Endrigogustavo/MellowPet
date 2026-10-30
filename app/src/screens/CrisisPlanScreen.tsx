@@ -91,7 +91,7 @@ export function CrisisPlanScreen() {
             </Txt>
           ) : null}
           {saved ? (
-            <Txt s={12} c={OK} center style={{ marginTop: 8 }}>
+            <Txt s={12} c={OK} center style={{ marginTop: 8 }} accessibilityLiveRegion="polite">
               Ele aparece no botão de ajuda, sempre que precisar.
             </Txt>
           ) : null}

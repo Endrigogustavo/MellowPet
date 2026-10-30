@@ -3,7 +3,7 @@ import { Alert, View } from 'react-native';
 
 import { Field } from '../components/Field';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Bar, Card, PrimaryButton, ScreenTitle, Touchable, Txt } from '../components/ui';
+import { Bar, Card, LinkButton, PrimaryButton, ScreenTitle, Txt } from '../components/ui';
 import { EMOTIONS, type EmotionKey } from '../data/emotions';
 import { useApp, useTheme } from '../state/AppContext';
 import { supabase } from '../supabase/client';
@@ -17,6 +17,7 @@ import { DANGER } from '../theme/palette';
 type Group = { id: string; name: string; code: string; owner_id: string };
 /** Faixa de pessoas (não o número exato) e a fração de cada emoção, já arredondada. */
 type Row = { members_band: string; emotion: string; share: number };
+type ErrorSpot = 'top' | 'join' | 'create';
 
 /** Mensagens do servidor em português, sem jargão de banco. */
 function friendly(m: string): string {
@@ -35,14 +36,33 @@ export function GroupsScreen() {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [summary, setSummary] = useState<Record<string, Row[] | 'few'>>({});
-  const [error, setError] = useState<string | null>(null);
+  // A mensagem aparece junto da ação que a gerou: entrar e criar ficam no fim
+  // da tela, e um erro só no topo ficava fora da vista.
+  const [error, setErrorState] = useState<{ text: string; at: ErrorSpot } | null>(null);
+  const setError = (text: string | null, at: ErrorSpot = 'top') => setErrorState(text ? { text, at } : null);
   const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     const { data, error: e } = await supabase.from('care_groups').select('id, name, code, owner_id').order('created_at');
-    if (e) setError(friendly(e.message));
+    if (e) setErrorState({ text: friendly(e.message), at: 'top' });
     else setGroups((data ?? []) as Group[]);
+    setLoaded(true);
   }, []);
+
+  const errorFor = (at: ErrorSpot) =>
+    error?.at === at ? (
+      <Txt
+        s={12}
+        lh={1.45}
+        c={DANGER}
+        style={{ marginTop: 8 }}
+        accessibilityRole="alert"
+        accessibilityLiveRegion="polite"
+      >
+        {error.text}
+      </Txt>
+    ) : null;
 
   useEffect(() => {
     load().catch(() => undefined);
@@ -63,7 +83,7 @@ export function GroupsScreen() {
   const join = () =>
     once(async () => {
       const { error: e } = await supabase.rpc('join_care_group', { group_code: code });
-      if (e) setError(friendly(e.message));
+      if (e) setError(friendly(e.message), 'join');
       else {
         setCode('');
         await load();
@@ -73,7 +93,7 @@ export function GroupsScreen() {
   const create = () =>
     once(async () => {
       const { error: e } = await supabase.rpc('create_care_group', { group_name: name.trim() });
-      if (e) setError(friendly(e.message));
+      if (e) setError(friendly(e.message), 'create');
       else {
         setName('');
         await load();
@@ -109,14 +129,16 @@ export function GroupsScreen() {
           Quem coordena vê só o clima geral do grupo — nunca o de uma pessoa — e só quando há pelo menos 5 pessoas com
           leituras. Você pode sair a qualquer momento.
         </Txt>
-        {error ? (
-          <Txt s={12} lh={1.45} c={DANGER} style={{ marginTop: 8 }}>
-            {error}
-          </Txt>
-        ) : null}
+        {errorFor('top')}
       </Section>
 
-      {groups.length === 0 ? (
+      {!loaded ? (
+        <Section>
+          <Txt s={12.5} c={T.t3} accessibilityLiveRegion="polite">
+            Carregando seus grupos…
+          </Txt>
+        </Section>
+      ) : groups.length === 0 ? (
         <Section>
           <Txt s={12.5} lh={1.5} c={T.t3}>
             Você ainda não participa de nenhum grupo. Entre com o código que recebeu ou crie um, se for coordenar.
@@ -159,11 +181,13 @@ export function GroupsScreen() {
                   ) : null}
                 </>
               ) : (
-                <Touchable onPress={() => leave(g)} accessibilityLabel={`Sair de ${g.name}`} style={{ marginTop: 10 }}>
-                  <Txt s={12.5} w={800} c={DANGER}>
-                    Sair do grupo
-                  </Txt>
-                </Touchable>
+                <LinkButton
+                  label="Sair do grupo"
+                  color={DANGER}
+                  accessibilityLabel={`Sair de ${g.name}`}
+                  onPress={() => leave(g)}
+                  style={{ alignSelf: 'flex-start', paddingHorizontal: 0, marginTop: 4 }}
+                />
               )}
             </Card>
           </Section>
@@ -173,13 +197,15 @@ export function GroupsScreen() {
       <Section>
         <Card radius={22} padding={16}>
           <Field label="Entrar com código" placeholder="ABCD2345" value={code} onChangeText={(t) => setCode(t.toUpperCase().slice(0, 8))} autoCapitalize="characters" />
-          <PrimaryButton label={busy ? 'Entrando…' : 'Entrar'} disabled={code.length < 8 || busy} onPress={() => join().catch(() => undefined)} style={{ marginTop: 10 }} />
+          {errorFor('join')}
+          <PrimaryButton label="Entrar" loading={busy} disabled={code.length < 8} onPress={() => join().catch(() => undefined)} style={{ marginTop: 10 }} />
         </Card>
       </Section>
       <Section>
         <Card radius={22} padding={16}>
           <Field label="Criar um grupo (coordenador)" placeholder="Turma 3ºB, Grupo de quinta…" value={name} onChangeText={(t) => setName(t.slice(0, 60))} />
-          <PrimaryButton label={busy ? 'Criando…' : 'Criar'} disabled={name.trim().length < 2 || busy} onPress={() => create().catch(() => undefined)} style={{ marginTop: 10 }} />
+          {errorFor('create')}
+          <PrimaryButton label="Criar" loading={busy} disabled={name.trim().length < 2} onPress={() => create().catch(() => undefined)} style={{ marginTop: 10 }} />
         </Card>
       </Section>
     </ScreenScroll>

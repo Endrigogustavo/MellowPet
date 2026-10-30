@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CalibrationCard } from '../components/CalibrationCard';
 import { OfflineMellowCard } from '../components/OfflineMellowCard';
@@ -8,6 +9,7 @@ import { PetFace } from '../components/PetFace';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import {
   Card,
+  LinkButton,
   ScreenTitle,
   Segmented,
   Toggle,
@@ -62,6 +64,7 @@ export function SettingsScreen() {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [contactError, setContactError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
 
   const persistContacts = (next: EmergencyContact[], previous: EmergencyContact[]) => {
     if (!state.userId) return;
@@ -177,22 +180,23 @@ export function SettingsScreen() {
   );
 
   return (
+    <View style={{ flex: 1 }}>
     <ScreenScroll>
       <ScreenTitle label="AJUSTES" title="Do seu jeito" />
 
-      {settingsError || saveError ? (
+      {/* Erro de carregar fica no topo (é o que se vê ao entrar). O de salvar
+          vem de um toggle que pode estar lá embaixo: vira faixa fixa no rodapé. */}
+      {settingsError ? (
         <Section top={0}>
           <Card radius={18} padding={14} style={{ borderColor: DANGER }}>
-            <Txt s={12.5} lh={1.45} c={DANGER} accessibilityRole="alert">
-              {settingsError ?? saveError}
+            <Txt s={12.5} lh={1.45} c={DANGER} accessibilityRole="alert" accessibilityLiveRegion="polite">
+              {settingsError}
             </Txt>
-            {settingsError ? (
-              <Touchable onPress={loadSettings} accessibilityRole="button" style={{ marginTop: 8 }}>
-                <Txt s={12} w={800} c={T.pri}>
-                  Tentar de novo
-                </Txt>
-              </Touchable>
-            ) : null}
+            <LinkButton
+              label="Tentar de novo"
+              onPress={loadSettings}
+              style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
+            />
           </Card>
         </Section>
       ) : null}
@@ -651,8 +655,12 @@ export function SettingsScreen() {
                     {c.contact}
                   </Txt>
                 </View>
-                <Touchable onPress={() => removeContact(i)} style={{ padding: 6 }}>
-                  <Txt s={11.5} w={800} c={DANGER}>
+                <Touchable
+                  onPress={() => removeContact(i)}
+                  accessibilityLabel={`Remover ${c.name}`}
+                  style={{ minHeight: 44, minWidth: 44, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Txt s={12.5} w={800} c={DANGER}>
                     Remover
                   </Txt>
                 </Touchable>
@@ -682,8 +690,14 @@ export function SettingsScreen() {
           <Touchable
             onPress={addContact}
             disabled={!contactName.trim() || !contactValue.trim()}
+            accessibilityLabel="Adicionar contato"
+            accessibilityHint={
+              !contactName.trim() || !contactValue.trim() ? 'Preencha o nome e o telefone com DDD' : undefined
+            }
             style={{
               marginTop: 14,
+              minHeight: 48,
+              justifyContent: 'center',
               paddingVertical: 13,
               borderRadius: 14,
               alignItems: 'center',
@@ -695,6 +709,11 @@ export function SettingsScreen() {
               + Adicionar contato
             </Txt>
           </Touchable>
+          {!contactName.trim() || !contactValue.trim() ? (
+            <Txt s={11.5} c={T.t3} center style={{ marginTop: 6 }}>
+              Preencha o nome e o telefone para adicionar.
+            </Txt>
+          ) : null}
         </Card>
       </Section>
 
@@ -722,5 +741,36 @@ export function SettingsScreen() {
         </Touchable>
       </Section>
     </ScreenScroll>
+    {saveError && !settingsError ? (
+      <View
+        accessibilityRole="alert"
+        accessibilityLiveRegion="polite"
+        style={{
+          position: 'absolute',
+          left: 16,
+          right: 16,
+          bottom: insets.bottom + 92,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingLeft: 14,
+          borderRadius: 16,
+          backgroundColor: T.surf,
+          borderWidth: 1,
+          borderColor: DANGER,
+          shadowColor: '#000',
+          shadowOpacity: 0.15,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 4,
+        }}
+      >
+        <Txt s={12.5} lh={1.45} c={DANGER} style={{ flex: 1, paddingVertical: 10 }}>
+          {saveError}
+        </Txt>
+        <LinkButton label="Fechar" color={T.t2} onPress={() => setSaveError(null)} />
+      </View>
+    ) : null}
+    </View>
   );
 }
