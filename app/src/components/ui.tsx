@@ -16,6 +16,7 @@ import {
 import { font, type FontWeight } from '../theme/type';
 import Svg, { Path } from 'react-native-svg';
 
+import { showsBackButton } from '../navigation/navModel';
 import { useApp, useTheme } from '../state/AppContext';
 
 /* ── Texto ──────────────────────────────────────────────────────────────── */
@@ -61,14 +62,14 @@ export function Eyebrow({ children, ls = 1.8 }: { children: React.ReactNode; ls?
   );
 }
 
-/** Telas de aba: nelas não há "voltar" (a barra de baixo já leva às outras). */
-const TAB_ROOTS = ['home', 'tools', 'routine', 'music', 'dashboard', 'care', 'carealerts', 'agenda', 'caretools'];
-
 /** Cabeçalho de tela: voltar (fora das abas) + rótulo + título grande. */
 export function ScreenTitle({ label, title }: { label: string; title: string }) {
   const { T } = useTheme();
   const { state, actions } = useApp();
-  const canGoBack = state.history.length > 0 && !TAB_ROOTS.includes(state.screen);
+  // Abas do perfil atual não têm "voltar" (a barra de baixo já leva às
+  // outras). Fora delas sempre há: sem histórico, volta para a inicial do
+  // perfil — igual ao voltar físico.
+  const canGoBack = showsBackButton(state.screen, state.role);
   return (
     <View style={{ paddingHorizontal: 20, paddingBottom: 18 }}>
       {canGoBack ? (
