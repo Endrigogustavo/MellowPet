@@ -493,7 +493,7 @@ export function CheckinScreen() {
           <Txt s={13.5} w={800} c={T.t1}>
             Últimos 7 dias
           </Txt>
-          <Touchable onPress={() => actions.go('heatmap')} accessibilityLabel="Abrir mapa emocional">
+          <Touchable onPress={() => actions.replace('heatmap')} accessibilityLabel="Abrir mapa emocional">
             <Txt s={12} w={800} c={T.pri}>
               Ver o mês
             </Txt>
