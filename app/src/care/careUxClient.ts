@@ -109,9 +109,11 @@ export async function deleteCareNote(id: string): Promise<void> {
 }
 
 function noteWriteError(error: PgError, fallback: string): Error {
-  if (isCareConfigurationMissing(error) || error?.code === '42501') {
-    return new Error(`${fallback} ${NOT_ACTIVE_YET}`);
+  // 42501 = a policy recusou: a pessoa pausou ou encerrou, não é migration faltando.
+  if (error?.code === '42501') {
+    return new Error(`${fallback} O compartilhamento está pausado ou foi encerrado.`);
   }
+  if (isCareConfigurationMissing(error)) return new Error(`${fallback} ${NOT_ACTIVE_YET}`);
   return toCareClientError(error, fallback);
 }
 
@@ -229,7 +231,10 @@ export async function acceptInviteWithConsent(inviteCode: string, userId: string
   const code = normalizedInviteCode(inviteCode);
   if (!code) throw new Error('Informe o código de convite.');
   const { data, error } = await supabase.rpc('accept_invite_with_consent', { p_code: code, p_terms_version: CARE_TERMS_VERSION });
-  if (error && isCareConfigurationMissing(error)) {
+  // Só a RPC nova ausente cai no aceite antigo; qualquer outro erro é real.
+  const missingRpc =
+    !!error && (error.code === 'PGRST202' || error.code === '42883') && /accept_invite_with_consent/i.test(`${error.message ?? ''} ${error.details ?? ''}`);
+  if (missingRpc) {
     return { link: await acceptInvite(code, userId), consentRecorded: false };
   }
   return { link: acceptResult(data, error), consentRecorded: true };
