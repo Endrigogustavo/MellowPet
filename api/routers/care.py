@@ -16,7 +16,10 @@ from utils.auth import ai_user
 
 router = APIRouter()
 
-KnownEmotion = Literal["happy", "sad", "angry", "neutral", "surprised", "disgusted", "fearful"]
+# "unknown" é um valor válido do app (câmera sem leitura clara) e pode ser o
+# mais frequente da distribuição de care_dashboard_summary; recusar dava 422 e
+# o copiloto caía calado nas respostas prontas.
+KnownEmotion = Literal["happy", "sad", "angry", "neutral", "surprised", "disgusted", "fearful", "unknown"]
 
 CARE_SYSTEM = """Você é o copiloto de cuidado do MellowPet. Ajuda quem cuida de alguém (pai, mãe,
 parceiro, amigo) a puxar conversas respeitosas e a cuidar de si.
@@ -87,7 +90,9 @@ def describe(summary: Optional[CareSummary]) -> str:
     parts = [f"{summary.events} leituras"]
     if summary.score is not None:
         parts.append(f"índice de sinais {summary.score}/100 (abaixo de 40 pede atenção)")
-    if summary.top_emotion:
+    if summary.top_emotion == "unknown":
+        parts.append("sinal mais frequente: sem leitura clara (a câmera não reconheceu bem o rosto)")
+    elif summary.top_emotion:
         parts.append(f"sinal mais frequente: {summary.top_emotion}")
     parts.append(f"{round(summary.difficult_share * 100)}% de sinais difíceis")
     if summary.relationship:
@@ -105,6 +110,10 @@ async def care_chat(request: CareChatRequest, _user: Optional[str] = Depends(ai_
     system = CARE_SYSTEM.format(period=period, summary=describe(request.summary))
     messages = [m.model_dump() for m in request.history[-8:]] + [{"role": "user", "content": request.message}]
     text, provider = await ai_chat_service._complete_async(system, messages, max_tokens=500)
-    if not text:
+    # strip ANTES de testar: só espaços virava response="" e o app mostrava um
+    # balão vazio (ele só troca null pelas respostas prontas).
+    clean = (text or "").strip()
+    if not clean:
         return {"response": None, "provider": "fallback"}
-    return {"response": text.strip(), "provider": provider}
+    return {"response": clean, "provider": provider}
+

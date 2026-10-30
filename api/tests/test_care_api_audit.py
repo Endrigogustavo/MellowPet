@@ -7,8 +7,8 @@ rate limit, X-API-Key, headers de segurança e JWT do Supabase.
 Nenhum teste fala com provedor de IA: o serviço é desligado ou trocado por
 falsos em todos os testes (o .env local pode ter chave real).
 
-Testes marcados com xfail(strict=True) documentam bugs: quando o bug for
-corrigido o teste passa e o strict obriga a remover a marcação.
+Os testes que antes eram xfail(strict=True) documentavam bugs (A1-A6 de
+docs/ux/problemas-api.md); todos foram corrigidos na Fase 4 e a marcação saiu.
 """
 import time
 
@@ -341,7 +341,6 @@ def test_care_crise_resposta_fixa_sem_modelo(api, monkeypatch, msg):
     assert p.calls == []
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: crise em 3ª pessoa não dispara — os padrões de services/crisis.py são em 1ª pessoa ('me matar', 'não quero mais viver'), e o cuidador fala da OUTRA pessoa")
 @pytest.mark.parametrize(
     "msg",
     [
@@ -359,7 +358,6 @@ def test_care_crise_em_terceira_pessoa_precisa_disparar(api, monkeypatch, msg):
     assert p.calls == []
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: care.py só checa request.message; crise no histórico recente vai ao modelo (o /chat usa crisis_text() com os últimos turnos do usuário)")
 def test_care_crise_no_historico_recente_tambem_da_resposta_fixa(api, monkeypatch):
     p = use_provider(monkeypatch, FakeProvider(text="texto gerado"))
     history = [{"role": "user", "content": "meu filho disse que quer morrer"},
@@ -404,7 +402,6 @@ def test_care_timeout_da_ia_vira_fallback(api, monkeypatch):
     assert r.json() == {"response": None, "provider": "fallback"}
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: resposta só com espaços passa no 'if not text' e vira response='' — o app usa 'answer ?? caregiverReply' e mostra balão vazio")
 def test_care_resposta_so_com_espacos_vira_fallback(api, monkeypatch):
     use_provider(monkeypatch, FakeProvider(text="  \n "))
     r = api.post(URL, json={"message": "oi"}, headers=headers())
@@ -427,7 +424,6 @@ def test_care_erro_interno_500_generico_sem_vazar_detalhe(api, monkeypatch):
     assert "segredo" not in r.text
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: o handler de Exception roda no ServerErrorMiddleware, por fora do SecurityHeadersMiddleware; o 500 sai sem nosniff/X-Frame-Options (main.py)")
 def test_care_erro_interno_500_leva_headers_de_seguranca(api, monkeypatch):
     _explode(monkeypatch)
     r = api.post(URL, json={"message": "oi"}, headers=headers())
@@ -436,7 +432,6 @@ def test_care_erro_interno_500_leva_headers_de_seguranca(api, monkeypatch):
 
 
 # ── Contrato com o app (app/src/screens/ChatScreen.tsx + care/presenceClient.ts) ─
-@pytest.mark.xfail(strict=True, reason="BUG: o app manda top_emotion = emoção mais frequente do care_dashboard_summary, que pode ser 'unknown'; a API só aceita 7 emoções e devolve 422, o copiloto cai calado nas respostas prontas")
 def test_care_top_emotion_unknown_vinda_do_resumo_real_e_aceita(api):
     summary = {"period": "7 dias", "events": 12, "score": 50, "top_emotion": "unknown", "difficult_share": 0.1}
     r = api.post(URL, json={"message": "oi", "summary": summary}, headers=headers())
@@ -453,7 +448,6 @@ def test_care_payload_exato_do_app_e_aceito(api):
     assert api.post(URL, json=payload, headers=headers()).status_code == 200
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: CORS allow_headers não inclui Authorization; no build web o preflight do JWT é recusado (main.py)")
 def test_cors_preflight_aceita_authorization(api):
     r = api.options(
         URL,
@@ -464,3 +458,4 @@ def test_cors_preflight_aceita_authorization(api):
         },
     )
     assert r.status_code == 200, r.text
+
