@@ -177,13 +177,15 @@ export function SpotifyImportScreen() {
               onPress={() => actions.go('music')}
               style={{
                 marginTop: 14,
+                minHeight: 46,
                 paddingVertical: 13,
                 borderRadius: 14,
                 alignItems: 'center',
+                justifyContent: 'center',
                 backgroundColor: T.pri,
               }}
             >
-              <Txt s={13} w={800} c="#fff">
+              <Txt s={13.5} w={800} c={T.onPri}>
                 Ir para Música
               </Txt>
             </Touchable>

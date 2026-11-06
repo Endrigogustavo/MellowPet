@@ -11,7 +11,7 @@ import { FACE_ICON } from '../data/emotions';
 import { listUserPlaylists, type UserPlaylist } from '../playlists/playlistClient';
 import { useSpotify } from '../spotify/spotifyClient';
 import { useApp, useTheme } from '../state/AppContext';
-import { DANGER, hexA } from '../theme/palette';
+import { LIGHT, hexA } from '../theme/palette';
 import { EMOTION_MOOD, GOALS, isoJourney, type IsoGoal } from '../music/iso';
 
 /** Busca equivalente a cada playlist nos apps sem API pública. */
@@ -26,14 +26,14 @@ const MOOD_QUERY: Record<string, string> = {
 
 export function MusicScreen() {
   const { state, actions } = useApp();
-  const { T, isDark, full, emo, emoColor, emoLight } = useTheme();
+  const { T, isDark, full, emo, emoInk, emoLight } = useTheme();
   const music = useMusic();
   const spotify = useSpotify();
 
   const [mine, setMine] = useState<UserPlaylist[]>([]);
   const [mineLoading, setMineLoading] = useState(false);
   // Uma falha de leitura precisa aparecer: sem isto, erro de rede virava
-  // "você não tem playlist nenhuma" — que parece que sumiram.
+  // "você não tem playlist nenhuma", parecendo que sumiram.
   const [mineError, setMineError] = useState<string | null>(null);
 
   const reload = useCallback(() => {
@@ -47,7 +47,7 @@ export function MusicScreen() {
       )
       .finally(() => setMineLoading(false));
   }, [state.userId]);
-  // `navSeq` muda toda vez que a navegação acontece — recarrega ao voltar do
+  // `navSeq` muda toda vez que a navegação acontece, recarregando ao voltar do
   // editor sem precisar de um evento próprio de "playlist criada".
   useEffect(reload, [reload, state.navSeq]);
 
@@ -106,10 +106,10 @@ export function MusicScreen() {
 
   return (
     <ScreenScroll>
-      <ScreenTitle label="MÚSICA" title={'Som para o\nseu momento'} />
+      <ScreenTitle label="Música" title={'Som para o\nseu momento'} />
 
       {/* jornada ISO: do humor atual ao desejado */}
-      <Section top={4}>
+      <Section top={0}>
         <Card radius={24} padding={18}>
           <Txt s={14} w={800} c={T.t1}>
             Jornada de humor
@@ -139,9 +139,9 @@ export function MusicScreen() {
           {/* YouTube Music e Deezer não têm API pública para tocar de dentro do
               app; o link abre a busca do mesmo clima no app deles (ou no site). */}
           <Txt s={11.5} c={T.t3} style={{ marginTop: 14 }}>
-            Prefere outro app? Abra “{suggested.name}” lá:
+            Prefere outro app? Abra “{suggested.name}” por lá:
           </Txt>
-          <View style={{ flexDirection: 'row', gap: 16, marginTop: 6 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
             {[
               ['YouTube Music', 'https://music.youtube.com/search?q='],
               ['Deezer', 'https://www.deezer.com/search/'],
@@ -154,10 +154,22 @@ export function MusicScreen() {
                   );
                 }}
                 accessibilityLabel={`Abrir no ${label}`}
+                style={{
+                  minHeight: 44,
+                  paddingHorizontal: 14,
+                  borderRadius: 999,
+                  backgroundColor: T.surfWarm,
+                  borderWidth: 1,
+                  borderColor: T.bd,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
               >
                 <Txt s={12.5} w={800} c={T.pri}>
-                  {label} ↗
+                  {label}
                 </Txt>
+                <Icon d={ICONS.chevron} size={13} color={T.pri} sw={2.2} />
               </Touchable>
             ))}
           </View>
@@ -165,27 +177,28 @@ export function MusicScreen() {
       </Section>
 
       {/* conexão com o Spotify */}
-      <Section top={0} style={{ marginBottom: 10 }}>
+      <Section>
         <Card
-          radius={20}
+          radius={22}
           padding={15}
           style={{ paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
         >
           <View
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 13,
+              width: 40,
+              height: 40,
+              borderRadius: 14,
               backgroundColor: 'rgba(29,185,84,.14)',
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
             <Icon d={ICONS.spotify} size={19} color="#1DB954" />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-              <Txt s={13.5} w={800} c={T.t1} numberOfLines={1}>
+              <Txt s={13.5} w={800} c={T.t1} numberOfLines={1} style={{ flexShrink: 1 }}>
                 {spotify.profile?.displayName ?? 'Spotify'}
               </Txt>
               {spotify.profile ? (
@@ -194,18 +207,19 @@ export function MusicScreen() {
                     paddingHorizontal: 7,
                     paddingVertical: 2,
                     borderRadius: 999,
-                    backgroundColor: spotify.profile.product === 'premium' ? 'rgba(29,185,84,.14)' : T.bg,
+                    backgroundColor: spotify.profile.product === 'premium' ? 'rgba(29,185,84,.14)' : T.surfWarm,
                     borderWidth: spotify.profile.product === 'premium' ? 0 : 1,
                     borderColor: T.bd,
+                    flexShrink: 0,
                   }}
                 >
                   <Txt s={9.5} w={800} c={spotify.profile.product === 'premium' ? '#1DB954' : T.t3}>
-                    {spotify.profile.product === 'premium' ? 'PREMIUM' : 'FREE'}
+                    {spotify.profile.product === 'premium' ? 'Premium' : 'Free'}
                   </Txt>
                 </View>
               ) : null}
             </View>
-            <Txt s={11.5} c={spotify.error ? DANGER : T.t3} numberOfLines={3} style={{ marginTop: 2 }}>
+            <Txt s={11.5} c={spotify.error ? T.danger : T.t3} numberOfLines={3} style={{ marginTop: 2 }}>
               {spotify.error
                 ? spotify.error
                 : spotify.connected
@@ -216,23 +230,23 @@ export function MusicScreen() {
             </Txt>
           </View>
 
-          {/* Três estados, não dois: estar autorizado (token OAuth) não é o
-              mesmo que estar conectado (App Remote). Quando o App Remote cai
-              — o Spotify fechou, o aparelho reiniciou — é preciso oferecer
-              reconectar, senão o botão fica preso em "Desconectar". */}
+          {/* Três estados: autorizado por OAuth nem sempre significa conectado via App Remote. */}
           <Touchable
             onPress={spotify.connected ? spotify.disconnect : spotify.connect}
             disabled={spotify.connecting}
             accessibilityRole="button"
             style={{
+              minHeight: 44,
               paddingVertical: 10,
               paddingHorizontal: 15,
               borderRadius: 999,
-              backgroundColor: spotify.connected ? T.bg : '#1DB954',
+              justifyContent: 'center',
+              backgroundColor: spotify.connected ? T.surfWarm : '#1DB954',
               opacity: spotify.connecting ? 0.6 : 1,
+              flexShrink: 0,
             }}
           >
-            <Txt s={12} w={800} c={spotify.connected ? T.t2 : '#fff'}>
+            <Txt s={12} w={800} c={spotify.connected ? T.t2 : LIGHT.surf}>
               {spotify.connecting
                 ? 'Conectando…'
                 : spotify.connected
@@ -244,13 +258,10 @@ export function MusicScreen() {
           </Touchable>
         </Card>
 
-        {/* Autorizado mas desconectado: dá pra tentar de novo acima, ou sair
-            da conta de vez — que é o que resolve quando a autorização é que
-            expirou. */}
         {spotify.authorized && !spotify.connected && !spotify.connecting ? (
           <Touchable
             onPress={spotify.disconnect}
-            style={{ alignSelf: 'flex-end', paddingHorizontal: 6, paddingVertical: 10 }}
+            style={{ alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 }}
           >
             <Txt s={11.5} w={700} c={T.t3}>
               Sair da conta do Spotify
@@ -260,11 +271,11 @@ export function MusicScreen() {
       </Section>
 
       {/* sugestão pela emoção */}
-      <Section top={0}>
+      <Section>
         <View
           style={{
             padding: 16,
-            borderRadius: 20,
+            borderRadius: 22,
             backgroundColor: emoLight,
             flexDirection: 'row',
             alignItems: 'center',
@@ -273,31 +284,32 @@ export function MusicScreen() {
         >
           <View
             style={{
-              width: 42,
-              height: 42,
-              borderRadius: 14,
+              width: 44,
+              height: 44,
+              borderRadius: 15,
               backgroundColor: T.surf,
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
             <Icon
               d={FACE_ICON[state.observedExpression]}
               size={21}
-              color={emoColor}
+              color={emoInk}
               sw={1.9}
               circle
             />
           </View>
-          <View style={{ flex: 1 }}>
-            <Txt s={11.5} c={T.t3}>
-              Você está {emo.label.toLowerCase()} - recomendo
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Txt s={11.5} c={T.t2}>
+              Para seu momento ({emo.label.toLowerCase()})
             </Txt>
-            <Txt s={15.5} w={800} c={T.t1} style={{ marginTop: 2 }}>
+            <Txt s={15.5} w={800} c={T.t1} style={{ marginTop: 2 }} numberOfLines={1}>
               {mineForEmotion?.name ?? suggested.name}
             </Txt>
             {mineForEmotion ? (
-              <Txt s={11} w={700} c={emoColor} style={{ marginTop: 2 }}>
+              <Txt s={11} w={700} c={emoInk} style={{ marginTop: 2 }}>
                 sua playlist
               </Txt>
             ) : null}
@@ -307,13 +319,16 @@ export function MusicScreen() {
               mineForEmotion ? playUserPlaylist(mineForEmotion) : playPlaylist(suggested)
             }
             style={{
+              minHeight: 44,
               paddingVertical: 11,
               paddingHorizontal: 18,
               borderRadius: 999,
+              justifyContent: 'center',
               backgroundColor: T.pri,
+              flexShrink: 0,
             }}
           >
-            <Txt s={13} w={800} c="#fff">
+            <Txt s={13} w={800} c={T.onPri}>
               Tocar
             </Txt>
           </Touchable>
@@ -321,16 +336,15 @@ export function MusicScreen() {
       </Section>
 
       {/* playlists da pessoa */}
-      <Section top={12}>
+      <Section>
         <Card radius={24} padding={20}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Txt s={13.5} w={800} c={T.t1}>
+              <Txt s={14} w={800} c={T.t1}>
                 Suas playlists
               </Txt>
-              <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 3 }}>
-                Montadas por você para cada momento — tocam sozinhas quando o
-                sentimento aparece.
+              <Txt s={12} lh={1.45} c={T.t3} style={{ marginTop: 3 }}>
+                Montadas por você para cada momento, prontas para tocar quando o sentimento aparece.
               </Txt>
             </View>
           </View>
@@ -338,8 +352,8 @@ export function MusicScreen() {
           {mineError ? (
             <View style={{ marginTop: 12, gap: 10 }}>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Icon d={ICONS.alert} size={14} color={DANGER} circle sw={1.9} />
-                <Txt s={12.5} lh={1.5} c={DANGER} style={{ flex: 1 }}>
+                <Icon d={ICONS.alert} size={14} color={T.danger} circle sw={1.9} />
+                <Txt s={12.5} lh={1.5} c={T.danger} style={{ flex: 1 }}>
                   {mineError}
                 </Txt>
               </View>
@@ -347,10 +361,11 @@ export function MusicScreen() {
                 onPress={reload}
                 style={{
                   alignSelf: 'flex-start',
-                  paddingVertical: 9,
+                  minHeight: 44,
+                  justifyContent: 'center',
                   paddingHorizontal: 15,
                   borderRadius: 999,
-                  backgroundColor: T.bg,
+                  backgroundColor: T.surfWarm,
                   borderWidth: 1,
                   borderColor: T.bd,
                 }}
@@ -370,9 +385,7 @@ export function MusicScreen() {
           ) : mine.length > 0 ? (
             <View style={{ marginTop: 14, gap: 2 }}>
               {mine.map((p) => {
-                // A playlist é "a que está tocando" quando a faixa atual do
-                // Spotify é uma das dela — mais confiável que guardar qual
-                // foi a última que mandamos tocar.
+                // A playlist está ativa quando a faixa atual do Spotify pertence a ela.
                 const playingHere =
                   !!spotify.nowPlaying?.trackUri &&
                   p.tracks.some((t) => t.spotifyUri === spotify.nowPlaying?.trackUri);
@@ -381,7 +394,6 @@ export function MusicScreen() {
                   ? p.tracks.find((t) => t.spotifyUri === spotify.nowPlaying?.trackUri)
                   : null;
                 return (
-                // A linha toda abre o detalhe; tocar continua no botão à direita.
                 <Touchable
                   key={p.id}
                   onPress={() => openPlaylist(p)}
@@ -401,31 +413,30 @@ export function MusicScreen() {
                 >
                   <View
                     style={{
-                      width: 34,
-                      height: 34,
+                      width: 36,
+                      height: 36,
                       borderRadius: 12,
                       backgroundColor: p.color,
                       alignItems: 'center',
                       justifyContent: 'center',
+                      flexShrink: 0,
                     }}
                   >
                     {playingHere ? (
-                      <NowPlayingPulse playing={sounding} color="#fff" size={16} />
+                      <NowPlayingPulse playing={sounding} color={LIGHT.surf} size={16} />
                     ) : (
-                      <Icon d={ICONS.playFill} size={15} color="#fff" sw={2} filled />
+                      <Icon d={ICONS.playFill} size={15} color={LIGHT.surf} sw={2} filled />
                     )}
                   </View>
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <Txt
                       s={13.5}
                       w={playingHere ? 800 : 700}
-                      c={playingHere ? p.color : T.t1}
+                      c={playingHere ? T.pri : T.t1}
                       numberOfLines={1}
                     >
                       {p.name}
                     </Txt>
-                    {/* Tocando: mostra a faixa em vez da contagem — é a
-                        informação que importa naquele instante. */}
                     <Txt s={11} c={T.t3} numberOfLines={1} style={{ marginTop: 2 }}>
                       {current
                         ? `${sounding ? 'Tocando' : 'Pausado'} · ${current.title}`
@@ -435,7 +446,7 @@ export function MusicScreen() {
                   <Touchable
                     onPress={() => playUserPlaylist(p)}
                     accessibilityLabel={'Tocar ' + p.name}
-                    style={{ padding: 6 }}
+                    style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                   >
                     <Icon d={ICONS.playFill} size={16} color={T.t1} sw={2} filled />
                   </Touchable>
@@ -446,8 +457,7 @@ export function MusicScreen() {
             </View>
           ) : (
             <Txt s={12.5} lh={1.5} c={T.t3} style={{ marginTop: 12 }}>
-              Você ainda não montou nenhuma. Uma playlist sua costuma acolher mais
-              do que uma sugestão genérica.
+              Você ainda não montou nenhuma. Uma seleção com as músicas que você já conhece costuma acolher melhor.
             </Txt>
           )}
 
@@ -455,8 +465,9 @@ export function MusicScreen() {
             onPress={() => actions.go('playlisteditor')}
             style={{
               marginTop: 14,
+              minHeight: 48,
               paddingVertical: 13,
-              borderRadius: 14,
+              borderRadius: 16,
               alignItems: 'center',
               flexDirection: 'row',
               justifyContent: 'center',
@@ -475,13 +486,14 @@ export function MusicScreen() {
               onPress={() => actions.go('spotifyimport')}
               style={{
                 marginTop: 8,
+                minHeight: 48,
                 paddingVertical: 13,
-                borderRadius: 14,
+                borderRadius: 16,
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
                 gap: 8,
-                backgroundColor: T.bg,
+                backgroundColor: T.surfWarm,
                 borderWidth: 1,
                 borderColor: T.bd,
               }}
@@ -496,7 +508,7 @@ export function MusicScreen() {
       </Section>
 
       {/* lista de playlists */}
-      <Section top={12} gap={9}>
+      <Section gap={10}>
         {PLAYLISTS.map((p) => {
           const on = p.id === currentId;
           const sounding = isSounding(p);
@@ -505,7 +517,7 @@ export function MusicScreen() {
             <View
               key={p.id}
               style={{
-                borderRadius: 20,
+                borderRadius: 22,
                 padding: 15,
                 backgroundColor: on ? hexA(p.c, isDark ? 0.2 : 0.13) : T.surf,
                 borderWidth: 1,
@@ -521,21 +533,22 @@ export function MusicScreen() {
                     backgroundColor: p.c,
                     alignItems: 'center',
                     justifyContent: 'center',
+                    flexShrink: 0,
                   }}
                 >
                   <Icon
                     d={sounding ? ICONS.pause : ICONS.playFill}
                     size={19}
-                    color="#fff"
+                    color={LIGHT.surf}
                     sw={2}
                     filled={!sounding}
                   />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Txt s={14.5} w={800} c={T.t1}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Txt s={14.5} w={800} c={T.t1} numberOfLines={1}>
                     {p.name}
                   </Txt>
-                  <Txt s={11.5} c={T.t2} style={{ marginTop: 3 }}>
+                  <Txt s={12} c={T.t2} style={{ marginTop: 3 }}>
                     {p.why}
                   </Txt>
                   <Txt s={11} c={T.t3} style={{ marginTop: 3 }}>
@@ -546,13 +559,15 @@ export function MusicScreen() {
                   onPress={() => togglePlaylist(p)}
                   accessibilityLabel={(sounding ? 'Pausar ' : 'Tocar ') + p.name}
                   style={{
-                    width: 38,
-                    height: 38,
+                    width: 44,
+                    height: 44,
                     borderRadius: 999,
                     borderWidth: 1,
                     borderColor: T.bd,
+                    backgroundColor: T.surfWarm,
                     alignItems: 'center',
                     justifyContent: 'center',
+                    flexShrink: 0,
                   }}
                 >
                   <Icon

@@ -233,13 +233,15 @@ export function PlaylistDetailScreen() {
               onPress={() => actions.go('music')}
               style={{
                 marginTop: 14,
+                minHeight: 46,
                 paddingVertical: 13,
                 borderRadius: 14,
                 alignItems: 'center',
+                justifyContent: 'center',
                 backgroundColor: T.pri,
               }}
             >
-              <Txt s={13} w={800} c="#fff">
+              <Txt s={13.5} w={800} c={T.onPri}>
                 Voltar para Música
               </Txt>
             </Touchable>
@@ -384,7 +386,7 @@ export function PlaylistDetailScreen() {
 
           {playlist.tracks.length === 0 ? (
             <Txt s={12.5} lh={1.5} c={T.t3} style={{ marginTop: 10 }}>
-              Nenhuma faixa ainda. Busque abaixo para adicionar.
+              Playlist pronta para receber suas primeiras músicas pela busca.
             </Txt>
           ) : (
             <View style={{ marginTop: 8 }}>

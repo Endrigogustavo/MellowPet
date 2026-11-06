@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { Accelerometer } from 'expo-sensors';
 
 import { Icon } from '../components/Icon';
 import { MellowMark } from '../components/PetFace';
 import { PetStage } from '../components/PetStage';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Bar, Card, PrimaryButton, Touchable, Txt } from '../components/ui';
+import { Bar, Card, Enter, PrimaryButton, Touchable, Txt } from '../components/ui';
 import { FACE_ICON, INTENSITY } from '../data/emotions';
 import { ICONS } from '../data/content';
 import { bumpProfileStats, levelFromXp } from '../profile/profileClient';
@@ -18,7 +18,7 @@ import { ACCESSORIES, TRAIT_LABEL, TRAIT_LINE, personality } from '../pet/habits
 import { growthProgress, localDay, STAGE_LABEL } from '../pet/growth';
 import { MEALS_PER_DAY, mealsLeft } from '../pet/feeding';
 import { useApp, useTheme } from '../state/AppContext';
-import { OK } from '../theme/palette';
+import { hapticTap } from '../theme/haptics';
 import { DivergenceCard } from '../components/DivergenceCard';
 import { GestureDelivery, NeedYouCard } from '../components/CaredPresence';
 
@@ -38,6 +38,7 @@ function HeaderButton({ d, onPress, label }: { d: string; onPress: () => void; l
         borderColor: T.bd,
         alignItems: 'center',
         justifyContent: 'center',
+        flexShrink: 0,
       }}
     >
       <Icon d={d} size={19} color={T.t1} />
@@ -45,18 +46,18 @@ function HeaderButton({ d, onPress, label }: { d: string; onPress: () => void; l
   );
 }
 
-/** Cartão de métrica: rótulo em caixa alta, número grande, legenda. */
+/** Cartão de métrica: rótulo calmo em caixa normal, número grande, legenda. */
 function Stat({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
   const { T } = useTheme();
   return (
-    <Card style={{ flex: 1 }} radius={20} padding={14}>
-      <Txt s={10} w={800} c={T.t3} ls={0.7} caps>
+    <Card style={{ flex: 1, minWidth: 0 }} radius={20} padding={14}>
+      <Txt s={11.5} w={700} c={T.t3} numberOfLines={1}>
         {label}
       </Txt>
-      <Txt s={21} w={800} c={color} style={{ marginTop: 5 }}>
+      <Txt s={21} w={800} c={color} style={{ marginTop: 4 }} numberOfLines={1}>
         {value}
       </Txt>
-      <Txt s={11.5} c={T.t2} style={{ marginTop: 2 }}>
+      <Txt s={11.5} c={T.t2} style={{ marginTop: 2 }} numberOfLines={1}>
         {sub}
       </Txt>
     </Card>
@@ -85,23 +86,27 @@ function CareAction({
       onPress={onPress}
       accessibilityLabel={sub ? `${label}, ${sub}` : label}
       style={{
-        opacity: dim ? 0.5 : 1,
+        opacity: dim ? 0.78 : 1,
         flex: 1,
+        minHeight: 70,
+        minWidth: 0,
         paddingVertical: 12,
-        borderRadius: 16,
+        paddingHorizontal: 8,
+        borderRadius: 20,
         backgroundColor: T.surf,
         borderWidth: 1,
         borderColor: T.bd,
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 5,
       }}
     >
-      <Icon d={d} size={19} color={T.pri} />
-      <Txt s={11} w={700} c={T.t2}>
+      <Icon d={d} size={20} color={T.pri} />
+      <Txt s={12} w={700} c={T.t1} numberOfLines={1}>
         {label}
       </Txt>
       {sub ? (
-        <Txt s={9.5} c={T.t3}>
+        <Txt s={10.5} c={T.t3} numberOfLines={1}>
           {sub}
         </Txt>
       ) : null}
@@ -111,11 +116,12 @@ function CareAction({
 
 export function HomeScreen() {
   const { state, actions } = useApp();
-  const { T, isDark, full, emo, emoColor, emoLight } = useTheme();
+  const { T, isDark, full, emo, emoColor, emoInk, emoLight } = useTheme();
 
   const [intLabel, intColor] = INTENSITY[emo.intensity];
   const left = mealsLeft(state.meals, localDay());
   const [fedNotice, setFedNotice] = useState(false);
+  const [showReadingWhy, setShowReadingWhy] = useState(false);
   // O widget tentou alimentar além do limite: mostra o mesmo aviso aqui.
   useEffect(() => {
     if (!state.fedFull) return;
@@ -167,13 +173,15 @@ export function HomeScreen() {
   // cooldown pra não disparar em loop enquanto a pessoa continua balançando.
   const lastShakeAtRef = useRef(0);
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     Accelerometer.setUpdateInterval(120);
     const subscription = Accelerometer.addListener(({ x, y, z }) => {
       const magnitude = Math.sqrt(x * x + y * y + z * z);
       const now = Date.now();
       if (magnitude > 2.2 && now - lastShakeAtRef.current > 1500) {
         lastShakeAtRef.current = now;
-        bumpCare({ played: 1, xp: 4 }, { petMood: 'surprised' });
+        actions.triggerPetAction('play');
+        bumpCare({ played: 1, xp: 4 }, { petMood: 'happy' });
         actions.pet();
       }
     });
@@ -183,13 +191,17 @@ export function HomeScreen() {
 
   const modePill = (on: boolean) => ({
     flex: 1,
+    minHeight: 44,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     gap: 7,
     borderRadius: 14,
-    paddingVertical: 11,
-    backgroundColor: on ? T.priL : T.bg,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    backgroundColor: on ? T.surf : 'transparent',
+    borderWidth: on ? 1 : 0,
+    borderColor: T.bd,
   });
 
   return (
@@ -200,11 +212,23 @@ export function HomeScreen() {
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          paddingHorizontal: 20,
+          gap: 10,
+          paddingHorizontal: 18,
           paddingBottom: 14,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+        <Touchable
+          onPress={() => actions.go('vision')}
+          accessibilityLabel={`Abrir sessão de leitura visual (${signalLabel})`}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            flex: 1,
+            minWidth: 0,
+            minHeight: 48,
+          }}
+        >
           <View
             style={{
               width: 44,
@@ -213,27 +237,31 @@ export function HomeScreen() {
               backgroundColor: T.priL,
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
             <MellowMark size={26} color={T.pri} faceColor={T.surf} />
           </View>
-          <View style={{ flex: 1 }}>
-            <Txt s={22} w={800} c={T.t1} ls={-0.5} numberOfLines={1}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Txt s={22} w={800} c={T.t1} ls={-0.4} numberOfLines={1}>
               {state.petName}
             </Txt>
-            <Touchable
-              onPress={() => actions.go('vision')}
-              accessibilityLabel="Abrir sessão de leitura visual"
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                marginTop: 2,
+              }}
             >
-              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: OK }} />
-              <Txt s={12} c={T.t3}>
+              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: T.ok }} />
+              <Txt s={12} c={T.t3} numberOfLines={1}>
                 {signalLabel}
               </Txt>
-            </Touchable>
+            </View>
           </View>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        </Touchable>
+        <View style={{ flexDirection: 'row', gap: 8, flexShrink: 0 }}>
           <HeaderButton
             d={isDark ? ICONS.moon : ICONS.sun}
             onPress={actions.toggleTheme}
@@ -248,38 +276,43 @@ export function HomeScreen() {
       <View
         style={{
           flexDirection: 'row',
-          gap: 8,
-          marginHorizontal: 16,
-          marginBottom: 4,
-          padding: 6,
-          backgroundColor: T.surf,
+          gap: 6,
+          marginHorizontal: 18,
+          marginBottom: 6,
+          padding: 5,
+          backgroundColor: T.surfWarm,
           borderRadius: 18,
           borderWidth: 1,
-          borderColor: T.bd,
+          borderColor: T.bdL,
         }}
       >
         <Touchable
-          onPress={() => actions.set((s) => ({ focus: !s.focus, breathing: false }))}
+          onPress={() => {
+            hapticTap();
+            actions.set((s) => ({ focus: !s.focus, breathing: false }));
+          }}
+          accessibilityState={{ selected: state.focus }}
           style={modePill(state.focus)}
         >
           <Icon d={ICONS.focus} size={17} color={state.focus ? T.pri : T.t2} circle />
-          <Txt s={13} w={600} c={state.focus ? T.pri : T.t2}>
+          <Txt s={13} w={700} c={state.focus ? T.pri : T.t2} numberOfLines={1}>
             Modo foco
           </Txt>
         </Touchable>
         <Touchable
           onPress={() => {
+            hapticTap();
             if (!state.breathing) {
               actions.markCare();
               actions.habit('breath');
             }
             actions.set((s) => ({ breathing: !s.breathing, breathTick: 0, focus: false }));
-          }
-          }
+          }}
+          accessibilityState={{ selected: state.breathing }}
           style={modePill(state.breathing)}
         >
           <Icon d={ICONS.heart} size={17} color={state.breathing ? T.pri : T.t2} />
-          <Txt s={13} w={600} c={state.breathing ? T.pri : T.t2}>
+          <Txt s={13} w={700} c={state.breathing ? T.pri : T.t2} numberOfLines={1}>
             Respiração
           </Txt>
         </Touchable>
@@ -293,28 +326,26 @@ export function HomeScreen() {
             <Txt s={12.5} lh={1.45} c={T.t2} accessibilityLiveRegion="polite">
               {state.inviteNotice}
             </Txt>
-            <Touchable onPress={() => actions.set({ inviteNotice: null })} accessibilityRole="button" style={{ marginTop: 8 }}>
-              <Txt s={12} w={800} c={T.pri}>
+            <Touchable
+              onPress={() => actions.set({ inviteNotice: null })}
+              accessibilityRole="button"
+              style={{ marginTop: 6, minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}
+            >
+              <Txt s={12.5} w={800} c={T.pri}>
                 Entendi
               </Txt>
             </Touchable>
           </Card>
         </Section>
       ) : null}
-      <Section top={10}>
+      <View style={{ marginHorizontal: 18, gap: 10 }}>
         <GestureDelivery />
-      </Section>
-      <Section top={10}>
         <RitualCard />
-      </Section>
-      <Section top={10}>
         <NeedYouCard />
-      </Section>
-      <Section top={10}>
         <DivergenceCard />
-      </Section>
+      </View>
       {state.unlockEvent ? (
-        <Section top={10}>
+        <Section top={12}>
           <Card radius={22} padding={16}>
             <Txt s={14.5} w={800} c={T.t1}>
               {state.petName} ganhou: {ACCESSORIES.find((a) => a.id === state.unlockEvent)?.label}
@@ -322,7 +353,7 @@ export function HomeScreen() {
             <Txt s={12.5} lh={1.5} c={T.t2} style={{ marginTop: 4 }}>
               Prêmio pela constância de vocês. Quer vestir agora?
             </Txt>
-            <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center', marginTop: 12 }}>
+            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', marginTop: 12 }}>
               <PrimaryButton
                 label="Vestir"
                 onPress={() => {
@@ -331,7 +362,11 @@ export function HomeScreen() {
                 }}
                 style={{ flex: 1 }}
               />
-              <Touchable onPress={() => actions.set({ unlockEvent: null })} accessibilityLabel="Depois">
+              <Touchable
+                onPress={() => actions.set({ unlockEvent: null })}
+                accessibilityLabel="Depois"
+                style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' }}
+              >
                 <Txt s={12.5} w={800} c={T.t3}>
                   Depois
                 </Txt>
@@ -346,33 +381,34 @@ export function HomeScreen() {
 
       {/* conexão com cuidador */}
       {!state.linked && !state.dismissedCards.includes('caregiver_connect') ? (
-        <Section top={2}>
-          <View style={{ padding: 16, borderRadius: 20, backgroundColor: T.priL }}>
+        <Section top={8}>
+          <View style={{ padding: 16, borderRadius: 22, backgroundColor: T.priL }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
               <View
                 style={{
-                  width: 36,
-                  height: 36,
+                  width: 38,
+                  height: 38,
                   borderRadius: 999,
                   backgroundColor: T.surf,
                   alignItems: 'center',
                   justifyContent: 'center',
+                  flexShrink: 0,
                 }}
               >
                 <Icon d={ICONS.people} size={17} color={T.pri} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Txt s={13} w={800} c={T.t1}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Txt s={13.5} w={800} c={T.t1}>
                   Conecte um cuidador
                 </Txt>
-                <Txt s={11.5} lh={1.45} c={T.t2} style={{ marginTop: 3 }}>
+                <Txt s={12} lh={1.45} c={T.t2} style={{ marginTop: 3 }}>
                   Alguém te enviou um código de convite? Adicione em Ajustes quando quiser.
                 </Txt>
               </View>
               <Touchable
                 onPress={() => actions.dismissCard('caregiver_connect')}
-                accessibilityLabel="Fechar"
-                style={{ padding: 6 }}
+                accessibilityLabel="Fechar aviso de cuidador"
+                style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
               >
                 <Icon d={ICONS.close} size={16} color={T.t3} />
               </Touchable>
@@ -381,13 +417,15 @@ export function HomeScreen() {
               onPress={() => actions.go('settings')}
               style={{
                 marginTop: 12,
+                minHeight: 46,
                 paddingVertical: 11,
                 borderRadius: 14,
                 alignItems: 'center',
+                justifyContent: 'center',
                 backgroundColor: T.pri,
               }}
             >
-              <Txt s={13} w={800} c="#fff">
+              <Txt s={13} w={800} c={T.onPri}>
                 Ir para Ajustes
               </Txt>
             </Touchable>
@@ -396,11 +434,11 @@ export function HomeScreen() {
       ) : null}
 
       {state.feedback !== null ? (
-        <Section>
-          <View style={{ padding: 12, paddingHorizontal: 15, borderRadius: 16, backgroundColor: emoLight }}>
-            <Txt s={12.5} c={T.t2}>
+        <Section top={12}>
+          <View style={{ padding: 13, paddingHorizontal: 16, borderRadius: 18, backgroundColor: emoLight }}>
+            <Txt s={12.5} lh={1.5} c={T.t2}>
               {state.feedback === 'yes'
-                ? 'Obrigado — a leitura reforça um pouco o que acertou no seu rosto.'
+                ? 'Obrigado. A leitura reforça um pouco o que acertou no seu rosto.'
                 : state.feedback === 'no'
                   ? 'Anotado. A leitura fica um pouco mais exigente com essa emoção no seu rosto.'
                   : 'Tudo bem não ter certeza. Nenhuma correção foi presumida.'}
@@ -410,17 +448,21 @@ export function HomeScreen() {
       ) : null}
 
       {/* alimentar / brincar / descansar */}
-      <Section style={{ flexDirection: 'row', gap: 8 }}>
+      <Section top={14} style={{ flexDirection: 'row', gap: 8 }}>
         <CareAction
           d={ICONS.feed}
           label="Alimentar"
           sub={left > 0 ? `${left} de ${MEALS_PER_DAY} hoje` : 'satisfeito hoje'}
           dim={left === 0}
           onPress={() => {
-            if (actions.feed()) {
+            if (left > 0 && actions.feed()) {
+              actions.triggerPetAction('feed');
               actions.markCare();
               return;
             }
+            // Limite atingido: impossibilita de comer mais e balança a cabeça dizendo não
+            hapticTap(state.toggles.haptics !== false);
+            actions.triggerPetAction('refuse');
             setFedNotice(true);
           }}
         />
@@ -428,32 +470,35 @@ export function HomeScreen() {
           d={ICONS.play}
           label="Brincar"
           onPress={() => {
+            hapticTap(state.toggles.haptics !== false);
             actions.habit('play');
-            bumpCare({ played: 1, xp: 4 }, { petMood: 'surprised' });
+            actions.triggerPetAction('play');
+            bumpCare({ played: 1, xp: 4 }, { petMood: 'happy' });
           }}
         />
         <CareAction
           d={ICONS.rest}
           label="Descansar"
           onPress={() => {
+            hapticTap(state.toggles.haptics !== false);
             actions.habit('rest');
-            bumpCare({ xp: 3 }, { petMood: 'neutral', breathing: true, breathTick: 0 });
+            bumpCare({ xp: 3 }, { petMood: 'neutral', breathing: true, breathTick: 0, petAction: null });
           }}
         />
       </Section>
       {fedNotice ? (
-        <Section top={6}>
+        <Section top={8}>
           <Txt s={12} lh={1.45} c={T.t2} style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">
-            {state.petName} já comeu {MEALS_PER_DAY} vezes hoje e está satisfeito. Brincar e descansar continuam valendo.
+            {state.petName} já fez as {MEALS_PER_DAY} refeições de hoje e está de barriguinha cheia. Brincar e descansar continuam valendo!
           </Txt>
         </Section>
       ) : null}
 
       {/* nível e vínculo */}
       <Section>
-        <Card radius={18} padding={13} style={{ paddingHorizontal: 16 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <Txt s={12.5} w={800} c={T.t1}>
+        <Card radius={22} padding={16}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+            <Txt s={13} w={800} c={T.t1}>
               Nível {levelFromXp(state.xp)}
             </Txt>
             <Txt s={11.5} c={T.t3}>
@@ -467,14 +512,22 @@ export function HomeScreen() {
           {(() => {
             const g = growthProgress(state.careDays);
             return (
-              <View style={{ marginTop: 11, paddingTop: 10, borderTopWidth: 1, borderTopColor: T.bd }}>
-                <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                  <Txt s={12.5} w={800} c={T.t1}>
+              <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: T.bdL }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <Txt s={13} w={800} c={T.t1} numberOfLines={1} style={{ flexShrink: 1, minWidth: 0 }}>
                     {state.petName} · {STAGE_LABEL[g.stage]}
                   </Txt>
-                  <Txt s={11.5} c={T.t3}>
+                  <Txt s={11.5} c={T.t3} style={{ flexShrink: 0 }}>
                     {g.next
-                      ? `${g.remaining} ${g.remaining === 1 ? 'dia' : 'dias'} de cuidado para virar ${STAGE_LABEL[g.next].toLowerCase()}`
+                      ? `${g.remaining} ${g.remaining === 1 ? 'dia' : 'dias'} para ${STAGE_LABEL[g.next].toLowerCase()}`
                       : 'crescido'}
                   </Txt>
                 </View>
@@ -488,18 +541,43 @@ export function HomeScreen() {
             const traits = personality(state.habits);
             return traits ? (
               <Txt s={12} lh={1.5} c={T.t2} style={{ marginTop: 10 }}>
-                {state.petName} é {traits.map((t) => TRAIT_LABEL[t]).join(' e ')} — {TRAIT_LINE[traits[0]]}
+                {state.petName} é {traits.map((t) => TRAIT_LABEL[t]).join(' e ')}: {TRAIT_LINE[traits[0]]}
               </Txt>
             ) : null;
           })()}
-          <View style={{ flexDirection: 'row', gap: 16, marginTop: 10 }}>
-            <Touchable onPress={() => actions.go('wardrobe')} accessibilityLabel="Abrir guarda-roupa">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+            <Touchable
+              onPress={() => actions.go('wardrobe')}
+              accessibilityLabel="Abrir guarda-roupa"
+              style={{
+                minHeight: 44,
+                paddingHorizontal: 14,
+                borderRadius: 999,
+                backgroundColor: T.surfWarm,
+                borderWidth: 1,
+                borderColor: T.bdL,
+                justifyContent: 'center',
+              }}
+            >
               <Txt s={12.5} w={800} c={T.pri}>
                 Guarda-roupa
               </Txt>
             </Touchable>
-            <Touchable onPress={() => actions.go('lullaby')} accessibilityLabel="Ninar o pet">
-              <Txt s={12.5} w={800} c={T.pri}>
+            <Touchable
+              onPress={() => actions.go('lullaby')}
+              accessibilityLabel={`Ninar ${state.petName}`}
+              style={{
+                minHeight: 44,
+                maxWidth: '100%',
+                paddingHorizontal: 14,
+                borderRadius: 999,
+                backgroundColor: T.surfWarm,
+                borderWidth: 1,
+                borderColor: T.bdL,
+                justifyContent: 'center',
+              }}
+            >
+              <Txt s={12.5} w={800} c={T.pri} numberOfLines={1}>
                 Ninar {state.petName}
               </Txt>
             </Touchable>
@@ -509,39 +587,40 @@ export function HomeScreen() {
 
       {/* leitura da emoção */}
       <Section>
-        <View style={{ padding: 16, borderRadius: 20, backgroundColor: emoLight }}>
+        <View style={{ padding: 16, borderRadius: 22, backgroundColor: emoLight }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
             <View
               style={{
-                width: 42,
-                height: 42,
-                borderRadius: 14,
+                width: 44,
+                height: 44,
+                borderRadius: 15,
                 backgroundColor: T.surf,
                 alignItems: 'center',
                 justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
               <Icon
                 d={[FACE_ICON[state.observedExpression], 'M9 9.5h.01', 'M15 9.5h.01']}
                 size={22}
-                color={emoColor}
+                color={emoInk}
                 sw={1.9}
                 circle
               />
             </View>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
                 <Txt s={17} w={800} c={T.t1}>
                   {emo.label}
                 </Txt>
-                <Txt s={12} c={T.t3} cap>
+                <Txt s={12} c={T.t2} cap>
                   {emo.variant}
                 </Txt>
               </View>
               <View style={{ marginTop: 8 }}>
                 <Bar pct={confPct} color={emoColor} height={5} />
               </View>
-              <Txt s={12} w={700} c={emoColor} style={{ marginTop: 5 }}>
+              <Txt s={12} w={700} c={emoInk} style={{ marginTop: 5 }}>
                 {hasReliableReading ? `${confPct}% de confiança do sinal` : 'Sem leitura confiável'}
               </Txt>
             </View>
@@ -551,96 +630,160 @@ export function HomeScreen() {
             {emo.msg}
           </Txt>
 
-          {/* por que o Mellow leu isso: os sinais do rosto que puxaram a leitura */}
-          {hasReliableReading && state.readingEvidence.length > 0 ? (
-            <View style={{ marginTop: 13, paddingTop: 13, borderTopWidth: 1, borderTopColor: T.bd }}>
-              <Txt s={11} w={800} c={T.t3} ls={1.2}>
-                POR QUE O MELLOW LEU ISSO
-              </Txt>
-              <View style={{ gap: 8, marginTop: 9 }}>
-                {state.readingEvidence.map((signal) => (
-                  <View key={signal.label}>
-                    <View
-                      style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}
+          {/* por que o Mellow leu isso: recolhido por padrão, abre ao tocar no círculo com "?" */}
+          {hasReliableReading ? (
+            <View style={{ marginTop: 12, paddingTop: 6, borderTopWidth: 1, borderTopColor: T.bd }}>
+              <Touchable
+                onPress={() => {
+                  hapticTap();
+                  setShowReadingWhy((v) => !v);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showReadingWhy }}
+                accessibilityLabel={
+                  showReadingWhy
+                    ? 'Ocultar por que o Mellow leu isso'
+                    : 'Ver por que o Mellow leu isso'
+                }
+                style={{
+                  minHeight: 44,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  alignSelf: 'flex-start',
+                  paddingRight: 8,
+                }}
+              >
+                <Txt s={12.5} w={800} c={T.t2}>
+                  Por que o Mellow leu isso
+                </Txt>
+                <View
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 999,
+                    backgroundColor: showReadingWhy ? T.pri : T.surf,
+                    borderWidth: 1,
+                    borderColor: showReadingWhy ? T.pri : T.bd,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Txt s={10.5} w={800} lh={1} c={showReadingWhy ? T.onPri : T.pri}>
+                    ?
+                  </Txt>
+                </View>
+              </Touchable>
+
+              {showReadingWhy ? (
+                <Enter seq={1}>
+                  {state.readingEvidence.length > 0 ? (
+                    <View style={{ marginTop: 6 }}>
+                      <View style={{ gap: 8 }}>
+                        {state.readingEvidence.map((signal) => (
+                          <View key={signal.label}>
+                            <View
+                              style={{
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                alignItems: 'baseline',
+                                gap: 8,
+                              }}
+                            >
+                              <Txt s={12.5} w={700} c={T.t1} style={{ flex: 1, minWidth: 0 }}>
+                                {signal.label}
+                              </Txt>
+                              <Txt s={11.5} c={T.t3}>
+                                {Math.round(signal.strength * 100)}%
+                              </Txt>
+                            </View>
+                            <View style={{ marginTop: 4 }}>
+                              <Bar pct={signal.strength * 100} color={emoColor} height={4} />
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                      <Txt s={11.5} lh={1.45} c={T.t2} style={{ marginTop: 10 }}>
+                        É o que o rosto mostrou, não o que você sente. Testa franzida também pode ser concentração.
+                      </Txt>
+                    </View>
+                  ) : null}
+
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginTop: 14,
+                      paddingTop: 14,
+                      borderTopWidth: 1,
+                      borderTopColor: T.bd,
+                    }}
+                  >
+                    <Txt s={12} w={700} c={T.t2} style={{ flex: 1, minWidth: 0 }}>
+                      Essa leitura combinou com o que você percebeu agora?
+                    </Txt>
+                    <Touchable
+                      onPress={() => {
+                        hapticTap();
+                        actions.giveFeedback('yes');
+                      }}
+                      accessibilityLabel="Leitura correta"
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 999,
+                        backgroundColor: T.surf,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
                     >
-                      <Txt s={12.5} w={700} c={T.t1}>
-                        {signal.label}
+                      <Icon d={ICONS.check} size={17} color={T.ok} sw={2.1} />
+                    </Touchable>
+                    <Touchable
+                      onPress={() => {
+                        hapticTap();
+                        actions.giveFeedback('no');
+                      }}
+                      accessibilityLabel="Leitura incorreta"
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 999,
+                        backgroundColor: T.surf,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon d={ICONS.close} size={17} color={T.danger} sw={2.1} />
+                    </Touchable>
+                    <Touchable
+                      onPress={() => {
+                        hapticTap();
+                        actions.giveFeedback('unsure');
+                      }}
+                      accessibilityLabel="Não tenho certeza sobre a leitura"
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 999,
+                        backgroundColor: T.surf,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Txt s={15} w={800} c={T.t2}>
+                        ?
                       </Txt>
-                      <Txt s={11} c={T.t3}>
-                        {Math.round(signal.strength * 100)}%
-                      </Txt>
-                    </View>
-                    <View style={{ marginTop: 4 }}>
-                      <Bar pct={signal.strength * 100} color={emoColor} height={4} />
-                    </View>
+                    </Touchable>
                   </View>
-                ))}
-              </View>
-              <Txt s={11} lh={1.45} c={T.t3} style={{ marginTop: 9 }}>
-                É o que o rosto mostrou, não o que você sente. Testa franzida também pode ser concentração.
-              </Txt>
+                </Enter>
+              ) : null}
             </View>
           ) : null}
-
-          {hasReliableReading ? <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 8,
-              marginTop: 13,
-              paddingTop: 13,
-              borderTopWidth: 1,
-              borderTopColor: T.bd,
-            }}
-          >
-            <Txt s={12} w={700} c={T.t2} style={{ flex: 1 }}>
-              Essa leitura combinou com o que você percebeu agora?
-            </Txt>
-            <Touchable
-              onPress={() => actions.giveFeedback('yes')}
-              accessibilityLabel="Leitura correta"
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 999,
-                backgroundColor: T.surf,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Icon d={ICONS.check} size={16} color={OK} sw={2} />
-            </Touchable>
-            <Touchable
-              onPress={() => actions.giveFeedback('no')}
-              accessibilityLabel="Leitura incorreta"
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 999,
-                backgroundColor: T.surf,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Icon d={ICONS.close} size={16} color="#EF4444" sw={2} />
-            </Touchable>
-            <Touchable
-              onPress={() => actions.giveFeedback('unsure')}
-              accessibilityLabel="Não tenho certeza sobre a leitura"
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 999,
-                backgroundColor: T.surf,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Txt s={15} w={800} c={T.t3}>
-                ?
-              </Txt>
-            </Touchable>
-          </View> : null}
         </View>
       </Section>
 
@@ -653,9 +796,10 @@ export function HomeScreen() {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 12,
-            padding: 14,
+            minHeight: 68,
+            padding: 15,
             paddingHorizontal: 16,
-            borderRadius: 20,
+            borderRadius: 22,
             backgroundColor: T.surf,
             borderWidth: 1,
             borderColor: T.bd,
@@ -663,21 +807,22 @@ export function HomeScreen() {
         >
           <View
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 14,
+              width: 42,
+              height: 42,
+              borderRadius: 15,
               backgroundColor: T.priL,
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
             <Icon d={ICONS.smile} size={20} color={T.pri} sw={1.9} />
           </View>
-          <View style={{ flex: 1 }}>
-            <Txt s={13.5} w={800} c={T.t1}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Txt s={14} w={800} c={T.t1}>
               E por dentro, como você está?
             </Txt>
-            <Txt s={11.5} lh={1.4} c={T.t3} style={{ marginTop: 2 }}>
+            <Txt s={12} lh={1.45} c={T.t3} style={{ marginTop: 2 }}>
               Registre em segundos e compare com o que o Mellow leu.
             </Txt>
           </View>
@@ -686,14 +831,14 @@ export function HomeScreen() {
       </Section>
 
       <Section style={{ flexDirection: 'row', gap: 8 }}>
-        <Stat label="Intensidade visual" value={intLabel} sub="expressão observada" color={intColor} />
-        <Stat label="Duração" value={streakLabel} sub="mesma leitura" color={emoColor} />
+        <Stat label="Intensidade visual" value={intLabel} sub="expressão observada" color={isDark ? T.t1 : intColor} />
+        <Stat label="Duração" value={streakLabel} sub="mesma leitura" color={emoInk} />
       </Section>
 
       {full ? (
         <>
           <Section style={{ flexDirection: 'row', gap: 8 }}>
-            <Stat label="Qualidade" value={`${qualityPct}%`} sub="sinal da câmera" color={OK} />
+            <Stat label="Qualidade" value={`${qualityPct}%`} sub="sinal da câmera" color={T.ok} />
             <Stat
               label="Origem"
               value={state.visionMode === 'demo' ? 'Demo' : 'Local'}
@@ -721,13 +866,13 @@ export function HomeScreen() {
               <View style={{ gap: 10 }}>
                 {emo.scores.map(([name, pct]) => (
                   <View key={name} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <Txt s={12} c={T.t2} style={{ width: 78 }}>
+                    <Txt s={12} c={T.t2} style={{ width: 78 }} numberOfLines={1}>
                       {name}
                     </Txt>
                     <View style={{ flex: 1 }}>
                       <Bar pct={pct} color={emoColor} />
                     </View>
-                    <Txt s={12} c={T.t3} style={{ width: 36, textAlign: 'right' }}>
+                    <Txt s={12} c={T.t3} style={{ width: 38, textAlign: 'right' }}>
                       {pct}%
                     </Txt>
                   </View>
@@ -751,24 +896,12 @@ export function HomeScreen() {
           </Section>
 
           <Section>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                gap: 9,
-                padding: 14,
-                paddingHorizontal: 16,
-                borderRadius: 20,
-                borderWidth: 1,
-                borderStyle: 'dashed',
-                borderColor: T.bd,
-              }}
-            >
-              <Icon d={ICONS.heartOutline} size={16} color={T.pri} sw={1.9} />
-              <Txt s={12.5} lh={1.55} c={T.t2} style={{ flex: 1 }}>
+            <Card variant="warm" radius={20} padding={15} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+              <Icon d={ICONS.heartOutline} size={17} color={T.pri} sw={1.9} />
+              <Txt s={12.5} lh={1.55} c={T.t2} style={{ flex: 1, minWidth: 0 }}>
                 {emo.tip}
               </Txt>
-            </View>
+            </Card>
           </Section>
         </>
       ) : null}

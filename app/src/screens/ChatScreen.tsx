@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, ScrollView, TextInput, View } from 'react-native';
+import { Animated, Easing, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '../components/Icon';
 import { MellowMark } from '../components/PetFace';
-import { Touchable, Txt } from '../components/ui';
+import { Touchable, Txt, useReducedMotion } from '../components/ui';
 import { ICONS, QUICK_PROMPTS } from '../data/content';
 import {
   CARE_CHAT_EMPTY_MESSAGE,
@@ -14,6 +14,8 @@ import {
 } from '../data/caregiverContent';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useApp, useTheme } from '../state/AppContext';
+import { hapticTap } from '../theme/haptics';
+import { LIGHT } from '../theme/palette';
 import { font } from '../theme/type';
 import { ACTION_LABEL } from '../chat/actions';
 import { ChatModelPicker } from '../components/ChatModelPicker';
@@ -23,25 +25,32 @@ import { askCopilot, type CopilotSummary } from '../care/presenceClient';
 import { useCareResource } from '../care/useCareResource';
 import { useCurrentCareLink } from '../components/CareStates';
 
-/** Um dos três pontinhos de "digitando" — keyframe `mp-dots`. */
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
+
+/** Um dos três pontinhos de "digitando". */
 function Dot({ delay, color }: { delay: number; color: string }) {
   const [v] = useState(() => new Animated.Value(0));
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    if (reduced) {
+      v.setValue(0.3);
+      return;
+    }
     const anim = Animated.loop(
       Animated.sequence([
         Animated.delay(delay),
         Animated.timing(v, {
           toValue: 1,
-          duration: 1100,
-          easing: Easing.linear,
-          useNativeDriver: true,
+          duration: 1000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ])
     );
     anim.start();
     return () => anim.stop();
-  }, [delay, v]);
+  }, [delay, v, reduced]);
 
   return (
     <Animated.View
@@ -52,7 +61,7 @@ function Dot({ delay, color }: { delay: number; color: string }) {
         backgroundColor: color,
         opacity: v.interpolate({ inputRange: [0, 0.3, 0.6, 1], outputRange: [0.25, 1, 0.25, 0.25] }),
         transform: [
-          { translateY: v.interpolate({ inputRange: [0, 0.3, 0.6, 1], outputRange: [0, -4, 0, 0] }) },
+          { translateY: v.interpolate({ inputRange: [0, 0.3, 0.6, 1], outputRange: [0, -3.5, 0, 0] }) },
         ],
       }}
     />
@@ -61,7 +70,7 @@ function Dot({ delay, color }: { delay: number; color: string }) {
 
 export function ChatScreen() {
   const { state, actions } = useApp();
-  const { T, isDark, emo, emoColor, emoLight } = useTheme();
+  const { T, emo, emoInk, emoLight } = useTheme();
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollView>(null);
   const keyboard = useKeyboardHeight();
@@ -113,56 +122,58 @@ export function ChatScreen() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: T.bg }}>
       {/* cabeçalho */}
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 12,
+          gap: 10,
           paddingTop: insets.top + 10,
           paddingBottom: 14,
           paddingHorizontal: 18,
           borderBottomWidth: 1,
-          borderBottomColor: T.bd,
+          borderBottomColor: T.bdL,
         }}
       >
         <Touchable
           onPress={() => actions.back() || actions.goTab(state.role === 'care' ? 'care' : 'home')}
           accessibilityLabel="Voltar"
           style={{
-            width: 36,
-            height: 36,
+            width: 44,
+            height: 44,
             borderRadius: 999,
             backgroundColor: T.surf,
             borderWidth: 1,
             borderColor: T.bd,
             alignItems: 'center',
             justifyContent: 'center',
+            flexShrink: 0,
           }}
         >
-          <Icon d={ICONS.back} size={16} color={T.t1} sw={2.2} />
+          <Icon d={ICONS.back} size={17} color={T.t1} sw={2.2} />
         </Touchable>
 
         <View
           style={{
-            width: 38,
-            height: 38,
+            width: 40,
+            height: 40,
             borderRadius: 999,
-          backgroundColor: isCare ? T.priL : emoLight,
+            backgroundColor: isCare ? T.priL : emoLight,
             alignItems: 'center',
             justifyContent: 'center',
+            flexShrink: 0,
           }}
         >
-          <MellowMark size={24} color={isCare ? T.pri : emoColor} faceColor={T.surf} smile={false} />
+          <MellowMark size={24} color={isCare ? T.pri : emoInk} faceColor={T.surf} smile={false} />
         </View>
 
-        <View style={{ flex: 1 }}>
-          <Txt s={15} w={800} c={T.t1}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Txt s={15.5} w={800} c={T.t1} numberOfLines={1}>
             {isCare ? 'Apoio ao cuidador' : state.petName}
           </Txt>
-          <Txt s={11.5} c={T.t3}>
-            {isCare ? 'Conversa para organizar apoio com respeito' : `sabe que você está ${emo.label.toLowerCase()}`}
+          <Txt s={11.5} c={T.t3} numberOfLines={1}>
+            {isCare ? 'Conversa para organizar apoio com respeito' : `acompanha seu momento (${emo.label.toLowerCase()})`}
           </Txt>
         </View>
 
@@ -170,17 +181,18 @@ export function ChatScreen() {
           onPress={() => actions.set({ messages: [] })}
           accessibilityLabel="Limpar conversa"
           style={{
-            width: 36,
-            height: 36,
+            width: 44,
+            height: 44,
             borderRadius: 999,
             backgroundColor: T.surf,
             borderWidth: 1,
             borderColor: T.bd,
             alignItems: 'center',
             justifyContent: 'center',
+            flexShrink: 0,
           }}
         >
-          <Icon d={ICONS.trash} size={15} color={T.t3} sw={1.9} />
+          <Icon d={ICONS.trash} size={16} color={T.t3} sw={1.9} />
         </Touchable>
       </View>
 
@@ -191,23 +203,27 @@ export function ChatScreen() {
       <ScrollView
         ref={scroll}
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 18, paddingHorizontal: 16, gap: 10 }}
+        contentContainerStyle={{ padding: 18, paddingHorizontal: 18, gap: 10 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {state.messages.length === 0 && !state.typing ? (
-          <View style={{ alignItems: 'center', gap: 14, paddingVertical: 26, paddingHorizontal: 10 }}>
+          <View style={{ alignItems: 'center', gap: 14, paddingVertical: 26, paddingHorizontal: 8 }}>
             <Txt s={14.5} lh={1.65} c={T.t2} center>
               {isCare
                 ? CARE_CHAT_EMPTY_MESSAGE
-                : 'Estou aqui. Você pode escrever uma frase só — eu organizo o resto com você.'}
+                : 'Estou aqui. Você pode escrever uma frase só, e a gente organiza o resto juntos.'}
             </Txt>
             <View style={{ width: '100%', gap: 8, marginTop: 4 }}>
               {prompts.map((text) => (
                 <Touchable
                   key={text}
-                  onPress={() => actions.set({ chatInput: text })}
+                  onPress={() => {
+                    hapticTap();
+                    actions.set({ chatInput: text });
+                  }}
                   style={{
+                    minHeight: 46,
                     paddingVertical: 12,
                     paddingHorizontal: 16,
                     borderRadius: 999,
@@ -215,9 +231,10 @@ export function ChatScreen() {
                     borderColor: T.bd,
                     backgroundColor: T.surf,
                     alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  <Txt s={13} c={T.t2}>
+                  <Txt s={13} c={T.t2} center>
                     {text}
                   </Txt>
                 </Touchable>
@@ -246,9 +263,10 @@ export function ChatScreen() {
                     backgroundColor: isCare ? T.priL : emoLight,
                     alignItems: 'center',
                     justifyContent: 'center',
+                    flexShrink: 0,
                   }}
                 >
-                  <MellowMark size={19} color={isCare ? T.pri : emoColor} faceColor={T.surf} smile={false} />
+                  <MellowMark size={19} color={isCare ? T.pri : emoInk} faceColor={T.surf} smile={false} />
                 </View>
               ) : null}
               <View
@@ -265,20 +283,20 @@ export function ChatScreen() {
                 }}
               >
                 <Txt
-                  s={14}
+                  s={14.5}
                   lh={1.55}
                   w={bot ? 400 : 600}
-                  c={bot ? T.t1 : isDark ? '#241730' : '#fff'}
+                  c={bot ? T.t1 : T.onPri}
                 >
                   {m.content}
                 </Txt>
                 {bot && m.source === 'device' ? (
-                  <Txt s={10} w={800} c={T.t3} ls={0.8} style={{ marginTop: 5 }}>
-                    NO APARELHO · NADA FOI ENVIADO
+                  <Txt s={10.5} w={700} c={T.t3} style={{ marginTop: 5 }}>
+                    No aparelho · nada foi enviado
                   </Txt>
                 ) : bot && m.source === 'server' ? (
-                  <Txt s={10} w={800} c={T.t3} ls={0.8} style={{ marginTop: 5 }}>
-                    NUVEM
+                  <Txt s={10.5} w={700} c={T.t3} style={{ marginTop: 5 }}>
+                    Nuvem
                   </Txt>
                 ) : null}
                 {bot && m.source === 'crisis' ? (
@@ -287,14 +305,16 @@ export function ChatScreen() {
                     accessibilityLabel="Preciso de ajuda"
                     style={{
                       marginTop: 10,
+                      minHeight: 44,
                       alignSelf: 'flex-start',
-                      paddingVertical: 8,
-                      paddingHorizontal: 14,
+                      justifyContent: 'center',
+                      paddingVertical: 9,
+                      paddingHorizontal: 16,
                       borderRadius: 999,
-                      backgroundColor: '#E5484D',
+                      backgroundColor: T.danger,
                     }}
                   >
-                    <Txt s={12.5} w={800} c="#fff">
+                    <Txt s={12.5} w={800} c={LIGHT.surf}>
                       Preciso de ajuda
                     </Txt>
                   </Touchable>
@@ -305,14 +325,16 @@ export function ChatScreen() {
                     accessibilityLabel={ACTION_LABEL[m.action]}
                     style={{
                       marginTop: 10,
+                      minHeight: 44,
                       alignSelf: 'flex-start',
-                      paddingVertical: 8,
-                      paddingHorizontal: 14,
+                      justifyContent: 'center',
+                      paddingVertical: 9,
+                      paddingHorizontal: 16,
                       borderRadius: 999,
                       backgroundColor: T.pri,
                     }}
                   >
-                    <Txt s={12.5} w={800} c="#fff">
+                    <Txt s={12.5} w={800} c={T.onPri}>
                       {ACTION_LABEL[m.action]}
                     </Txt>
                   </Touchable>
@@ -326,10 +348,10 @@ export function ChatScreen() {
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', paddingLeft: 38 }}>
             <View style={{ flexDirection: 'row', gap: 4 }}>
               <Dot delay={0} color={T.t3} />
-              <Dot delay={180} color={T.t3} />
-              <Dot delay={360} color={T.t3} />
+              <Dot delay={160} color={T.t3} />
+              <Dot delay={320} color={T.t3} />
             </View>
-            <Txt s={12} c={T.t3}>
+            <Txt s={12} c={T.t3} numberOfLines={1} style={{ flex: 1 }}>
               {isCare ? 'Preparando uma sugestão' : `${state.petName} está escrevendo`}
             </Txt>
           </View>
@@ -339,10 +361,8 @@ export function ChatScreen() {
       {/* campo de envio */}
       <View
         style={{
-          paddingHorizontal: 14,
+          paddingHorizontal: 16,
           paddingTop: 10,
-          // Com o teclado aberto a barra de navegação fica atrás dele, então a
-          // safe area de baixo dá lugar à altura do teclado.
           paddingBottom: keyboard > 0 ? keyboard + 8 : Math.max(insets.bottom, 12) + 8,
         }}
       >
@@ -351,9 +371,9 @@ export function ChatScreen() {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 8,
-            padding: 7,
-            paddingLeft: 8,
-            borderRadius: 26,
+            padding: 6,
+            paddingLeft: 10,
+            borderRadius: 28,
             borderWidth: 1,
             borderColor: T.bd,
             backgroundColor: T.surf,
@@ -369,27 +389,31 @@ export function ChatScreen() {
             style={{
               flex: 1,
               minWidth: 0,
-              fontSize: 14.5,
+              fontSize: 16,
               fontFamily: font(400),
               color: T.t1,
               paddingVertical: 11,
-              paddingHorizontal: 10,
+              paddingHorizontal: 8,
             }}
           />
           <Touchable
-            onPress={send}
+            onPress={() => {
+              hapticTap();
+              send();
+            }}
             disabled={!canSend}
-            accessibilityLabel="Enviar"
+            accessibilityLabel="Enviar mensagem"
             style={{
-              width: 42,
-              height: 42,
+              width: 44,
+              height: 44,
               borderRadius: 999,
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: canSend ? T.pri : T.bd,
+              flexShrink: 0,
             }}
           >
-            <Icon d={ICONS.send} size={19} color="#fff" sw={2.3} />
+            <Icon d={ICONS.send} size={19} color={canSend ? T.onPri : T.t3} sw={2.3} />
           </Touchable>
         </View>
       </View>
