@@ -3,7 +3,7 @@ import Svg, { Circle, Ellipse, G, Path } from 'react-native-svg';
 
 import { BROWS, EYES, MOUTH, type EmotionKey } from '../data/emotions';
 import { DET, EARS, HEAD, PATCH_FILL, PET_BODY, type PetKey } from '../data/pets';
-import { mix } from '../theme/palette';
+import { BRAND, LIGHT, mix } from '../theme/palette';
 import { STAGE_SHAPE, type PetStage } from '../pet/growth';
 import type { AccessoryId } from '../pet/habits';
 
@@ -15,7 +15,6 @@ import type { AccessoryId } from '../pet/habits';
 const VIEW_BOX = '-4 -10 108 108';
 const SCALE = 1.08;
 
-const LINE = '#2E2A33';
 const WHISKERS = [
   'M 30 64 L 8 59',
   'M 29 68.5 L 6 68',
@@ -24,6 +23,8 @@ const WHISKERS = [
   'M 71 68.5 L 94 68',
   'M 70 73 L 91 78',
 ];
+
+export type PetMouthMode = 'bite' | 'chewA' | 'chewB' | 'playGrin' | 'boop' | 'refuse';
 
 export type PetFaceProps = {
   /** Tamanho na escala do design (viewBox 100). */
@@ -35,12 +36,15 @@ export type PetFaceProps = {
   body?: string;
   /** Cores do corpo vindas do tema. */
   belly?: string;
+  line?: string;
   whisker?: string;
   blush?: number;
   /** Estágio de crescimento: muda proporções (filhote tem olhos maiores). */
   stage?: PetStage;
   /** Acessório conquistado por hábito (cachecol, fones…). */
   accessory?: AccessoryId | null;
+  /** Expressão transitória durante animações de mastigar ou brincar. */
+  mouthMode?: PetMouthMode | null;
 };
 
 export function PetFace({
@@ -49,10 +53,12 @@ export function PetFace({
   emotion,
   body: bodyProp,
   belly: bellyProp,
-  whisker = 'rgba(107,100,112,0.75)',
+  line = BRAND.plum,
+  whisker = LIGHT.sealWhisker,
   blush = 0.55,
   stage = 'jovem',
   accessory = null,
+  mouthMode = null,
 }: PetFaceProps) {
   const shape = STAGE_SHAPE[stage];
   const body = bodyProp ?? PET_BODY[petType];
@@ -61,24 +67,62 @@ export function PetFace({
 
   const earFill =
     petType === 'panda' || petType === 'penguin'
-      ? '#4A3550'
+      ? BRAND.plum
       : petType === 'unicorn'
         ? '#F7E3B0'
         : body;
-  const innerFill = petType === 'unicorn' ? '#EBCF8E' : mix(body, '#F6C9CF', 0.55);
-  const muzzleFill = mix(body, '#FFFFFF', 0.88);
-  const patchFill = PATCH_FILL[petType] ?? '#FFFFFF';
+  const innerFill = petType === 'unicorn' ? '#EBCF8E' : mix(body, BRAND.rose, 0.55);
+  const muzzleFill = mix(body, LIGHT.surf, 0.88);
+  const patchFill = PATCH_FILL[petType] ?? LIGHT.surf;
   const beakFill = petType === 'owl' ? '#E9A878' : '#EDBE7C';
-  const belly = bellyProp ?? mix(body, '#000000', 0.09);
+  const belly = bellyProp ?? mix(body, BRAND.plum, 0.08);
 
-  // Olhos e sobrancelhas seguem a emoção; o "feliz" troca os círculos por arcos.
-  const eyes = emotion ? EYES[emotion] : null;
-  const brows = emotion ? BROWS[emotion] : ['', ''];
-  const arcEyes = emotion === 'happy';
-  const eyeY = emotion === 'surprised' ? 51 : 52;
-  const eyeR = (emotion === 'surprised' ? 7.6 : emotion === 'fearful' ? 5.4 : 6.6) * shape.eye;
-  const glintY = emotion === 'surprised' ? 48.4 : 49.6;
+  const happyArcEyes =
+    mouthMode === 'chewA' || mouthMode === 'chewB' || mouthMode === 'playGrin' || mouthMode === 'refuse'
+      ? true
+      : mouthMode === 'bite' || mouthMode === 'boop'
+        ? false
+        : emotion === 'happy';
+
+  // Olhos e sobrancelhas seguem a emoção; o "feliz" e a mastigação usam arcos alegres.
+  const eyes = happyArcEyes ? EYES.happy : emotion ? EYES[emotion] : null;
+  const brows = mouthMode ? ['', ''] : emotion ? BROWS[emotion] : ['', ''];
+  const arcEyes = happyArcEyes;
+  const eyeY =
+    mouthMode === 'boop'
+      ? 49
+      : mouthMode === 'bite'
+        ? 51.2
+        : emotion === 'surprised'
+          ? 51
+          : 52;
+  const eyeR =
+    (mouthMode === 'bite'
+      ? 7.1
+      : mouthMode === 'boop'
+        ? 6.9
+        : emotion === 'surprised'
+          ? 7.6
+          : emotion === 'fearful'
+            ? 5.4
+            : 6.6) * shape.eye;
+  const glintY =
+    mouthMode === 'boop'
+      ? 46.5
+      : mouthMode === 'bite'
+        ? 48.6
+        : emotion === 'surprised'
+          ? 48.4
+          : 49.6;
   const mouth = emotion ? MOUTH[emotion] : 'M 40 70 q 10 8 20 0';
+
+  const leftCheekR =
+    (mouthMode === 'chewA' ? 9.2 : mouthMode === 'chewB' ? 7.5 : mouthMode ? 7.8 : 7) * shape.blush;
+  const rightCheekR =
+    (mouthMode === 'chewB' ? 9.2 : mouthMode === 'chewA' ? 7.5 : mouthMode ? 7.8 : 7) * shape.blush;
+  const leftCheekX = mouthMode === 'chewA' ? 18.6 : 20;
+  const rightCheekX = mouthMode === 'chewB' ? 81.4 : 80;
+  const cheekOpacity = mouthMode ? Math.min(0.82, blush + 0.22) : blush;
 
   const px = size * SCALE * shape.scale;
 
@@ -101,7 +145,7 @@ export function PetFace({
         <Path
           d="M 50 9 c -4 -6 3 -10 6 -5 c 2 4 -3 6 -4 3"
           fill="none"
-          stroke={LINE}
+          stroke={line}
           strokeWidth={2.4}
           strokeLinecap="round"
         />
@@ -111,15 +155,10 @@ export function PetFace({
         <Ellipse cx={50} cy={72} rx={30} ry={19} fill={belly} opacity={det.bel} />
       ) : null}
       {!preview ? (
-        <Ellipse
-          cx={38}
-          cy={26}
-          rx={8}
-          ry={5}
-          fill="#FFFFFF"
-          opacity={0.2}
-          rotation={-22}
-          origin="38, 26"
+        <Path
+          d="M 31 29 C 29.5 25 35 20.5 43.5 22 C 45 26 39.5 30.5 31 29 Z"
+          fill={LIGHT.surf}
+          opacity={0.22}
         />
       ) : null}
 
@@ -132,8 +171,8 @@ export function PetFace({
 
       {!preview ? (
         <>
-          <Circle cx={20} cy={60} r={7 * shape.blush} fill="#F0A0AC" opacity={blush} />
-          <Circle cx={80} cy={60} r={7 * shape.blush} fill="#F0A0AC" opacity={blush} />
+          <Circle cx={leftCheekX} cy={60.4} r={leftCheekR} fill={BRAND.rose} opacity={cheekOpacity} />
+          <Circle cx={rightCheekX} cy={60.4} r={rightCheekR} fill={BRAND.rose} opacity={cheekOpacity} />
           {det.w ? (
             <G fill="none" stroke={whisker} strokeWidth={1.5} strokeLinecap="round">
               {WHISKERS.map((d) => (
@@ -146,21 +185,27 @@ export function PetFace({
 
       {/* olhos */}
       {arcEyes && eyes ? (
-        <G fill="none" stroke={LINE} strokeWidth={4.4} strokeLinecap="round">
+        <G fill="none" stroke={line} strokeWidth={4.4} strokeLinecap="round">
           <Path d={eyes[0]} />
           <Path d={eyes[1]} />
         </G>
       ) : (
         <G>
-          <Circle cx={36} cy={eyeY} r={eyeR} fill={LINE} />
-          <Circle cx={64} cy={eyeY} r={eyeR} fill={LINE} />
-          <Circle cx={38.3} cy={glintY} r={2.3} fill="#FFFFFF" />
-          <Circle cx={66.3} cy={glintY} r={2.3} fill="#FFFFFF" />
+          <Circle cx={36} cy={eyeY} r={eyeR} fill={line} />
+          <Circle cx={64} cy={eyeY} r={eyeR} fill={line} />
+          <Circle cx={38.3} cy={glintY} r={2.3} fill={LIGHT.surf} />
+          <Circle cx={66.3} cy={glintY} r={2.3} fill={LIGHT.surf} />
+          {mouthMode === 'bite' || mouthMode === 'boop' ? (
+            <>
+              <Circle cx={34} cy={eyeY + 2.4} r={1.15} fill={LIGHT.surf} opacity={0.85} />
+              <Circle cx={62} cy={eyeY + 2.4} r={1.15} fill={LIGHT.surf} opacity={0.85} />
+            </>
+          ) : null}
         </G>
       )}
 
       {brows[0] ? (
-        <G fill="none" stroke={LINE} strokeWidth={2.6} strokeLinecap="round">
+        <G fill="none" stroke={line} strokeWidth={2.6} strokeLinecap="round">
           <Path d={brows[0]} />
           <Path d={brows[1]} />
         </G>
@@ -168,8 +213,52 @@ export function PetFace({
 
       {/* bico / nariz / boca */}
       {det.b ? <Path d={det.b} fill={beakFill} /> : null}
-      {!det.b ? <Ellipse cx={50} cy={64} rx={4.6} ry={3.8} fill={LINE} /> : null}
-      <Path d={mouth} fill="none" stroke={LINE} strokeWidth={2.6} strokeLinecap="round" />
+      {!det.b ? <Ellipse cx={50} cy={64} rx={4.6} ry={3.8} fill={line} /> : null}
+      {mouthMode === 'bite' ? (
+        <G>
+          <Path
+            d="M 40.5 68.5 Q 50 66.5 59.5 68.5 Q 58.5 80 50 80.8 Q 41.5 80 40.5 68.5 Z"
+            fill="#6B364B"
+          />
+          <Path
+            d="M 43.8 76.6 Q 50 73.2 56.2 76.6 Q 53.8 80.2 50 80.5 Q 46.2 80.2 43.8 76.6 Z"
+            fill={BRAND.rose}
+          />
+        </G>
+      ) : mouthMode === 'chewA' ? (
+        <G fill="none" stroke={line} strokeWidth={2.7} strokeLinecap="round" strokeLinejoin="round">
+          <Path d="M 39.5 71.5 q 5.2 5.2 10.5 -0.8 q 5.2 4.4 9.8 -1.2" />
+          <Path d="M 36.8 68.8 q -2.4 2.6 -0.3 5.2" strokeWidth={2.1} opacity={0.72} />
+        </G>
+      ) : mouthMode === 'chewB' ? (
+        <G fill="none" stroke={line} strokeWidth={2.7} strokeLinecap="round" strokeLinejoin="round">
+          <Path d="M 40.2 69.5 q 4.6 5.6 9.8 1.2 q 5.3 6 10.5 0.8" />
+          <Path d="M 63.2 68.8 q 2.4 2.6 0.3 5.2" strokeWidth={2.1} opacity={0.72} />
+        </G>
+      ) : mouthMode === 'playGrin' ? (
+        <G>
+          <Path
+            d="M 39.5 69.2 Q 50 71.2 60.5 69.2 Q 59 79.2 50 79.8 Q 41 79.2 39.5 69.2 Z"
+            fill="#6B364B"
+          />
+          <Path
+            d="M 43.5 76.2 Q 50 73 56.5 76.2 Q 53.8 79.4 50 79.6 Q 46.2 79.4 43.5 76.2 Z"
+            fill={BRAND.rose}
+          />
+        </G>
+      ) : mouthMode === 'refuse' ? (
+        <Path d="M 41 71.5 q 9 6 18 0" fill="none" stroke={line} strokeWidth={2.7} strokeLinecap="round" />
+      ) : mouthMode === 'boop' ? (
+        <Path
+          d="M 42 71.2 q 4 4.2 8 -1.4 q 4 5.6 8 1.4"
+          fill="none"
+          stroke={line}
+          strokeWidth={2.6}
+          strokeLinecap="round"
+        />
+      ) : (
+        <Path d={mouth} fill="none" stroke={line} strokeWidth={2.6} strokeLinecap="round" />
+      )}
 
       {accessory ? <Accessory id={accessory} /> : null}
     </Svg>

@@ -223,8 +223,7 @@ export function FairnessScreen() {
             Ajude a medir (opcional)
           </Txt>
           <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 4 }}>
-            Responda só o que quiser. Nada disso muda a leitura nem aparece para cuidadores — serve apenas para o
-            relatório agregado acima. Pode apagar quando quiser.
+            Responda só o que quiser. Nada disso muda a leitura nem aparece para cuidadores: entra apenas nas métricas agregadas deste painel. Pode apagar quando quiser.
           </Txt>
 
           <Txt s={12} w={700} c={T.t1} style={{ marginTop: 14, marginBottom: 8 }}>

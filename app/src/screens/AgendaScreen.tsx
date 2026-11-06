@@ -12,8 +12,10 @@ import {
 import { useCareResource } from '../care/useCareResource';
 import { CareGate, ErrorCard, LoadingCard, useCurrentCareLink } from '../components/CareStates';
 import { Field } from '../components/Field';
+import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { Card, PrimaryButton, ScreenTitle, Txt } from '../components/ui';
+import { ICONS } from '../data/content';
 import { useApp, useTheme } from '../state/AppContext';
 import { DANGER, OK } from '../theme/palette';
 
@@ -31,7 +33,7 @@ export function AgendaScreen() {
   const care = useCurrentCareLink();
   return (
     <ScreenScroll>
-      <ScreenTitle label="AGENDA" title={care.name ? `Ritmo de\n${care.name}` : 'Ritmo e\ncheck-ins'} />
+      <ScreenTitle label="Agenda" title={care.name ? `Ritmo de\n${care.name}` : 'Ritmo e\ncheck-ins'} />
       <CareGate care={care} emptyText="Conecte uma pessoa para organizar check-ins.">
         {(current) => <Agenda key={current.id} link={current} />}
       </CareGate>
@@ -234,10 +236,19 @@ function Agenda({ link }: { link: CaregiverLink }) {
                     <Txt s={12.5} w={800} c={T.t1}>
                       {item.title}
                     </Txt>
-                    <Txt s={11} c={T.t3} style={{ marginTop: 2 }}>
-                      {formatInDeviceTimeZone(item.starts_at)}
-                      {item.ends_at ? ` → ${formatInDeviceTimeZone(item.ends_at)}` : ''}
-                    </Txt>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginTop: 3 }}>
+                      <Txt s={11} c={T.t3}>
+                        {formatInDeviceTimeZone(item.starts_at)}
+                      </Txt>
+                      {item.ends_at ? (
+                        <>
+                          <Icon d={ICONS.chevron} size={11} color={T.t3} sw={2.2} />
+                          <Txt s={11} c={T.t3}>
+                            {formatInDeviceTimeZone(item.ends_at)}
+                          </Txt>
+                        </>
+                      ) : null}
+                    </View>
                     {intervalError ? (
                       <Txt s={11} c={DANGER} style={{ marginTop: 3 }}>
                         {intervalError}

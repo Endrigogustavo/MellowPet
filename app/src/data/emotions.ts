@@ -42,7 +42,7 @@ export const EMOTIONS: Record<EmotionKey, Emotion> = {
     quality: 82,
     anim: { kind: 'bounce', duration: 1600 },
     msg: 'Boa energia agora. Aproveita esse embalo para aquilo que você vinha adiando.',
-    tip: 'Anote em uma frase o que ajudou a chegar aqui — serve para os dias difíceis.',
+    tip: 'Anote em uma frase o que ajudou a chegar aqui. Isso serve de âncora nos dias difíceis.',
     music: 'Playlist leve para manter o ritmo sem acelerar demais.',
     scores: [
       ['feliz', 91],
@@ -64,7 +64,7 @@ export const EMOTIONS: Record<EmotionKey, Emotion> = {
     intensity: 'moderate',
     quality: 71,
     anim: { kind: 'float', duration: 4600 },
-    msg: 'Tudo bem estar assim. Vamos devagar — só o próximo passo, não o dia inteiro.',
+    msg: 'Tudo bem estar assim. Vamos devagar: só o próximo passo, não o dia inteiro.',
     tip: 'Uma mensagem curta para alguém de confiança já conta como um passo.',
     music: 'Sons calmos para acompanhar, sem exigir nada de você.',
     scores: [
@@ -130,7 +130,7 @@ export const EMOTIONS: Record<EmotionKey, Emotion> = {
     quality: 74,
     anim: { kind: 'bounce', duration: 1300 },
     msg: 'Algo mudou de repente. Respire uma vez antes de reagir.',
-    tip: 'Se a surpresa foi boa, registre — memórias boas somem rápido.',
+    tip: 'Se a surpresa foi boa, registre logo: memórias boas somem rápido.',
     music: 'Algo com movimento, para acompanhar a mudança.',
     scores: [
       ['surpreso', 80],
@@ -255,17 +255,17 @@ export const FACE_ICON: Record<EmotionKey, string> = {
 };
 
 export const INTENSITY: Record<IntensityKey, [string, string]> = {
-  calm: ['Calmo', '#9CA3AF'],
-  mild: ['Leve', '#10B981'],
-  moderate: ['Moderado', '#F59E0B'],
-  intense: ['Intenso', '#FF8C00'],
-  extreme: ['Extremo', '#EF4444'],
+  calm: ['Calmo', '#5C4963'],
+  mild: ['Leve', '#287D5E'],
+  moderate: ['Moderado', '#9E5A10'],
+  intense: ['Intenso', '#B54718'],
+  extreme: ['Extremo', '#C23E3E'],
 };
 
 /** Resposta do Mellow no chat, escolhida pela emoção detectada. */
 export const REPLIES: Record<EmotionKey, string> = {
   happy: 'Fico feliz de ver isso. Que tal fixar esse momento: uma frase sobre o que deu certo hoje?',
-  sad: 'Obrigado por me contar. Não precisa resolver nada agora — me diga só uma coisa que pesou mais.',
+  sad: 'Obrigado por me contar. Não precisa resolver nada agora: me diga só uma coisa que pesou mais.',
   angry:
     'Faz sentido estar irritado. Antes de qualquer resposta, respire uma vez comigo. Depois a gente decide o que fazer.',
   fearful:
@@ -273,6 +273,6 @@ export const REPLIES: Record<EmotionKey, string> = {
   unknown:
     'Ainda não tenho sinal visual suficiente. Se quiser, você pode me contar diretamente como está se sentindo.',
   neutral: 'Está estável agora. É um bom momento para escolher uma tarefa só e começar por ela.',
-  surprised: 'Algo mudou de repente. Me conta o que aconteceu — sem pressa de reagir.',
+  surprised: 'Algo mudou de repente. Me conta o que aconteceu, sem pressa de reagir.',
   disgusted: 'Percebi um incômodo. Nomear o que causou já ajuda: o que exatamente te desagradou?',
 };

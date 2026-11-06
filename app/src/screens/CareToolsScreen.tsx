@@ -145,7 +145,7 @@ export function CareToolsScreen() {
             Convidar uma pessoa acompanhada
           </Txt>
           <Txt s={13} lh={1.55} c={T.t2} style={{ marginTop: 7 }}>
-            Envie o código abaixo. Ele vale por 72 horas, e o acompanhamento só começa depois que a pessoa aceitar. Ela pode encerrar o vínculo quando quiser.
+            Compartilhe este código com a pessoa. Ele vale por 72 horas, e o acompanhamento só começa depois que ela aceitar. O vínculo pode ser encerrado por ela quando quiser.
           </Txt>
           <View
             style={{

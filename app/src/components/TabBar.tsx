@@ -5,15 +5,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ICONS, TAB_ICONS } from '../data/content';
 import { useApp, useTheme, type Screen } from '../state/AppContext';
+import { hapticTap } from '../theme/haptics';
 import { Icon } from './Icon';
 import { Touchable, Txt } from './ui';
 
 const USER_TABS: [Screen, string][] = [
-  ['home', 'Home'],
-  ['tools', 'Ferramentas'],
+  ['home', 'Mellow'],
+  ['tools', 'Cuidar'],
   ['routine', 'Rotina'],
-  ['music', 'Música'],
-  ['dashboard', 'Bem-estar'],
+  ['music', 'Sons'],
+  ['dashboard', 'Padrões'],
 ];
 
 const CARE_TABS: [Screen, string][] = [
@@ -33,24 +34,25 @@ export function TabBar() {
 
   return (
     <View
+      accessibilityRole="tablist"
       style={{
         position: 'absolute',
         left: 0,
         right: 0,
         bottom: 0,
-        paddingTop: 9,
+        paddingTop: 8,
         paddingHorizontal: 10,
         paddingBottom: Math.max(insets.bottom, 12),
         borderTopWidth: 1,
-        borderTopColor: T.bd,
+        borderTopColor: T.bdL,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 2,
+        gap: 3,
         overflow: 'hidden',
       }}
     >
       <BlurView
-        intensity={28}
+        intensity={24}
         tint={isDark ? 'dark' : 'light'}
         style={StyleSheet.absoluteFill}
       />
@@ -61,17 +63,26 @@ export function TabBar() {
         return (
           <Touchable
             key={key}
-            onPress={() => actions.goTab(key)}
+            onPress={() => {
+              hapticTap();
+              actions.goTab(key);
+            }}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={label}
             style={{
               flex: 1,
+              minHeight: 48,
               alignItems: 'center',
-              gap: 4,
-              paddingVertical: 7,
+              justifyContent: 'center',
+              gap: 3,
+              paddingVertical: 6,
               borderRadius: 14,
+              backgroundColor: on ? T.priL : 'transparent',
             }}
           >
-            <Icon d={TAB_ICONS[key]} size={21} color={on ? T.pri : T.t3} sw={1.9} />
-            <Txt s={9.5} w={700} c={on ? T.pri : T.t3}>
+            <Icon d={TAB_ICONS[key]} size={20} color={on ? T.pri : T.t3} sw={on ? 2.1 : 1.8} />
+            <Txt s={11} w={on ? 800 : 600} c={on ? T.pri : T.t3} numberOfLines={1}>
               {label}
             </Txt>
           </Touchable>
@@ -79,24 +90,28 @@ export function TabBar() {
       })}
 
       <Touchable
-        onPress={() => actions.go('chat')}
+        onPress={() => {
+          hapticTap();
+          actions.go('chat');
+        }}
+        accessibilityRole="button"
         accessibilityLabel="Conversar com o Mellow"
         style={{
           width: 46,
           height: 46,
-          marginLeft: 3,
+          marginLeft: 4,
           borderRadius: 999,
           backgroundColor: T.pri,
           alignItems: 'center',
           justifyContent: 'center',
-          shadowColor: T.pri,
-          shadowOpacity: 0.34,
-          shadowRadius: 18,
-          shadowOffset: { width: 0, height: 6 },
-          elevation: 6,
+          shadowColor: T.shadow,
+          shadowOpacity: isDark ? 0.28 : 0.12,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 3 },
+          elevation: 3,
         }}
       >
-        <Icon d={ICONS.chat} size={20} color="#fff" sw={2} />
+        <Icon d={ICONS.chat} size={19} color={T.onPri} sw={2} />
       </Touchable>
     </View>
   );

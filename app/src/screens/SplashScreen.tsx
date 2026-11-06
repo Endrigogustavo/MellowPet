@@ -109,18 +109,23 @@ export function SplashScreen() {
         <Txt s={46} w={800} c={CREAM} ls={-1.6} lh={1}>
           mellowpet
         </Txt>
-        <Txt s={11} w={700} c="rgba(250,246,242,0.62)" ls={3} style={{ marginTop: 12 }}>
-          PERCEBE ANTES DE VOCÊ
+        <Txt s={14} w={600} c="rgba(250,246,242,0.76)" style={{ marginTop: 10 }}>
+          Percebe antes de você
         </Txt>
       </View>
 
       <Touchable
+        accessibilityRole="button"
+        accessibilityLabel="Começar"
         onPress={() => actions.go('login')}
         style={{
           marginTop: 16,
+          minHeight: 52,
           paddingVertical: 15,
           paddingHorizontal: 46,
           borderRadius: 999,
+          alignItems: 'center',
+          justifyContent: 'center',
           backgroundColor: CREAM,
         }}
       >

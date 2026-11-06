@@ -24,7 +24,7 @@ import { describeEncounterStatus } from '../pet/encounters';
 import { phoneDigits } from '../integrations/sos';
 import { fetchSettings, saveSettings, type EmergencyContact } from '../settings/settingsClient';
 import { useApp, useTheme } from '../state/AppContext';
-import { DANGER, OK, WARN, hexA, mix } from '../theme/palette';
+import { LIGHT, hexA, mix } from '../theme/palette';
 import {
   getBackgroundHealth,
   isBackgroundEnabled,
@@ -49,8 +49,7 @@ export function SettingsScreen() {
   // rodando ou não, e ele sobrevive ao app fechar.
   const [background, setBackground] = useState(() => isBackgroundEnabled());
   const [bgVision, setBgVision] = useState(() => getBackgroundVision());
-  // Reconsultado ao voltar de uma tela do sistema — é o único jeito de
-  // saber se a pessoa concedeu a isenção.
+  // Reconsultado ao voltar de uma tela do sistema para confirmar a isenção.
   const [health, setHealth] = useState(() => getBackgroundHealth());
   const backgroundOn = background || bgVision.enabled;
 
@@ -153,7 +152,7 @@ export function SettingsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.userId]);
 
-  // Salva no backend com debounce sempre que uma preferência muda — evita um
+  // Salva no backend com debounce sempre que uma preferência muda, evitando um
   // PUT por tecla digitada no nome do bichinho.
   const skipFirstSave = useRef(true);
   // O que falta salvar: sair da tela antes do debounce não pode perder a mudança.
@@ -219,7 +218,7 @@ export function SettingsScreen() {
 
   const primaryLink = links[0];
   const linkLabel = primaryLink ? 'Conectado' : 'Nenhum cuidador conectado';
-  const linkColor = primaryLink ? OK : T.t3;
+  const linkColor = primaryLink ? T.ok : T.t3;
   const linkName =
     primaryLink?.caregiver_display_name || primaryLink?.caregiver_email || 'Cuidador';
 
@@ -257,17 +256,25 @@ export function SettingsScreen() {
 
   return (
     <ScreenScroll>
-      <ScreenTitle label="AJUSTES" title="Do seu jeito" />
+      <ScreenTitle
+        label="Ajustes"
+        title="Do seu jeito"
+        onBack={() => actions.back() || actions.goTab(state.role === 'care' ? 'care' : 'home')}
+      />
 
       {settingsError || saveError ? (
         <Section top={0}>
-          <Card radius={18} padding={14} style={{ borderColor: DANGER }}>
-            <Txt s={12.5} lh={1.45} c={DANGER} accessibilityRole="alert">
+          <Card radius={18} padding={14} style={{ borderColor: T.danger }}>
+            <Txt s={12.5} lh={1.45} c={T.danger} accessibilityRole="alert">
               {settingsError ?? saveError}
             </Txt>
             {settingsError ? (
-              <Touchable onPress={loadSettings} accessibilityRole="button" style={{ marginTop: 8 }}>
-                <Txt s={12} w={800} c={T.pri}>
+              <Touchable
+                onPress={loadSettings}
+                accessibilityRole="button"
+                style={{ marginTop: 6, minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}
+              >
+                <Txt s={12.5} w={800} c={T.pri}>
                   Tentar de novo
                 </Txt>
               </Touchable>
@@ -276,14 +283,12 @@ export function SettingsScreen() {
         </Section>
       ) : null}
 
-      {/* Para o cuidador, pet, câmera, IA e convite de cuidador não fazem
-          sentido (e o "Ninguém conectado" daqui confundia quem já acompanha). */}
       {state.role !== 'care' ? (
         <>
       {/* bichinho */}
       <Section top={0}>
         <Card radius={24} padding={18}>
-          <Txt s={12} w={800} c={T.t2} style={{ marginBottom: 9 }}>
+          <Txt s={12.5} w={800} c={T.t2} style={{ marginBottom: 9 }}>
             Nome do bichinho
           </Txt>
           <Field
@@ -294,10 +299,10 @@ export function SettingsScreen() {
               if (!state.petName.trim()) actions.set({ petName: 'Mellow' });
             }}
             maxLength={20}
-            style={{ fontSize: 15, fontWeight: '700' }}
+            style={{ fontSize: 16, fontWeight: '700' }}
           />
 
-          <Txt s={12} w={800} c={T.t2} style={{ marginTop: 16, marginBottom: 9 }}>
+          <Txt s={12.5} w={800} c={T.t2} style={{ marginTop: 16, marginBottom: 9 }}>
             Aparência
           </Txt>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -307,22 +312,28 @@ export function SettingsScreen() {
                 <Touchable
                   key={id}
                   onPress={() => actions.set({ petType: id })}
+                  accessibilityState={{ selected: on }}
                   style={{
-                    width: '30%',
-                    borderRadius: 16,
+                    width: '31%',
+                    minHeight: 74,
+                    borderRadius: 18,
                     paddingVertical: 12,
                     paddingHorizontal: 4,
                     alignItems: 'center',
+                    justifyContent: 'center',
                     gap: 5,
-                    backgroundColor: on ? T.priL : T.bg,
+                    backgroundColor: on ? T.priL : T.surfWarm,
+                    borderWidth: on ? 1.5 : 1,
+                    borderColor: on ? T.pri : T.bdL,
                   }}
                 >
                   <PetFace
                     size={34}
                     petType={id}
-                    body={isDark ? mix(color, '#FFFFFF', 0.14) : color}
+                    body={isDark ? mix(color, LIGHT.surf, 0.14) : color}
+                    line={T.sealLine}
                   />
-                  <Txt s={11} w={700} c={on ? T.pri : T.t2}>
+                  <Txt s={11} w={700} c={on ? T.pri : T.t2} numberOfLines={1}>
                     {label}
                   </Txt>
                 </Touchable>
@@ -340,12 +351,16 @@ export function SettingsScreen() {
       {/* grupos: escola, clínica ou equipe */}
       <Section>
         <Card radius={24} padding={18}>
-          <Touchable onPress={() => actions.go('groups')} accessibilityLabel="Abrir grupos">
-            <Txt s={13} w={800} c={T.pri}>
+          <Touchable
+            onPress={() => actions.go('groups')}
+            accessibilityLabel="Abrir grupos"
+            style={{ minHeight: 44, justifyContent: 'center' }}
+          >
+            <Txt s={13.5} w={800} c={T.pri}>
               Grupos: escola, clínica ou equipe
             </Txt>
           </Touchable>
-          <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 4 }}>
+          <Txt s={12} lh={1.45} c={T.t3} style={{ marginTop: 2 }}>
             Entre num grupo por código, ou crie um para coordenar. Quem coordena vê só o clima geral, com 5+ pessoas.
           </Txt>
         </Card>
@@ -368,11 +383,15 @@ export function SettingsScreen() {
             <View style={{ gap: 8, marginTop: 12 }}>
               {state.memoryNotes.map((note) => (
                 <View key={note} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Txt s={12.5} lh={1.45} c={T.t2} style={{ flex: 1 }}>
+                  <Txt s={12.5} lh={1.45} c={T.t2} style={{ flex: 1, minWidth: 0 }}>
                     • {note}
                   </Txt>
-                  <Touchable onPress={() => actions.forgetNote(note)} accessibilityLabel={`Esquecer: ${note}`}>
-                    <Txt s={12} w={800} c={DANGER}>
+                  <Touchable
+                    onPress={() => actions.forgetNote(note)}
+                    accessibilityLabel={`Esquecer: ${note}`}
+                    style={{ minHeight: 44, paddingHorizontal: 8, justifyContent: 'center' }}
+                  >
+                    <Txt s={12} w={800} c={T.danger}>
                       Esquecer
                     </Txt>
                   </Touchable>
@@ -380,7 +399,7 @@ export function SettingsScreen() {
               ))}
             </View>
           ) : null}
-          <View style={{ height: 1, backgroundColor: T.bd, marginVertical: 14 }} />
+          <View style={{ height: 1, backgroundColor: T.bdL, marginVertical: 14 }} />
           <ToggleRow
             label="O Mellow fala"
             sub="Lê as respostas do chat em voz alta, com a voz do próprio celular."
@@ -398,7 +417,7 @@ export function SettingsScreen() {
             sub={
               state.emaEnabled
                 ? '3 avisos por dia em horários sorteados entre 9h e 21h. Cada resposta ensina a leitura a acertar mais com você.'
-                : 'Desligado. Perguntar sempre na mesma hora mede só aquela hora — sortear dá uma foto mais honesta do seu dia.'
+                : 'Desligado. Perguntar sempre na mesma hora mede só aquela hora; sortear dá uma foto mais honesta do seu dia.'
             }
             on={state.emaEnabled}
             onPress={() => {
@@ -420,8 +439,8 @@ export function SettingsScreen() {
             label="Encontros com outros pets"
             sub={
               state.encountersEnabled
-                ? 'Com o app aberto na Home, seu pet conhece os pets de quem está perto. Só o nome, a espécie e o estágio do pet são trocados — nenhuma emoção.'
-                : 'Desligado. Ao ligar, o Android pede dispositivos próximos e localização — escolha "Precisa".'
+                ? 'Com o app aberto na Home, seu pet conhece os pets de quem está perto. Só o nome, a espécie e o estágio do pet são trocados, sem nenhuma emoção.'
+                : 'Desligado. Ao ligar, o Android pede dispositivos próximos e localização: escolha "Precisa".'
             }
             on={state.encountersEnabled}
             onPress={() => {
@@ -435,7 +454,7 @@ export function SettingsScreen() {
                 actions.setEncounters(true).catch(() => undefined);
               }}
               accessibilityLabel="Status dos encontros"
-              style={{ marginTop: 10, padding: 10, borderRadius: 12, backgroundColor: T.priL }}
+              style={{ marginTop: 10, minHeight: 44, justifyContent: 'center', padding: 12, borderRadius: 14, backgroundColor: T.priL }}
             >
               <Txt s={12} lh={1.45} w={700} c={T.pri}>
                 {describeEncounterStatus(state.encounterStatus)}
@@ -444,14 +463,14 @@ export function SettingsScreen() {
           ) : null}
           <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 10 }}>
             Para se encontrarem, os dois celulares precisam estar com o MellowPet aberto na Home, encontros ligados,
-            e Bluetooth, Wi-Fi e localização ativados. O app não usa sua localização — o Android só exige a
+            e Bluetooth, Wi-Fi e localização ativados. O app não usa sua localização: o Android só exige a
             permissão para achar aparelhos por perto.
           </Txt>
           <NfcTapButton />
           <Touchable
             onPress={() => actions.go('friends')}
             accessibilityLabel="Abrir amigos do Mellow"
-            style={{ marginTop: 12 }}
+            style={{ marginTop: 8, minHeight: 44, justifyContent: 'center' }}
           >
             <Txt s={12.5} w={800} c={T.pri}>
               Ver os amigos que {state.petName} já conheceu
@@ -463,26 +482,27 @@ export function SettingsScreen() {
       {/* conexões */}
       <Section>
         <Card radius={24} padding={18}>
-          <Txt s={12} w={800} c={T.t2} style={{ marginBottom: 12 }}>
+          <Txt s={12.5} w={800} c={T.t2} style={{ marginBottom: 12 }}>
             Conexões
           </Txt>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
             <View
               style={{
-                width: 38,
-                height: 38,
+                width: 40,
+                height: 40,
                 borderRadius: 999,
                 backgroundColor: T.priL,
                 alignItems: 'center',
                 justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
               <Txt s={15} w={800} c={T.pri}>
                 {linkName.charAt(0).toUpperCase()}
               </Txt>
             </View>
-            <View style={{ flex: 1 }}>
-              <Txt s={14} w={700} c={T.t1}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Txt s={14} w={700} c={T.t1} numberOfLines={1}>
                 {primaryLink ? linkName : 'Ninguém conectado'}
               </Txt>
               <Txt s={11.5} w={700} c={linkColor} style={{ marginTop: 2 }}>
@@ -497,11 +517,12 @@ export function SettingsScreen() {
                 accessibilityLabel="Encerrar conexão com cuidador"
                 accessibilityHint="Interrompe imediatamente o acesso do cuidador aos seus dados"
                 style={{
-                  paddingVertical: 9,
+                  minHeight: 44,
                   paddingHorizontal: 14,
                   borderRadius: 999,
                   borderWidth: 1,
                   borderColor: T.bd,
+                  justifyContent: 'center',
                 }}
               >
                 <Txt s={11.5} w={800} c={T.t2}>
@@ -514,7 +535,11 @@ export function SettingsScreen() {
           {primaryLink ? (
             <>
               <PauseSharing link={primaryLink} onChange={() => refreshLinks().catch(() => undefined)} />
-              <Touchable onPress={() => actions.go('caremirror')} accessibilityRole="button" style={{ marginTop: 12 }}>
+              <Touchable
+                onPress={() => actions.go('caremirror')}
+                accessibilityRole="button"
+                style={{ marginTop: 8, minHeight: 44, justifyContent: 'center' }}
+              >
                 <Txt s={12.5} w={800} c={T.pri}>
                   Ver o que meu cuidador vê
                 </Txt>
@@ -528,7 +553,7 @@ export function SettingsScreen() {
             <Txt
               s={11.5}
               lh={1.45}
-              c={connectionMessage.tone === 'error' ? DANGER : T.pri}
+              c={connectionMessage.tone === 'error' ? T.danger : T.pri}
               accessibilityRole={connectionMessage.tone === 'error' ? 'alert' : undefined}
               accessibilityLiveRegion="polite"
               style={{ marginTop: 8 }}
@@ -548,7 +573,7 @@ export function SettingsScreen() {
                 style={{ letterSpacing: 2, fontWeight: '700' }}
               />
               {acceptError ? (
-                <Txt s={12} c={DANGER}>
+                <Txt s={12} c={T.danger}>
                   {acceptError}
                 </Txt>
               ) : null}
@@ -565,9 +590,11 @@ export function SettingsScreen() {
               onPress={() => actions.setRole('care')}
               style={{
                 marginTop: 14,
+                minHeight: 48,
                 paddingVertical: 13,
-                borderRadius: 14,
+                borderRadius: 16,
                 alignItems: 'center',
+                justifyContent: 'center',
                 backgroundColor: T.priL,
               }}
             >
@@ -577,7 +604,11 @@ export function SettingsScreen() {
             </Touchable>
           ) : null}
 
-          {primaryLink ? <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>Ao aceitar a conexão, {linkName} recebe acesso integral ao módulo de cuidado. Não há permissões separadas por recurso.</Txt> : null}
+          {primaryLink ? (
+            <Txt s={11.5} lh={1.5} c={T.t3} style={{ marginTop: 11 }}>
+              Ao aceitar a conexão, {linkName} recebe acesso integral ao módulo de cuidado. Não há permissões separadas por recurso.
+            </Txt>
+          ) : null}
         </Card>
       </Section>
         </>
@@ -587,25 +618,23 @@ export function SettingsScreen() {
       <Section>
         <Card radius={24} padding={18} style={{ paddingVertical: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 15 }}>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Txt s={14.5} w={700} c={T.t1}>
                 Modo silencioso
               </Txt>
-              <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 3 }}>
-                Sem avisos em aula ou reunião - a leitura continua
+              <Txt s={12} lh={1.45} c={T.t3} style={{ marginTop: 3 }}>
+                Sem avisos em aula ou reunião; a leitura continua
               </Txt>
             </View>
             <Toggle on={state.quiet} onPress={() => actions.set((s) => ({ quiet: !s.quiet }))} />
           </View>
 
-          {/* Modo de exibição: até agora só dava para escolher no onboarding,
-              e quem passava dele ficava preso no que marcou. */}
           <View style={{ paddingVertical: 15, gap: 10 }}>
             <View>
               <Txt s={14.5} w={700} c={T.t1}>
                 Modo de exibição
               </Txt>
-              <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 3 }}>
+              <Txt s={12} lh={1.45} c={T.t3} style={{ marginTop: 3 }}>
                 {full
                   ? 'Completo: todos os painéis, métricas e ajustes finos.'
                   : 'Simples: só o essencial, menos informação na tela.'}
@@ -630,24 +659,26 @@ export function SettingsScreen() {
             }}
           />
 
-          {backgroundVisionSupported ? <ToggleRow
-            label="Ler expressão com o app fechado"
-            sub={`A câmera abre por alguns segundos a cada ${bgVision.intervalMinutes} min, lê e fecha. Fica um aviso permanente enquanto estiver ligado.`}
-            on={bgVision.enabled}
-            divider
-            onPress={() => {
-              const next = { ...bgVision, enabled: !bgVision.enabled };
-              setBackgroundVision(next.enabled, next.intervalMinutes);
-              setBgVision(next);
-            }}
-          /> : null}
+          {backgroundVisionSupported ? (
+            <ToggleRow
+              label="Ler expressão com o app fechado"
+              sub={`A câmera abre por alguns segundos a cada ${bgVision.intervalMinutes} min, lê e fecha. Fica um aviso permanente enquanto estiver ligado.`}
+              on={bgVision.enabled}
+              divider
+              onPress={() => {
+                const next = { ...bgVision, enabled: !bgVision.enabled };
+                setBackgroundVision(next.enabled, next.intervalMinutes);
+                setBgVision(next);
+              }}
+            />
+          ) : null}
 
           {backgroundVisionSupported && bgVision.enabled ? (
             <View style={{ paddingBottom: 15, gap: 8 }}>
               <Txt s={11.5} c={T.t3}>
                 Uma leitura a cada
               </Txt>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {BACKGROUND_VISION_INTERVALS.map((minutes) => {
                   const on = minutes === bgVision.intervalMinutes;
                   return (
@@ -658,10 +689,11 @@ export function SettingsScreen() {
                         setBgVision({ enabled: true, intervalMinutes: minutes });
                       }}
                       style={{
-                        paddingVertical: 9,
+                        minHeight: 44,
                         paddingHorizontal: 14,
                         borderRadius: 999,
-                        backgroundColor: on ? T.priL : T.bg,
+                        justifyContent: 'center',
+                        backgroundColor: on ? T.priL : T.surfWarm,
                         borderWidth: 1,
                         borderColor: on ? T.pri : T.bd,
                       }}
@@ -674,21 +706,18 @@ export function SettingsScreen() {
                 })}
               </View>
               <Txt s={11} lh={1.45} c={T.t3}>
-                Intervalos curtos gastam mais bateria. As imagens não saem do
-                aparelho — só o resultado da leitura é guardado.
+                Intervalos curtos gastam mais bateria. As imagens não saem do aparelho: só o resultado da leitura é guardado.
               </Txt>
             </View>
           ) : null}
 
-          {/* O serviço parar sozinho quase sempre é o sistema derrubando, não
-              o app desistindo. Estas duas travas são as culpadas comuns. */}
           {backgroundOn && (!health.batteryExempt || health.aggressiveOem) ? (
             <View
               style={{
                 marginBottom: 15,
                 padding: 14,
                 borderRadius: 16,
-                backgroundColor: hexA(WARN, 0.1),
+                backgroundColor: hexA(T.warn, 0.1),
                 gap: 10,
               }}
             >
@@ -696,31 +725,31 @@ export function SettingsScreen() {
                 Para não parar sozinho
               </Txt>
               <Txt s={11.5} lh={1.5} c={T.t2}>
-                O Android desliga o MellowPet depois de um tempo se estas duas
-                permissões não estiverem liberadas.
+                O Android desliga o MellowPet depois de um tempo se estas duas permissões não estiverem liberadas.
               </Txt>
 
               {!health.batteryExempt ? (
                 <Touchable
                   onPress={() => {
                     requestBatteryExemption();
-                    // A resposta vem de outra tela; reconsulta ao voltar.
                     setTimeout(() => setHealth(getBackgroundHealth()), 800);
                   }}
                   style={{
+                    minHeight: 46,
                     paddingVertical: 11,
-                    borderRadius: 13,
+                    borderRadius: 14,
                     alignItems: 'center',
+                    justifyContent: 'center',
                     backgroundColor: T.pri,
                   }}
                 >
-                  <Txt s={12.5} w={800} c="#fff">
+                  <Txt s={12.5} w={800} c={T.onPri}>
                     1. Liberar bateria sem restrição
                   </Txt>
                 </Touchable>
               ) : (
-                <Txt s={11.5} w={700} c={OK}>
-                  Bateria sem restrição — liberado
+                <Txt s={11.5} w={700} c={T.ok}>
+                  Bateria sem restrição: liberado
                 </Txt>
               )}
 
@@ -728,9 +757,11 @@ export function SettingsScreen() {
                 <Touchable
                   onPress={() => openAutostartSettings()}
                   style={{
+                    minHeight: 46,
                     paddingVertical: 11,
-                    borderRadius: 13,
+                    borderRadius: 14,
                     alignItems: 'center',
+                    justifyContent: 'center',
                     backgroundColor: T.surf,
                     borderWidth: 1,
                     borderColor: T.bd,
@@ -744,9 +775,7 @@ export function SettingsScreen() {
 
               {health.aggressiveOem ? (
                 <Txt s={11} lh={1.45} c={T.t3}>
-                  No seu aparelho, procure o MellowPet na lista e ligue a chave.
-                  Vale também abrir os apps recentes e travar o MellowPet com o
-                  cadeado.
+                  No seu aparelho, procure o MellowPet na lista e ligue a chave. Vale também abrir os apps recentes e travar o MellowPet com o cadeado.
                 </Txt>
               ) : null}
             </View>
@@ -774,7 +803,7 @@ export function SettingsScreen() {
               <Txt s={14.5} w={700} c={T.t1}>
                 Alerta sem rosto
               </Txt>
-              <Txt s={11.5} c={T.t3} style={{ marginTop: 3 }}>
+              <Txt s={12} c={T.t3} style={{ marginTop: 3 }}>
                 Avisar após {state.noFaceMin} min sem detecção
               </Txt>
               <View style={{ flexDirection: 'row', gap: 7, marginTop: 12 }}>
@@ -786,13 +815,17 @@ export function SettingsScreen() {
                       onPress={() => actions.set({ noFaceMin: m })}
                       style={{
                         flex: 1,
+                        minHeight: 44,
                         paddingVertical: 10,
-                        borderRadius: 13,
+                        borderRadius: 14,
                         alignItems: 'center',
-                        backgroundColor: on ? T.priL : T.bg,
+                        justifyContent: 'center',
+                        backgroundColor: on ? T.priL : T.surfWarm,
+                        borderWidth: 1,
+                        borderColor: on ? T.pri : T.bdL,
                       }}
                     >
-                      <Txt s={12.5} w={700} c={on ? T.pri : T.t2}>
+                      <Txt s={12.5} w={800} c={on ? T.pri : T.t2}>
                         {m}m
                       </Txt>
                     </Touchable>
@@ -801,7 +834,6 @@ export function SettingsScreen() {
               </View>
             </Card>
           </Section>
-
         </>
       ) : null}
 
@@ -811,7 +843,7 @@ export function SettingsScreen() {
             Contatos de emergência
           </Txt>
           {contacts.length === 0 ? (
-            <Txt s={12} c={T.t3} style={{ marginTop: 10 }}>
+            <Txt s={12.5} c={T.t3} style={{ marginTop: 10 }}>
               Nenhum contato adicionado ainda.
             </Txt>
           ) : (
@@ -822,28 +854,33 @@ export function SettingsScreen() {
               >
                 <View
                   style={{
-                    width: 36,
-                    height: 36,
+                    width: 38,
+                    height: 38,
                     borderRadius: 999,
                     backgroundColor: T.priL,
                     alignItems: 'center',
                     justifyContent: 'center',
+                    flexShrink: 0,
                   }}
                 >
                   <Txt s={15} w={800} c={T.pri}>
                     {c.name.charAt(0).toUpperCase() || '?'}
                   </Txt>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Txt s={14} w={700} c={T.t1}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Txt s={14} w={700} c={T.t1} numberOfLines={1}>
                     {c.name}
                   </Txt>
-                  <Txt s={11.5} c={T.t3}>
+                  <Txt s={11.5} c={T.t3} numberOfLines={1}>
                     {c.contact}
                   </Txt>
                 </View>
-                <Touchable onPress={() => removeContact(i)} style={{ padding: 6 }}>
-                  <Txt s={11.5} w={800} c={DANGER}>
+                <Touchable
+                  onPress={() => removeContact(i)}
+                  accessibilityLabel={`Remover ${c.name}`}
+                  style={{ minHeight: 44, paddingHorizontal: 10, justifyContent: 'center', flexShrink: 0 }}
+                >
+                  <Txt s={12} w={800} c={T.danger}>
                     Remover
                   </Txt>
                 </Touchable>
@@ -875,9 +912,11 @@ export function SettingsScreen() {
             disabled={!contactName.trim() || !contactValue.trim()}
             style={{
               marginTop: 14,
+              minHeight: 48,
               paddingVertical: 13,
-              borderRadius: 14,
+              borderRadius: 16,
               alignItems: 'center',
+              justifyContent: 'center',
               backgroundColor: T.priL,
               opacity: contactName.trim() && contactValue.trim() ? 1 : 0.5,
             }}
@@ -889,7 +928,7 @@ export function SettingsScreen() {
         </Card>
       </Section>
 
-      <Section top={16}>
+      <Section top={18}>
         <Touchable
           onPress={() =>
             Alert.alert('Sair da conta?', 'Você volta para a tela de login. Seus dados continuam salvos na conta.', [
@@ -900,14 +939,16 @@ export function SettingsScreen() {
           accessibilityRole="button"
           accessibilityLabel="Sair da conta"
           style={{
+            minHeight: 50,
             paddingVertical: 15,
             borderRadius: 18,
             alignItems: 'center',
+            justifyContent: 'center',
             borderWidth: 1,
-            borderColor: 'rgba(239,68,68,.35)',
+            borderColor: hexA(T.danger, 0.35),
           }}
         >
-          <Txt s={14} w={700} c={DANGER}>
+          <Txt s={14} w={700} c={T.danger}>
             Sair da conta
           </Txt>
         </Touchable>

@@ -21,9 +21,11 @@ export function OnboardingScreen() {
       onPress={onPress}
       style={{
         flex: 1,
+        minHeight: 46,
         paddingVertical: 12,
         borderRadius: 14,
         alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: on ? T.priL : T.bg,
       }}
     >
@@ -122,7 +124,14 @@ export function OnboardingScreen() {
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 24 }}>
         <Touchable
           onPress={() => actions.go('home')}
-          style={{ paddingHorizontal: 20, paddingVertical: 16, borderRadius: 18 }}
+          style={{
+            minHeight: 52,
+            paddingHorizontal: 20,
+            paddingVertical: 14,
+            borderRadius: 18,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
           <Txt s={14} w={700} c={T.t3}>
             Pular
@@ -134,13 +143,15 @@ export function OnboardingScreen() {
           }
           style={{
             flex: 1,
-            paddingVertical: 16,
+            minHeight: 52,
+            paddingVertical: 14,
             borderRadius: 18,
             alignItems: 'center',
+            justifyContent: 'center',
             backgroundColor: T.pri,
           }}
         >
-          <Txt s={15} w={800} c="#fff">
+          <Txt s={15} w={800} c={T.onPri}>
             {isLast ? 'Entrar' : 'Continuar'}
           </Txt>
         </Touchable>

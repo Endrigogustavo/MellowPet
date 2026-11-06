@@ -3,14 +3,18 @@ import { Platform } from 'react-native';
 
 import { EMA_PROMPTS, upcomingEmaTimes } from '../checkins/ema';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+const IS_WEB = Platform.OS === 'web';
+
+if (!IS_WEB) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 const CHANNEL_ID = 'routine-reminders';
 
@@ -23,6 +27,7 @@ async function ensureChannel() {
 }
 
 export async function ensureNotificationPermission(): Promise<boolean> {
+  if (IS_WEB) return false;
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) {
     await ensureChannel();
@@ -40,6 +45,7 @@ export async function ensureNotificationPermission(): Promise<boolean> {
 const scheduledByRoutineId = new Map<string, string>();
 
 export async function scheduleRoutineReminder(routineId: string, time: string, name: string) {
+  if (IS_WEB) return;
   const existing = scheduledByRoutineId.get(routineId);
   if (existing) {
     await Notifications.cancelScheduledNotificationAsync(existing).catch(() => undefined);
@@ -63,6 +69,7 @@ export async function scheduleRoutineReminder(routineId: string, time: string, n
 }
 
 export async function cancelRoutineReminder(routineId: string) {
+  if (IS_WEB) return;
   const existing = scheduledByRoutineId.get(routineId);
   if (!existing) return;
   await Notifications.cancelScheduledNotificationAsync(existing).catch(() => undefined);
@@ -73,6 +80,7 @@ export async function cancelRoutineReminder(routineId: string) {
  * agendamentos não sobrevivem à reinstalação/limpeza de dados do app, então
  * isso roda toda vez que a tela de rotina carrega. */
 export async function resyncRoutineReminders(items: { id: string; time: string; name: string; notify: boolean }[]) {
+  if (IS_WEB) return;
   // Só os de rotina: pausa de água e microcheck-ins têm vida própria.
   await cancelWhere((data) => typeof data.routineId === 'string');
   scheduledByRoutineId.clear();
@@ -93,6 +101,7 @@ export async function scheduleOnce(
   body: string,
   data: Record<string, string> = {}
 ): Promise<string | null> {
+  if (IS_WEB) return null;
   if (!(await ensureNotificationPermission())) return null;
   return Notifications.scheduleNotificationAsync({
     content: { title, body, data },
@@ -115,6 +124,7 @@ export function scheduleWaterBreak(minutes = 30) {
 }
 
 async function cancelWhere(match: (data: Record<string, unknown>) => boolean) {
+  if (IS_WEB) return;
   const all = await Notifications.getAllScheduledNotificationsAsync().catch(() => []);
   await Promise.all(
     all
@@ -129,6 +139,7 @@ async function cancelWhere(match: (data: Record<string, unknown>) => boolean) {
  * (0 também quando falta permissão).
  */
 export async function rescheduleEma(enabled: boolean, now = new Date()): Promise<number> {
+  if (IS_WEB) return 0;
   await cancelWhere((data) => data.kind === 'ema');
   if (!enabled || !(await ensureNotificationPermission())) return 0;
   const times = upcomingEmaTimes(now, 2, Math.random);

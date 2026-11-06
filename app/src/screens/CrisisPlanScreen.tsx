@@ -6,7 +6,7 @@ import { Field } from '../components/Field';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
 import { Card, PrimaryButton, ScreenTitle, Txt } from '../components/ui';
 import { useApp, useTheme } from '../state/AppContext';
-import { DANGER, OK } from '../theme/palette';
+import { hapticSuccess } from '../theme/haptics';
 
 /**
  * Plano de segurança (modelo Stanley-Brown): escrito com calma, para ser
@@ -54,16 +54,19 @@ export function CrisisPlanScreen() {
     if (!state.userId) return;
     setSaveError(null);
     SecureStore.setItemAsync(KEY(state.userId), JSON.stringify(plan))
-      .then(() => setSaved(true))
+      .then(() => {
+        hapticSuccess();
+        setSaved(true);
+      })
       .catch(() => setSaveError('Não foi possível salvar. Tente encurtar algum campo e salve de novo.'));
   };
 
   return (
     <ScreenScroll>
-      <ScreenTitle label="SEGURANÇA" title={'Meu plano\nde crise'} />
+      <ScreenTitle label="Segurança" title={'Meu plano\nde crise'} />
       <Section top={0}>
-        <Txt s={12.5} lh={1.55} c={T.t2}>
-          Escreva num momento calmo. Na hora difícil, é só seguir os passos, um de cada vez. Fica só neste celular.
+        <Txt s={13} lh={1.55} c={T.t2}>
+          Escreva num momento calmo. Na hora difícil, siga um passo de cada vez. Tudo fica guardado apenas neste aparelho.
         </Txt>
       </Section>
       {STEPS.map((step) => (
@@ -86,13 +89,13 @@ export function CrisisPlanScreen() {
         <View>
           <PrimaryButton label={saved ? 'Salvo' : 'Salvar meu plano'} onPress={save} />
           {saveError ? (
-            <Txt s={12} c={DANGER} center style={{ marginTop: 8 }} accessibilityRole="alert">
+            <Txt s={12.5} c={T.danger} center style={{ marginTop: 8 }} accessibilityRole="alert">
               {saveError}
             </Txt>
           ) : null}
           {saved ? (
-            <Txt s={12} c={OK} center style={{ marginTop: 8 }}>
-              Ele aparece no botão de ajuda, sempre que precisar.
+            <Txt s={12.5} c={T.ok} center style={{ marginTop: 8 }}>
+              Ele aparece no botão de ajuda sempre que você precisar.
             </Txt>
           ) : null}
         </View>

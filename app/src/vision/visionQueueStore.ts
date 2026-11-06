@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 
 import type { VisionEventEnvelope, VisionFeedback } from './eventContracts';
 import { parseLegacyIndex, parseLegacyItem } from './visionQueueLegacy';
@@ -131,7 +132,24 @@ async function purgeExpired(db: SQLite.SQLiteDatabase) {
   await db.runAsync('delete from vision_queue where created_at_ms < ?', Date.now() - RETENTION_MS);
 }
 
+const IS_WEB = Platform.OS === 'web';
+const webQueue = new Map<string, { item: StoredQueueItem; userId: string | null }>();
+
+function purgeWebExpired() {
+  const cutoff = Date.now() - RETENTION_MS;
+  for (const [key, entry] of webQueue.entries()) {
+    if (entry.item.createdAtMs < cutoff) webQueue.delete(key);
+  }
+}
+
 export async function storeVisionQueueItem(item: StoredQueueItem) {
+  if (IS_WEB) {
+    purgeWebExpired();
+    if (!webQueue.has(item.id)) {
+      webQueue.set(item.id, { item, userId: owner(item) });
+    }
+    return;
+  }
   const db = await database();
   await insert(db, item);
   await purgeExpired(db);
@@ -140,6 +158,13 @@ export async function storeVisionQueueItem(item: StoredQueueItem) {
 export function listVisionQueueItems(userId: string, type: 'event', limit?: number): Promise<EventQueueItem[]>;
 export function listVisionQueueItems(userId: string, type: 'feedback', limit?: number): Promise<FeedbackQueueItem[]>;
 export async function listVisionQueueItems(userId: string, type: StoredQueueItem['type'], limit = 100): Promise<StoredQueueItem[]> {
+  if (IS_WEB) {
+    purgeWebExpired();
+    return [...webQueue.values()]
+      .filter((e) => e.userId === userId && e.item.type === type)
+      .slice(0, limit)
+      .map((e) => e.item);
+  }
   const db = await database();
   await purgeExpired(db);
   const rows = await db.getAllAsync<QueueRow>(
@@ -156,6 +181,10 @@ export async function listVisionQueueItems(userId: string, type: StoredQueueItem
 
 export async function removeVisionQueueItems(ids: Set<string>) {
   if (ids.size === 0) return;
+  if (IS_WEB) {
+    ids.forEach((id) => webQueue.delete(id));
+    return;
+  }
   const db = await database();
   const values = [...ids];
   const placeholders = values.map(() => '?').join(',');
@@ -166,6 +195,13 @@ export async function listUnownedVisionFeedback(
   limit = 100,
   after?: { createdAtMs: number; id: string }
 ): Promise<FeedbackQueueItem[]> {
+  if (IS_WEB) {
+    purgeWebExpired();
+    return [...webQueue.values()]
+      .filter((e) => e.userId === null && e.item.type === 'feedback')
+      .slice(0, limit)
+      .map((e) => e.item as FeedbackQueueItem);
+  }
   const db = await database();
   await purgeExpired(db);
   const rows = await db.getAllAsync<QueueRow>(
@@ -182,6 +218,15 @@ export async function listUnownedVisionFeedback(
 
 export async function assignVisionFeedbackOwner(ids: string[], userId: string) {
   if (ids.length === 0) return;
+  if (IS_WEB) {
+    ids.forEach((id) => {
+      const entry = webQueue.get(id);
+      if (entry && entry.item.type === 'feedback' && entry.userId === null) {
+        entry.userId = userId;
+      }
+    });
+    return;
+  }
   const db = await database();
   const placeholders = ids.map(() => '?').join(',');
   await db.runAsync(
@@ -192,6 +237,14 @@ export async function assignVisionFeedbackOwner(ids: string[], userId: string) {
 }
 
 export async function getVisionQueueStats() {
+  if (IS_WEB) {
+    purgeWebExpired();
+    let oldestAtMs: number | null = null;
+    for (const { item } of webQueue.values()) {
+      if (oldestAtMs === null || item.createdAtMs < oldestAtMs) oldestAtMs = item.createdAtMs;
+    }
+    return { size: webQueue.size, oldestAtMs };
+  }
   const db = await database();
   await purgeExpired(db);
   const row = await db.getFirstAsync<QueueStats>(

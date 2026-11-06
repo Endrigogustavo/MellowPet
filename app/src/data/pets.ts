@@ -18,7 +18,7 @@ export type PetKey =
   | 'unicorn';
 
 export const PET_TYPES: [PetKey, string, string][] = [
-  ['seal', 'Foca', '#A8B0B4'],
+  ['seal', 'Foca', '#ECE2D8'],
   ['dog', 'Cachorro', '#E9A878'],
   ['cat', 'Gatinho', '#E9959F'],
   ['bunny', 'Coelho', '#CDB6EC'],

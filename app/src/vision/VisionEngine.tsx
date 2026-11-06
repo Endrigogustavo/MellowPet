@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, StyleSheet, View } from 'react-native';
+import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { useCameraPermissions } from 'expo-camera';
 
 import {
@@ -34,6 +34,7 @@ import { setBackgroundVision } from './backgroundVision';
 function useVisionBudget(base: number): FpsDecision {
   const [decision, setDecision] = useState<FpsDecision>({ fps: base, reason: null });
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     let alive = true;
     const check = async () => {
       const [level, state, lowPower] = await Promise.all([

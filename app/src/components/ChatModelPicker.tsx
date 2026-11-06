@@ -57,19 +57,20 @@ function ModelChip({ icon, label, on, onPress }: { icon: string; label: string; 
       accessibilityLabel={`Responder com ${label}`}
       accessibilityState={{ selected: on }}
       style={{
+        minHeight: 44,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 13,
+        paddingHorizontal: 14,
+        paddingVertical: 9,
+        borderRadius: 999,
         borderWidth: 1,
         borderColor: on ? T.pri : T.chipBd,
         backgroundColor: on ? T.pri : T.chipBg,
       }}
     >
-      <Icon d={icon} size={15} color={on ? '#fff' : T.t2} sw={1.9} />
-      <Txt s={12.5} w={700} c={on ? '#fff' : T.t2}>
+      <Icon d={icon} size={15} color={on ? T.onPri : T.t2} sw={1.9} />
+      <Txt s={12.5} w={700} c={on ? T.onPri : T.t2}>
         {label}
       </Txt>
     </Touchable>

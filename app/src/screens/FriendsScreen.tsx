@@ -7,14 +7,12 @@ import { Card, PrimaryButton, ScreenTitle, Txt, useColumnWidth } from '../compon
 import { listFriends, type Friend } from '../pet/encounters';
 import { STAGE_LABEL } from '../pet/growth';
 import { useApp, useTheme } from '../state/AppContext';
-import { DANGER } from '../theme/palette';
 
 /**
  * Álbum dos pets que o seu pet conheceu pessoalmente.
  *
- * Cada encontro vira uma figurinha. Repetir o mesmo amigo em outro dia é bom
- * sinal (vocês se viram de novo), então a lista agrupa pelo cartão do pet e
- * mostra quantas vezes se encontraram.
+ * Cada encontro vira uma lembrança. Repetir o mesmo amigo em outro dia soma
+ * no cartão daquele pet.
  */
 type Group = { key: string; friend: Friend; times: number };
 
@@ -47,11 +45,11 @@ export function FriendsScreen() {
 
   return (
     <ScreenScroll>
-      <ScreenTitle label="ENCONTROS" title={`Amigos do\n${state.petName}`} />
+      <ScreenTitle label="Encontros" title="Álbum de amigos" />
 
       {error ? (
         <Section top={0}>
-          <Txt s={12.5} lh={1.5} c={DANGER}>
+          <Txt s={12.5} lh={1.5} c={T.danger}>
             {error}
           </Txt>
         </Section>
@@ -60,11 +58,11 @@ export function FriendsScreen() {
       {!state.encountersEnabled ? (
         <Section top={0}>
           <Card radius={22} padding={18}>
-            <Txt s={13} lh={1.5} c={T.t2}>
-              Os encontros estão desligados. Ligue para {state.petName} conhecer os pets de quem está perto de você.
+            <Txt s={13.5} lh={1.55} c={T.t2}>
+              Os encontros estão desligados. Ative para o seu Mellow conhecer os pets de quem estiver por perto.
             </Txt>
             <PrimaryButton
-              label="Ligar encontros"
+              label="Ativar encontros"
               onPress={() => actions.setEncounters(true).catch(() => undefined)}
               style={{ marginTop: 12 }}
             />
@@ -76,19 +74,24 @@ export function FriendsScreen() {
         {friends === null && !error ? (
           <ActivityIndicator color={T.pri} style={{ marginTop: 20 }} />
         ) : groups.length === 0 ? (
-          <Txt s={12.5} lh={1.5} c={T.t3}>
-            Ninguém ainda. Abra o app na Home perto de alguém que também usa o MellowPet.
-          </Txt>
+          <Card variant="warm" radius={22} padding={20} style={{ alignItems: 'center' }}>
+            <Txt s={14} w={800} c={T.t1} center>
+              Nenhum encontro registrado ainda
+            </Txt>
+            <Txt s={12.5} lh={1.55} c={T.t2} center style={{ marginTop: 6 }}>
+              Quando duas pessoas abrem o MellowPet por perto com encontros ativos, os pets se cumprimentam e ficam guardados aqui.
+            </Txt>
+          </Card>
         ) : (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {groups.map((g) => (
-              <Card key={g.key} radius={18} padding={10} style={{ width: cell, alignItems: 'center' }}>
+              <Card key={g.key} radius={18} padding={12} style={{ width: cell, alignItems: 'center' }}>
                 <PetFace size={58} petType={g.friend.petType} emotion="happy" stage={g.friend.stage} />
-                <Txt s={12.5} w={800} c={T.t1} numberOfLines={1} style={{ marginTop: 4 }}>
+                <Txt s={12.5} w={800} c={T.t1} numberOfLines={1} style={{ marginTop: 6, maxWidth: '100%' }}>
                   {g.friend.petName}
                 </Txt>
-                <Txt s={10.5} c={T.t3}>
-                  {STAGE_LABEL[g.friend.stage]} · {g.times}×
+                <Txt s={10.5} c={T.t3} numberOfLines={1}>
+                  {STAGE_LABEL[g.friend.stage]} ({g.times}x)
                 </Txt>
               </Card>
             ))}

@@ -1,12 +1,13 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Platform, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { Field } from '../components/Field';
 import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Card, ScreenTitle, Toggle, Touchable, Txt } from '../components/ui';
+import { Card, Chip, PrimaryButton, ScreenTitle, Toggle, Touchable, Txt } from '../components/ui';
 import { ICONS } from '../data/content';
+import { buildWorstCaseRoutines } from '../dev/worstCaseData';
 import {
   createRoutineItem,
   deleteRoutineItem,
@@ -17,8 +18,14 @@ import {
 import { cancelRoutineReminder, resyncRoutineReminders, scheduleRoutineReminder } from '../notifications/notifications';
 import { useApp, useTheme } from '../state/AppContext';
 import { saveCapsule } from '../state/preferencesStore';
-import { DANGER } from '../theme/palette';
+import { hapticSuccess, hapticTap } from '../theme/haptics';
 import { updateRoutineWidget } from '../widgets/widgetBridge';
+
+const ROUTINE_PRESETS: { hour: number; minute: number; name: string }[] = [
+  { hour: 8, minute: 0, name: 'Beber água ao acordar' },
+  { hour: 13, minute: 0, name: 'Pausa longe da tela' },
+  { hour: 22, minute: 0, name: 'Desacelerar para dormir' },
+];
 
 function formatTime(date: Date): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -146,37 +153,114 @@ export function RoutineScreen() {
       },
     ]);
 
+  const extremeItems = useMemo(
+    () => (state.stressMode === 'extreme' ? buildWorstCaseRoutines() : []),
+    [state.stressMode]
+  );
+  const displayItems =
+    state.stressMode === 'empty' ? [] : state.stressMode === 'extreme' ? extremeItems : items;
+  const isRoutineLoading = state.stressMode === 'off' && loadState === 'loading' && items.length === 0;
+  const isRoutineError = state.stressMode === 'off' && loadState === 'error' && items.length === 0;
+
+  const pickTime = () => {
+    hapticTap();
+    if (Platform.OS === 'web') {
+      // No navegador o DateTimePicker nativo não abre modal; avança 30 minutos por toque.
+      setTimeValue((prev) => {
+        const next = new Date(prev);
+        next.setMinutes(next.getMinutes() + 30);
+        return next;
+      });
+      return;
+    }
+    setShowPicker(true);
+  };
+
+  const applyPreset = (hour: number, minute: number, name: string) => {
+    hapticTap();
+    const next = new Date();
+    next.setHours(hour, minute, 0, 0);
+    setTimeValue(next);
+    setNameInput(name);
+    setFormError(null);
+  };
+
   return (
     <ScreenScroll>
-      <ScreenTitle label="ROTINA" title={'O seu dia,\nem blocos'} />
+      <ScreenTitle label="Rotina" title={'O seu dia,\nem blocos'} />
 
       <Section top={0}>
-        <Card radius={24} padding={18} style={{ gap: 14 }}>
-          {loadState === 'loading' && items.length === 0 ? (
+        <Card radius={24} padding={18} style={{ gap: 12 }}>
+          {isRoutineLoading ? (
             <ActivityIndicator color={T.pri} />
-          ) : loadState === 'error' && items.length === 0 ? (
-            <Touchable onPress={loadItems} accessibilityRole="button">
-              <Txt s={12.5} c={DANGER}>
+          ) : isRoutineError ? (
+            <Touchable onPress={loadItems} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Txt s={12.5} c={T.danger}>
                 Não foi possível carregar sua rotina. Toque para tentar de novo.
               </Txt>
             </Touchable>
-          ) : items.length === 0 ? (
-            <Txt s={12.5} c={T.t3}>
-              Nenhum item na rotina ainda. Adicione um abaixo.
-            </Txt>
+          ) : displayItems.length === 0 ? (
+            <View style={{ gap: 10 }}>
+              <Txt s={14} w={800} c={T.t1}>
+                Seu dia está livre por enquanto
+              </Txt>
+              <Txt s={12.5} lh={1.5} c={T.t2}>
+                Âncoras leves ajudam sem engessar a semana. Toque em uma sugestão para preencher o horário:
+              </Txt>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 }}>
+                {ROUTINE_PRESETS.map((p) => {
+                  const label = `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')} · ${p.name}`;
+                  return (
+                    <Chip
+                      key={label}
+                      label={label}
+                      on={nameInput === p.name}
+                      onPress={() => applyPreset(p.hour, p.minute, p.name)}
+                    />
+                  );
+                })}
+              </View>
+            </View>
           ) : (
-            items.map((item) => (
-              <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Txt s={12} w={800} c={T.t3} style={{ width: 44 }}>
+            displayItems.map((item, idx) => (
+              <View
+                key={item.id}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  paddingTop: idx === 0 ? 0 : 10,
+                  borderTopWidth: idx === 0 ? 0 : 1,
+                  borderTopColor: T.bdL,
+                }}
+              >
+                <Txt s={12.5} w={800} c={T.pri} style={{ width: 46, flexShrink: 0 }}>
                   {item.time}
                 </Txt>
-                <Txt s={13.5} c={T.t1} style={{ flex: 1 }}>
+                <Txt s={13.5} lh={1.4} c={T.t1} style={{ flex: 1, minWidth: 0 }}>
                   {item.name}
                 </Txt>
-                <Toggle on={item.notify} onPress={() => toggleNotify(item)} />
-                <Touchable onPress={() => removeItem(item)} style={{ padding: 4 }}>
-                  <Icon d={ICONS.close} size={16} color={DANGER} />
-                </Touchable>
+                <Toggle
+                  on={item.notify}
+                  onPress={() => {
+                    if (state.stressMode === 'off') toggleNotify(item);
+                  }}
+                />
+                {state.stressMode === 'off' ? (
+                  <Touchable
+                    onPress={() => removeItem(item)}
+                    accessibilityLabel={`Remover ${item.name}`}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon d={ICONS.close} size={16} color={T.danger} />
+                  </Touchable>
+                ) : null}
               </View>
             ))
           )}
@@ -185,57 +269,52 @@ export function RoutineScreen() {
 
       <Section>
         <Card radius={24} padding={18}>
-          <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 12 }}>
-            Adicionar item
+          <Txt s={14} w={800} c={T.t1} style={{ marginBottom: 12 }}>
+            Adicionar bloco
           </Txt>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
             <Touchable
-              onPress={() => setShowPicker(true)}
+              onPress={pickTime}
+              accessibilityLabel={`Horário selecionado ${formatTime(timeValue)}. Toque para ajustar`}
               style={{
                 width: 96,
-                paddingVertical: 13,
-                borderRadius: 14,
+                minHeight: 50,
+                borderRadius: 16,
                 alignItems: 'center',
-                backgroundColor: T.bg,
+                justifyContent: 'center',
+                backgroundColor: T.surfWarm,
                 borderWidth: 1,
                 borderColor: T.bd,
+                flexShrink: 0,
               }}
             >
-              <Txt s={14} w={700} c={T.t1}>
+              <Txt s={15} w={800} c={T.t1}>
                 {formatTime(timeValue)}
               </Txt>
             </Touchable>
             <Field
               value={nameInput}
               onChangeText={setNameInput}
-              placeholder="Nome do item"
-              containerStyle={{ flex: 1 }}
+              placeholder="Ex.: Pausa para respirar"
+              containerStyle={{ flex: 1, minWidth: 0 }}
             />
           </View>
-          {showPicker ? (
+          {showPicker && Platform.OS !== 'web' ? (
             <DateTimePicker value={timeValue} mode="time" is24Hour display="default" onChange={onTimeChange} />
           ) : null}
           {formError ? (
-            <Txt s={12} c={DANGER} style={{ marginTop: 8 }}>
+            <Txt s={12} c={T.danger} style={{ marginTop: 8 }}>
               {formError}
             </Txt>
           ) : null}
-          <Touchable
+          <PrimaryButton
+            label={saving ? 'Salvando…' : '+ Adicionar à rotina'}
             onPress={addItem}
-            style={{
-              marginTop: 12,
-              paddingVertical: 13,
-              borderRadius: 14,
-              alignItems: 'center',
-              backgroundColor: T.pri,
-            }}
-          >
-            <Txt s={13.5} w={800} c="#fff">
-              + Adicionar
-            </Txt>
-          </Touchable>
-          <Txt s={11.5} c={T.t3} style={{ marginTop: 10 }}>
-            Cada item ativa um lembrete diário no horário escolhido.
+            disabled={saving}
+            style={{ marginTop: 12 }}
+          />
+          <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 10 }}>
+            Cada item ativa um lembrete diário suave no horário escolhido.
           </Txt>
         </Card>
       </Section>
@@ -243,7 +322,7 @@ export function RoutineScreen() {
       {/* cápsula do tempo */}
       <Section>
         <View style={{ borderRadius: 24, padding: 18, backgroundColor: T.priL }}>
-          <Txt s={13.5} w={800} c={T.pri}>
+          <Txt s={14} w={800} c={T.pri}>
             Cápsula do tempo
           </Txt>
           <Txt s={12.5} lh={1.55} c={T.t2} style={{ marginTop: 6 }}>
@@ -257,23 +336,29 @@ export function RoutineScreen() {
             }}
             placeholder="Daqui a um mês eu espero…"
             containerStyle={{ marginTop: 12 }}
-            style={{ backgroundColor: T.surf, borderWidth: 0, borderRadius: 14, paddingVertical: 13 }}
+            style={{ backgroundColor: T.surf, borderWidth: 1, borderColor: T.bd, borderRadius: 16 }}
           />
           <Touchable
             onPress={() => {
               if (!state.capsule.trim()) return;
+              hapticSuccess();
               actions.set({ capsuleSaved: true });
               if (state.userId) saveCapsule(state.userId, { text: state.capsule, saved: true }).catch(() => undefined);
             }}
+            accessibilityLabel={state.capsuleSaved ? 'Cápsula guardada para 30 dias' : 'Selar mensagem por 30 dias'}
             style={{
               marginTop: 10,
+              minHeight: 50,
               paddingVertical: 13,
-              borderRadius: 14,
+              borderRadius: 16,
               alignItems: 'center',
-              backgroundColor: state.capsuleSaved ? T.bg : T.pri,
+              justifyContent: 'center',
+              backgroundColor: state.capsuleSaved ? T.surf : T.pri,
+              borderWidth: state.capsuleSaved ? 1 : 0,
+              borderColor: T.bd,
             }}
           >
-            <Txt s={13.5} w={800} c={state.capsuleSaved ? T.t2 : '#fff'}>
+            <Txt s={13.5} w={800} c={state.capsuleSaved ? T.t2 : T.onPri}>
               {state.capsuleSaved ? 'Guardado para daqui a 30 dias' : 'Selar por 30 dias'}
             </Txt>
           </Touchable>

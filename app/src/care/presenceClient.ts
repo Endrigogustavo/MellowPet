@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 import { apiPost } from '../api/client';
 import { supabase } from '../supabase/client';
@@ -123,6 +124,7 @@ export async function acknowledgeRequest(id: string, caregiverId: string) {
  * (extra.eas.projectId); sem ele, os avisos locais continuam valendo.
  */
 export async function registerPushToken(userId: string): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
   const projectId =
     (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)?.eas?.projectId ??
     Constants.easConfig?.projectId;

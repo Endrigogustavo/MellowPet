@@ -61,8 +61,8 @@ export function CoachOverlay() {
           ))}
         </View>
 
-        <Txt s={11} w={800} c={T.t3} ls={1.4}>
-          PASSO {Math.min(state.coach + 1, COACH.length)} DE {COACH.length}
+        <Txt s={12} w={700} c={T.t3}>
+          Passo {Math.min(state.coach + 1, COACH.length)} de {COACH.length}
         </Txt>
         <Txt s={20} w={800} c={T.t1} ls={-0.5} style={{ marginTop: 7 }}>
           {title}
@@ -74,7 +74,14 @@ export function CoachOverlay() {
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
           <Touchable
             onPress={() => actions.set({ coach: COACH.length })}
-            style={{ paddingHorizontal: 18, paddingVertical: 14, borderRadius: 16 }}
+            style={{
+              minHeight: 48,
+              paddingHorizontal: 18,
+              paddingVertical: 13,
+              borderRadius: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
             <Txt s={13.5} w={700} c={T.t3}>
               Pular
@@ -84,13 +91,15 @@ export function CoachOverlay() {
             onPress={() => actions.set((s) => ({ coach: s.coach + 1 }))}
             style={{
               flex: 1,
-              paddingVertical: 14,
+              minHeight: 48,
+              paddingVertical: 13,
               borderRadius: 16,
               alignItems: 'center',
+              justifyContent: 'center',
               backgroundColor: T.pri,
             }}
           >
-            <Txt s={14} w={800} c="#fff">
+            <Txt s={14} w={800} c={T.onPri}>
               Entendi
             </Txt>
           </Touchable>
