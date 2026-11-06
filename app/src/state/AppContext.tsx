@@ -12,12 +12,20 @@ import * as Notifications from 'expo-notifications';
 import * as Speech from 'expo-speech';
 import { LOCAL_ACTIONS_HINT, splitAction, type ChatAction } from '../chat/actions';
 import { addNote, extractMemoryRequest } from '../chat/memory';
-import { AppState as RNAppState, Linking, Vibration } from 'react-native';
+import { AppState as RNAppState, Linking, Platform, Vibration } from 'react-native';
 
 import { EMOTIONS, REPLIES, type EmotionKey } from '../data/emotions';
 import type { PetKey } from '../data/pets';
 import { COACH, SOS_MESSAGE, type ToolAction } from '../data/content';
-import { DARK, LIGHT, hexA, mix, type Palette } from '../theme/palette';
+import { DARK, LIGHT, emotionInk, hexA, mix, type Palette } from '../theme/palette';
+import { hapticSuccess, hapticTap } from '../theme/haptics';
+import {
+  buildWorstCaseJournal,
+  WORST_CASE_EMAIL,
+  WORST_CASE_PET_NAME,
+  WORST_CASE_SHORT_PET_NAME,
+  type StressMode,
+} from '../dev/worstCaseData';
 import { PET_BODY } from '../data/pets';
 import { createDemoSnapshot, nextDemoExpression } from '../vision/demoSource';
 import { VISION_MODE, type SignalStatus, type VisionMode } from '../vision/contracts';
@@ -304,6 +312,12 @@ export type State = {
   fed: number;
   played: number;
   xp: number;
+  /** Animação ativa de cuidado no palco (mastigar comidas alternadas, brincar ou recusar por saciedade). */
+  petAction: { kind: 'feed' | 'play' | 'refuse'; variant: number; seq: number } | null;
+  feedVariant: number;
+  playVariant: number;
+  /** Modo de estresse visual (break-ui, apenas em desenvolvimento). */
+  stressMode: StressMode;
 };
 
 const INITIAL: State = {
@@ -420,6 +434,10 @@ const INITIAL: State = {
   fed: 0,
   played: 0,
   xp: 0,
+  petAction: null,
+  feedVariant: 0,
+  playVariant: 0,
+  stressMode: 'off',
 };
 
 type Patch = Partial<State> | ((s: State) => Partial<State>);
@@ -519,6 +537,12 @@ export type Actions = {
   setSpeak: (enabled: boolean) => void;
   /** Executa a ação sugerida no chat (toque da pessoa). */
   runChatAction: (action: ChatAction) => void;
+  /** Alterna entre dados reais e cenários extremos de estresse (break-ui). */
+  setStressMode: (mode: StressMode) => void;
+  /** Dispara a próxima animação de comer, brincar ou recusa de comida por saciedade. */
+  triggerPetAction: (kind: 'feed' | 'play' | 'refuse') => void;
+  /** Limpa a animação ativa caso ainda corresponda ao disparo `seq`. */
+  clearPetAction: (seq: number) => void;
 };
 
 type Ctx = { state: State; actions: Actions };
@@ -903,6 +927,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // guardada e só abre quando a Home aparecer (senão o splash a atropela).
   const pendingScreen = useRef<Screen | null>(null);
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     const open = (data: Record<string, unknown> | undefined) => {
       const kind = data?.kind;
       const target: Screen | null =
@@ -986,12 +1011,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       go,
 
       pet: () => {
+        hapticTap(ref.current.toggles.haptics !== false);
         const id = Date.now() + Math.random();
         dispatch((s) => ({
           hearts: [...s.hearts, { id, x: 34 + Math.random() * 32 }],
           petting: s.petting + 1,
         }));
-        later(() => dispatch((s) => ({ hearts: s.hearts.filter((h) => h.id !== id) })), 1300);
+        later(() => dispatch((s) => ({ hearts: s.hearts.filter((h) => h.id !== id) })), 1100);
       },
 
       send: () => {
@@ -1313,6 +1339,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       feed: () => {
         if (!consumeMeal()) return false;
+        hapticSuccess(ref.current.toggles.haptics !== false);
         dispatch((s) => ({ fed: s.fed + 1, xp: s.xp + 6, streak: 0, petMood: 'happy' }));
         if (ref.current.userId) {
           bumpProfileStats({ fed: 1, xp: 6 })
@@ -1323,6 +1350,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         return true;
       },
+
+      triggerPetAction: (kind) =>
+        dispatch((s) => {
+          const variant = kind === 'feed' ? s.feedVariant : s.playVariant;
+          const seq = (s.petAction?.seq ?? 0) + 1;
+          return {
+            breathing: false,
+            petAction: { kind, variant, seq },
+            petMood: kind === 'refuse' ? 'neutral' : 'happy',
+            ...(kind === 'feed' ? { feedVariant: s.feedVariant + 1 } : kind === 'play' ? { playVariant: s.playVariant + 1 } : {}),
+          };
+        }),
+
+      clearPetAction: (seq) =>
+        dispatch((s) => (s.petAction?.seq === seq ? { petAction: null } : {})),
 
       habit: (kind) => updateHabits((h) => recordHabit(h, kind, localDay())),
 
@@ -1358,6 +1400,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } else if (action === 'musica') go('music');
         else if (action === 'ninar') go('lullaby');
         else go('checkin');
+      },
+
+      setStressMode: (mode: StressMode) => {
+        hapticTap(ref.current.toggles.haptics !== false);
+        if (mode === 'extreme') {
+          dispatch({
+            stressMode: 'extreme',
+            petName: WORST_CASE_PET_NAME,
+            email: WORST_CASE_EMAIL,
+            xp: 98470,
+            careDays: 412,
+            streak: 7540,
+            journal: buildWorstCaseJournal(),
+            readingEvidence: [
+              { label: 'Contração prolongada do frontal e sobrancelha interna (concentração ou alerta)', strength: 0.94 },
+              { label: 'Lábios comprimidos continuamente sem relaxamento mandibular', strength: 0.81 },
+              { label: 'Redução de piscadas durante exposição contínua à tela', strength: 0.67 },
+            ],
+          });
+        } else if (mode === 'empty') {
+          dispatch({
+            stressMode: 'empty',
+            petName: WORST_CASE_SHORT_PET_NAME,
+            xp: 0,
+            careDays: 0,
+            streak: 0,
+            journal: [],
+            readingEvidence: [],
+          });
+        } else {
+          dispatch({
+            stressMode: 'off',
+            petName: 'Mellow',
+            xp: 130,
+            careDays: 4,
+            streak: 12,
+            journal: [],
+            readingEvidence: [],
+          });
+        }
       },
 
       setEma: async (enabled: boolean) => {
@@ -1404,6 +1486,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       logout: async () => {
+        if (ref.current.userId === 'preview-local') {
+          Speech.stop();
+          dispatch((s) => ({
+            ...INITIAL,
+            theme: s.theme,
+            density: s.density,
+            authRestored: true,
+            screen: 'login',
+            navSeq: s.navSeq + 1,
+          }));
+          return;
+        }
         // Estado é atualizado pelo listener SIGNED_OUT (subscribeToSignOut
         // acima) — mesmo caminho usado quando a sessão cai sozinha em
         // background, sem duplicar a transição aqui.
@@ -1430,10 +1524,12 @@ export type Theme = {
   full: boolean;
   emotion: EmotionKey;
   emo: (typeof EMOTIONS)[EmotionKey];
-  /** `--emo`: cor viva da emoção. */
+  /** `--emo`: cor viva da emoção (para halos, anéis e barras). */
   emoColor: string;
   /** `--emoL`: fundo suave da emoção. */
   emoLight: string;
+  /** Tinta acessível (WCAG AA) para rótulos e ícones textuais de emoção. */
+  emoInk: string;
   /** Cores do corpo do bichinho, já ajustadas ao tema. */
   pet: { body: string; belly: string; line: string; whisker: string; blush: number };
 };
@@ -1445,8 +1541,9 @@ export function useTheme(): Theme {
     const isDark = state.theme === 'dark';
     const T = isDark ? DARK : LIGHT;
     const emo = EMOTIONS[state.observedExpression];
+    const isSeal = state.petType === 'seal';
     const base = PET_BODY[state.petType];
-    const body = isDark ? mix(base, '#FFFFFF', 0.14) : base;
+    const body = isSeal ? T.sealBody : isDark ? mix(base, '#FFFFFF', 0.14) : base;
 
     return {
       T,
@@ -1456,11 +1553,12 @@ export function useTheme(): Theme {
       emo,
       emoColor: emo.c,
       emoLight: isDark ? hexA(emo.c, 0.17) : emo.l,
+      emoInk: emotionInk(state.observedExpression, isDark),
       pet: {
         body,
-        belly: mix(body, '#000000', 0.1),
-        line: '#2E2A33',
-        whisker: hexA('#6B6470', 0.75),
+        belly: isSeal ? T.sealBelly : mix(body, '#000000', 0.1),
+        line: isSeal ? T.sealLine : '#2E2A33',
+        whisker: isSeal ? T.sealWhisker : hexA('#6B6470', 0.75),
         blush: 0.55,
       },
     };
