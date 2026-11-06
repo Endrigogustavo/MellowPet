@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   Animated,
   Easing,
+  Platform,
   Pressable,
   type PressableProps,
   type StyleProp,
@@ -12,18 +14,53 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
-
-import { font, type FontWeight } from '../theme/type';
 import Svg, { Path } from 'react-native-svg';
 
 import { useApp, useTheme } from '../state/AppContext';
+import { hapticTap } from '../theme/haptics';
+import { LIGHT } from '../theme/palette';
+import { font, type FontWeight } from '../theme/type';
+
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
+
+/** Respeita `prefers-reduced-motion` no sistema e no navegador. */
+export function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.matchMedia) {
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const onChange = () => setReduced(mq.matches);
+      mq.addEventListener?.('change', onChange);
+      return () => mq.removeEventListener?.('change', onChange);
+    }
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((v) => {
+        if (mounted) setReduced(Boolean(v));
+      })
+      .catch(() => undefined);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (v) => setReduced(Boolean(v)));
+    return () => {
+      mounted = false;
+      sub.remove();
+    };
+  }, []);
+
+  return reduced;
+}
 
 /* ── Texto ──────────────────────────────────────────────────────────────── */
 
 type TxtProps = TextProps & {
   /** fontSize */
   s?: number;
-  /** peso da Nunito */
+  /** peso da fonte Nunito */
   w?: FontWeight;
   /** cor */
   c?: string;
@@ -51,12 +88,16 @@ export function Txt({ s = 14, w = 400, c, lh, ls, center, caps, cap, style, ...r
   return <Text {...rest} style={[base, style]} />;
 }
 
-/** Rótulo pequeno em caixa alta que abre quase todas as seções do design. */
-export function Eyebrow({ children, ls = 1.8 }: { children: React.ReactNode; ls?: number }) {
+/** Rótulo contextual calmo (sem grito tipográfico em caixa alta espaçada). */
+export function Eyebrow({ children, ls = 0 }: { children: React.ReactNode; ls?: number }) {
   const { T } = useTheme();
+  const normalized =
+    typeof children === 'string' && children === children.toUpperCase() && children.length > 2
+      ? children.charAt(0) + children.slice(1).toLowerCase()
+      : children;
   return (
-    <Txt s={11} w={800} c={T.t3} ls={ls}>
-      {children}
+    <Txt s={12.5} w={700} c={T.t3} ls={ls === 1.8 ? 0 : ls}>
+      {normalized}
     </Txt>
   );
 }
@@ -64,31 +105,55 @@ export function Eyebrow({ children, ls = 1.8 }: { children: React.ReactNode; ls?
 /** Telas de aba: nelas não há "voltar" (a barra de baixo já leva às outras). */
 const TAB_ROOTS = ['home', 'tools', 'routine', 'music', 'dashboard', 'care', 'carealerts', 'agenda', 'caretools'];
 
-/** Cabeçalho de tela: voltar (fora das abas) + rótulo + título grande. */
-export function ScreenTitle({ label, title }: { label: string; title: string }) {
+/** Cabeçalho de tela: botão voltar >= 44×44px + subtítulo opcional + título humano. */
+export function ScreenTitle({
+  label,
+  title,
+  onBack,
+}: {
+  label?: string;
+  title: string;
+  onBack?: () => void;
+}) {
   const { T } = useTheme();
   const { state, actions } = useApp();
-  const canGoBack = state.history.length > 0 && !TAB_ROOTS.includes(state.screen);
+  const canGoBack = Boolean(onBack) || (state.history.length > 0 && !TAB_ROOTS.includes(state.screen));
   return (
     <View style={{ paddingHorizontal: 20, paddingBottom: 18 }}>
       {canGoBack ? (
         <Touchable
-          onPress={() => actions.back()}
+          onPress={() => (onBack ? onBack() : actions.back())}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
-          hitSlop={12}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10, alignSelf: 'flex-start' }}
+          hitSlop={8}
+          style={{
+            minHeight: 44,
+            minWidth: 44,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 5,
+            marginBottom: 6,
+            alignSelf: 'flex-start',
+            paddingRight: 10,
+          }}
         >
           <Svg width={18} height={18} viewBox="0 0 24 24">
-            <Path d="M15 5l-7 7 7 7" stroke={T.pri} strokeWidth={2.4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <Path
+              d="M15 5l-7 7 7 7"
+              stroke={T.pri}
+              strokeWidth={2.3}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </Svg>
-          <Txt s={13} w={800} c={T.pri}>
+          <Txt s={13.5} w={700} c={T.pri}>
             Voltar
           </Txt>
         </Touchable>
       ) : null}
-      <Eyebrow>{label}</Eyebrow>
-      <Txt s={32} w={800} c={T.t1} ls={-1} lh={1.1} style={{ marginTop: 6 }}>
+      {label ? <Eyebrow>{label}</Eyebrow> : null}
+      <Txt s={29} w={800} c={T.t1} ls={-0.8} lh={1.14} style={{ marginTop: label ? 4 : 0 }}>
         {title}
       </Txt>
     </View>
@@ -105,18 +170,38 @@ type CardProps = {
   radius?: number;
   padding?: number;
   bordered?: boolean;
+  variant?: 'elevated' | 'warm' | 'flat';
 };
 
-export function Card({ children, style, bg, radius = 22, padding = 16, bordered = true }: CardProps) {
-  const { T } = useTheme();
+export function Card({
+  children,
+  style,
+  bg,
+  radius = 22,
+  padding = 18,
+  bordered = true,
+  variant = 'elevated',
+}: CardProps) {
+  const { T, isDark } = useTheme();
+  const surfaceBg = bg ?? (variant === 'warm' ? T.surfWarm : T.surf);
+  const showBorder = bordered && !bg && variant !== 'warm';
   return (
     <View
       style={[
         {
-          backgroundColor: bg ?? T.surf,
+          backgroundColor: surfaceBg,
           borderRadius: radius,
           padding,
-          ...(bordered && !bg ? { borderWidth: 1, borderColor: T.bd } : null),
+          ...(showBorder ? { borderWidth: 1, borderColor: variant === 'elevated' ? T.bdL : T.bd } : null),
+          ...(variant === 'elevated' && !bg
+            ? {
+                shadowColor: T.shadow,
+                shadowOpacity: isDark ? 0.2 : 0.035,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 3 },
+                elevation: 1,
+              }
+            : null),
         },
         style,
       ]}
@@ -126,34 +211,84 @@ export function Card({ children, style, bg, radius = 22, padding = 16, bordered 
   );
 }
 
-/** Botão genérico com feedback de toque. */
-export function Touchable({ style, ...rest }: PressableProps & { style?: StyleProp<ViewStyle> }) {
+const WEB_PRESSABLE_STYLE =
+  Platform.OS === 'web'
+    ? ({
+        userSelect: 'none',
+        cursor: 'pointer',
+        transitionProperty: 'transform, opacity',
+        transitionDuration: '130ms',
+        transitionTimingFunction: 'cubic-bezier(0.2, 0, 0, 1)',
+      } as unknown as ViewStyle)
+    : null;
+
+/** Botão genérico com micro-resposta tátil (escala 0.975 + opacidade sutil). */
+export function Touchable({
+  style,
+  scaleOnPress = true,
+  accessibilityRole,
+  ...rest
+}: PressableProps & { style?: StyleProp<ViewStyle>; scaleOnPress?: boolean }) {
+  const reduced = useReducedMotion();
   return (
     <Pressable
+      accessibilityRole={accessibilityRole ?? (rest.onPress ? 'button' : undefined)}
       {...rest}
-      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }, style as ViewStyle]}
+      style={({ pressed }) => [
+        WEB_PRESSABLE_STYLE,
+        {
+          opacity: pressed && !rest.disabled ? 0.86 : 1,
+          ...(scaleOnPress && !reduced
+            ? { transform: [{ scale: pressed && !rest.disabled ? 0.975 : 1 }] }
+            : null),
+        },
+        style as ViewStyle,
+      ]}
     />
   );
 }
 
 /* ── Controles ──────────────────────────────────────────────────────────── */
 
-/** Interruptor 50×29 do design. */
-export function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
+/** Interruptor acessível (alvo de toque >= 44×44px, transição 180ms). */
+export function Toggle({
+  on,
+  onPress,
+  label,
+}: {
+  on: boolean;
+  onPress: () => void;
+  label?: string;
+}) {
   const { T } = useTheme();
+  const reduced = useReducedMotion();
   const [v] = useState(() => new Animated.Value(on ? 1 : 0));
 
   useEffect(() => {
+    if (reduced) {
+      v.setValue(on ? 1 : 0);
+      return;
+    }
     Animated.timing(v, {
       toValue: on ? 1 : 0,
-      duration: 250,
-      easing: Easing.bezier(0.2, 0.8, 0.2, 1),
-      useNativeDriver: true,
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: USE_NATIVE_DRIVER,
     }).start();
-  }, [on, v]);
+  }, [on, reduced, v]);
 
   return (
-    <Touchable onPress={onPress} hitSlop={8}>
+    <Touchable
+      onPress={() => {
+        hapticTap();
+        onPress();
+      }}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: on }}
+      accessibilityLabel={label}
+      hitSlop={8}
+      style={{ minHeight: 44, minWidth: 50, justifyContent: 'center' }}
+    >
       <View
         style={{
           width: 50,
@@ -168,9 +303,9 @@ export function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
             width: 23,
             height: 23,
             borderRadius: 999,
-            backgroundColor: '#fff',
-            shadowColor: '#000',
-            shadowOpacity: 0.2,
+            backgroundColor: LIGHT.surf,
+            shadowColor: T.shadow,
+            shadowOpacity: 0.18,
             shadowRadius: 3,
             shadowOffset: { width: 0, height: 1 },
             elevation: 2,
@@ -203,19 +338,20 @@ export function ToggleRow({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 14,
-        paddingVertical: 15,
+        minHeight: 56,
+        paddingVertical: 14,
         ...(divider ? { borderTopWidth: 1, borderTopColor: T.bdL } : null),
       }}
     >
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, minWidth: 0 }}>
         <Txt s={14.5} w={700} c={T.t1}>
           {label}
         </Txt>
-        <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 3 }}>
+        <Txt s={12} lh={1.45} c={T.t3} style={{ marginTop: 3 }}>
           {sub}
         </Txt>
       </View>
-      <Toggle on={on} onPress={onPress} />
+      <Toggle on={on} onPress={onPress} label={label} />
     </View>
   );
 }
@@ -254,7 +390,7 @@ export function Bar({
   );
 }
 
-/** Pílula selecionável (chips de emoção, tags do diário, vínculos…). */
+/** Pílula selecionável com altura mínima tátil de 44px. */
 export function Chip({
   label,
   on,
@@ -265,7 +401,7 @@ export function Chip({
   label: string;
   on: boolean;
   onPress: () => void;
-  /** `soft` usa o roxo claro; `solid` preenche com a cor primária. */
+  /** `soft` usa o tom lavanda suave; `solid` preenche com a cor primária. */
   variant?: 'soft' | 'solid';
   style?: StyleProp<ViewStyle>;
 }) {
@@ -273,26 +409,34 @@ export function Chip({
   const solid = variant === 'solid';
   return (
     <Touchable
-      onPress={onPress}
+      onPress={() => {
+        hapticTap();
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      accessibilityLabel={label}
       style={[
         {
-          paddingHorizontal: 14,
+          minHeight: 44,
+          paddingHorizontal: 15,
           paddingVertical: 10,
-          borderRadius: 13,
-          backgroundColor: on ? (solid ? T.pri : T.priL) : solid ? T.chipBg : T.bg,
+          borderRadius: 14,
+          justifyContent: 'center',
+          backgroundColor: on ? (solid ? T.pri : T.priL) : solid ? T.chipBg : T.surfWarm,
           ...(solid ? { borderWidth: 1, borderColor: on ? T.pri : T.chipBd } : null),
         },
         style,
       ]}
     >
-      <Txt s={12.5} w={700} c={on ? (solid ? '#fff' : T.pri) : T.t2}>
+      <Txt s={13} w={700} c={on ? (solid ? T.onPri : T.pri) : T.t2} numberOfLines={1}>
         {label}
       </Txt>
     </Touchable>
   );
 }
 
-/** Grupo segmentado em trilho arredondado (períodos, entrar/criar conta). */
+/** Grupo segmentado em trilho arredondado (altura mínima 44px por aba). */
 export function Segmented({
   items,
   index,
@@ -307,8 +451,9 @@ export function Segmented({
   const { T } = useTheme();
   return (
     <View
+      accessibilityRole="tablist"
       style={[
-        { flexDirection: 'row', padding: 3, backgroundColor: T.bdL, borderRadius: 999 },
+        { flexDirection: 'row', padding: 4, backgroundColor: T.surfWarm, borderRadius: 16 },
         style,
       ]}
     >
@@ -317,17 +462,26 @@ export function Segmented({
         return (
           <Touchable
             key={label}
-            onPress={() => onChange(i)}
+            onPress={() => {
+              hapticTap();
+              onChange(i);
+            }}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={label}
             style={{
               flex: 1,
-              paddingVertical: 9,
-              borderRadius: 999,
+              minHeight: 44,
+              paddingVertical: 11,
+              paddingHorizontal: 10,
+              borderRadius: 12,
               alignItems: 'center',
+              justifyContent: 'center',
               backgroundColor: on ? T.surf : 'transparent',
               ...(on
                 ? {
-                    shadowColor: '#000',
-                    shadowOpacity: 0.1,
+                    shadowColor: T.shadow,
+                    shadowOpacity: 0.08,
                     shadowRadius: 4,
                     shadowOffset: { width: 0, height: 1 },
                     elevation: 1,
@@ -335,7 +489,7 @@ export function Segmented({
                 : null),
             }}
           >
-            <Txt s={13} w={700} c={on ? T.t1 : T.t3}>
+            <Txt s={13} w={700} c={on ? T.t1 : T.t3} numberOfLines={1}>
               {label}
             </Txt>
           </Touchable>
@@ -345,7 +499,7 @@ export function Segmented({
   );
 }
 
-/** Botão principal, cheio, da cor primária. */
+/** Botão principal, cheio, com contraste semântico (`T.onPri`) e altura >= 52px. */
 export function PrimaryButton({
   label,
   onPress,
@@ -360,19 +514,28 @@ export function PrimaryButton({
   const { T } = useTheme();
   return (
     <Touchable
-      onPress={onPress}
+      onPress={() => {
+        hapticTap();
+        onPress();
+      }}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled) }}
+      accessibilityLabel={label}
       style={[
         {
-          paddingVertical: 16,
-          borderRadius: 18,
+          minHeight: 52,
+          paddingVertical: 15,
+          paddingHorizontal: 20,
+          borderRadius: 16,
           alignItems: 'center',
+          justifyContent: 'center',
           backgroundColor: disabled ? T.bd : T.pri,
         },
         style,
       ]}
     >
-      <Txt s={15} w={800} c={disabled ? T.t3 : '#fff'}>
+      <Txt s={15} w={800} c={disabled ? T.t3 : T.onPri} numberOfLines={1}>
         {label}
       </Txt>
     </Touchable>
@@ -381,7 +544,7 @@ export function PrimaryButton({
 
 /* ── Animação de entrada de tela ────────────────────────────────────────── */
 
-/** Reproduz as keyframes `mp-in1` / `mp-in2`: sobe 14px e aparece em 340 ms. */
+/** Entrada reativa e sutil (180ms cubic-out), respeitando movimento reduzido. */
 export function Enter({
   seq,
   children,
@@ -391,24 +554,32 @@ export function Enter({
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  const [v] = useState(() => new Animated.Value(0));
+  const reduced = useReducedMotion();
+  const [v] = useState(() => new Animated.Value(1));
+  const prevSeq = useRef(seq);
 
   useEffect(() => {
+    if (prevSeq.current === seq) return;
+    prevSeq.current = seq;
+    if (reduced) {
+      v.setValue(1);
+      return;
+    }
     v.setValue(0);
     Animated.timing(v, {
       toValue: 1,
-      duration: 340,
-      easing: Easing.bezier(0.2, 0.8, 0.2, 1),
-      useNativeDriver: true,
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: USE_NATIVE_DRIVER,
     }).start();
-  }, [seq, v]);
+  }, [reduced, seq, v]);
 
   return (
     <Animated.View
       style={[
         {
-          opacity: v,
-          transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+          opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] }),
+          transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
         },
         style,
       ]}
@@ -420,21 +591,19 @@ export function Enter({
 
 /**
  * Largura de cada coluna numa grade que se estende de margem a margem.
- * Substitui os `width: calc(50% - 5px)` do design, que o RN não tem.
  */
-export function useColumnWidth(columns: number, gap: number, margin = 16) {
+export function useColumnWidth(columns: number, gap: number, margin = 18) {
   const { width } = useWindowDimensions();
-  // Arredondar para baixo: a divisão exata não deixa folga, e o arredondamento
-  // de subpixel do layout faz a última coluna quebrar para a linha seguinte.
-  return Math.floor((width - margin * 2 - gap * (columns - 1)) / columns);
+  return Math.max(120, Math.floor((width - margin * 2 - gap * (columns - 1)) / columns));
 }
 
-/** Loop 0→1 contínuo, base para as animações do bichinho. */
+/** Loop contínuo 0 a 1 para animações orgânicas do bichinho (respeita movimento reduzido). */
 export function useLoop(duration: number, enabled = true) {
+  const reduced = useReducedMotion();
   const [v] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || reduced) {
       v.setValue(0);
       return;
     }
@@ -444,12 +613,12 @@ export function useLoop(duration: number, enabled = true) {
         toValue: 1,
         duration,
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       })
     );
     anim.start();
     return () => anim.stop();
-  }, [duration, enabled, v]);
+  }, [duration, enabled, reduced, v]);
 
   return v;
 }

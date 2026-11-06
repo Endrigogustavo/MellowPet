@@ -5,7 +5,6 @@ import React, { useState } from 'react';
 import { listCheckins } from '../checkins/checkinClient';
 import { reportHtml } from '../reports/therapistReport';
 import { useApp, useTheme } from '../state/AppContext';
-import { DANGER } from '../theme/palette';
 import { Card, PrimaryButton, ToggleRow, Txt } from './ui';
 
 const DAYS = 30;
@@ -56,7 +55,7 @@ export function ReportCard() {
       />
       <PrimaryButton label={busy ? 'Gerando…' : 'Gerar PDF'} disabled={busy} onPress={() => generate().catch(() => undefined)} style={{ marginTop: 8 }} />
       {error ? (
-        <Txt s={12} c={DANGER} style={{ marginTop: 8 }}>
+        <Txt s={12} c={T.danger} style={{ marginTop: 8 }}>
           {error}
         </Txt>
       ) : null}

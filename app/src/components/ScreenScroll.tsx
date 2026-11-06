@@ -8,7 +8,7 @@ import { Enter } from './ui';
 
 /**
  * Corpo rolável padrão das telas com barra de abas.
- * Reproduz o `padding: 70px 0 108px` do design usando as safe areas reais.
+ * Respeita safe areas reais (topo e home indicator) e reserva folga para o dock.
  */
 export function ScreenScroll({
   children,
@@ -19,16 +19,14 @@ export function ScreenScroll({
 }) {
   const { state } = useApp();
   const insets = useSafeAreaInsets();
-  // O mini-player flutua sobre o conteúdo; sem este espaço as últimas linhas
-  // ficam embaixo dele e o toque vai para o dock.
   const dock = useDockInset();
 
   return (
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{
-        paddingTop: insets.top + 14,
-        paddingBottom: insets.bottom + 104 + (dock.height > 0 ? dock.height + 8 : 0),
+        paddingTop: insets.top + 16,
+        paddingBottom: Math.max(insets.bottom, 12) + 108 + (dock.height > 0 ? dock.height + 12 : 0),
       }}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -40,11 +38,14 @@ export function ScreenScroll({
   );
 }
 
-/** Bloco com a margem lateral de 16px usada em quase todos os cartões. */
+/**
+ * Bloco com margem lateral consistente (18px) e ritmo de proximidade >= 2x:
+ * o espaçamento externo padrão (18px) supera o gap interno dos cartões (8px a 10px).
+ */
 export function Section({
   children,
   gap = 0,
-  top = 10,
+  top = 18,
   style,
 }: {
   children: React.ReactNode;
@@ -52,7 +53,5 @@ export function Section({
   top?: number;
   style?: StyleProp<ViewStyle>;
 }) {
-  return (
-    <View style={[{ marginHorizontal: 16, marginTop: top, gap }, style]}>{children}</View>
-  );
+  return <View style={[{ marginHorizontal: 18, marginTop: top, gap }, style]}>{children}</View>;
 }

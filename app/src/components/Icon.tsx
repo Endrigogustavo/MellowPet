@@ -1,6 +1,8 @@
 import React from 'react';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 
+import { LIGHT } from '../theme/palette';
+
 type Props = {
   /** Um ou mais `d` de path, no viewBox 24×24 do design. */
   d?: string | string[];
@@ -16,7 +18,7 @@ type Props = {
   rotate?: number;
 };
 
-export function Icon({ d, size = 20, color = '#000', sw = 1.8, circle, filled, rotate }: Props) {
+export function Icon({ d, size = 20, color = LIGHT.t1, sw = 1.8, circle, filled, rotate }: Props) {
   const paths = d ? (Array.isArray(d) ? d : [d]) : [];
   const body = (
     <>

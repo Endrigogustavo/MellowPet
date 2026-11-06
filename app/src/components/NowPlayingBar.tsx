@@ -6,6 +6,7 @@ import { useMusic } from '../audio/MusicPlayer';
 import { ICONS, formatTime } from '../data/content';
 import { useSpotify } from '../spotify/spotifyClient';
 import { useApp, useTheme } from '../state/AppContext';
+import { LIGHT } from '../theme/palette';
 import { useDockInset } from './DockInset';
 import { DraggableDock } from './DraggableDock';
 import { NowPlayingPulse } from './NowPlayingPulse';
@@ -103,23 +104,24 @@ export function NowPlayingBar() {
           backgroundColor: T.surf,
           borderWidth: 1,
           borderColor: T.bd,
-          shadowColor: '#000',
-          shadowOpacity: 0.14,
-          shadowRadius: 28,
-          shadowOffset: { width: 0, height: 10 },
-          elevation: 8,
+          shadowColor: T.shadow,
+          shadowOpacity: 0.1,
+          shadowRadius: 22,
+          shadowOffset: { width: 0, height: 8 },
+          elevation: 6,
         }}
       >
         <Grabber color={T.bd} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 13,
+              width: 40,
+              height: 40,
+              borderRadius: 14,
               backgroundColor: 'rgba(29,185,84,.14)',
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
             {np.isPaused ? (
@@ -129,7 +131,7 @@ export function NowPlayingBar() {
             )}
           </View>
 
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Txt s={13.5} w={800} c={T.t1} numberOfLines={1}>
               {np.trackName}
             </Txt>
@@ -142,32 +144,35 @@ export function NowPlayingBar() {
             onPress={spotify.skipNext}
             accessibilityLabel="Próxima faixa"
             style={{
-              width: 34,
-              height: 34,
+              width: 44,
+              height: 44,
               borderRadius: 999,
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
-            <Icon d={['M6 5.5l9 6.5-9 6.5z', 'M18 6v12']} size={15} color={T.t2} sw={2} />
+            <Icon d={['M6 5.5l9 6.5-9 6.5z', 'M18 6v12']} size={16} color={T.t2} sw={2} />
           </Touchable>
 
           <Touchable
             onPress={() => (np.isPaused ? spotify.resume() : spotify.pause())}
             accessibilityLabel={np.isPaused ? 'Tocar' : 'Pausar'}
             style={{
-              width: 34,
-              height: 34,
+              width: 44,
+              height: 44,
               borderRadius: 999,
               borderWidth: 1,
               borderColor: T.bd,
+              backgroundColor: T.surfWarm,
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
             <Icon
               d={np.isPaused ? ICONS.playFill : ICONS.pause}
-              size={14}
+              size={15}
               color={T.t1}
               sw={2.2}
               filled={np.isPaused}
@@ -196,33 +201,34 @@ export function NowPlayingBar() {
         backgroundColor: T.surf,
         borderWidth: 1,
         borderColor: T.bd,
-        shadowColor: '#000',
-        shadowOpacity: 0.14,
-        shadowRadius: 28,
-        shadowOffset: { width: 0, height: 10 },
-        elevation: 8,
+        shadowColor: T.shadow,
+        shadowOpacity: 0.1,
+        shadowRadius: 22,
+        shadowOffset: { width: 0, height: 8 },
+        elevation: 6,
       }}
     >
       <Grabber color={T.bd} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: 13,
+            width: 40,
+            height: 40,
+            borderRadius: 14,
             backgroundColor: playlist.c,
             alignItems: 'center',
             justifyContent: 'center',
+            flexShrink: 0,
           }}
         >
           {isPlaying ? (
-            <NowPlayingPulse playing color="#fff" size={17} />
+            <NowPlayingPulse playing color={LIGHT.surf} size={17} />
           ) : (
-            <Icon d={ICONS.note} size={17} color="#fff" sw={2} />
+            <Icon d={ICONS.note} size={17} color={LIGHT.surf} sw={2} />
           )}
         </View>
 
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Txt s={13.5} w={800} c={T.t1} numberOfLines={1}>
             {track.title}
           </Txt>
@@ -235,32 +241,35 @@ export function NowPlayingBar() {
           onPress={skip}
           accessibilityLabel="Próxima faixa"
           style={{
-            width: 34,
-            height: 34,
+            width: 44,
+            height: 44,
             borderRadius: 999,
             alignItems: 'center',
             justifyContent: 'center',
+            flexShrink: 0,
           }}
         >
-          <Icon d={['M6 5.5l9 6.5-9 6.5z', 'M18 6v12']} size={15} color={T.t2} sw={2} />
+          <Icon d={['M6 5.5l9 6.5-9 6.5z', 'M18 6v12']} size={16} color={T.t2} sw={2} />
         </Touchable>
 
         <Touchable
           onPress={togglePlayback}
           accessibilityLabel={isPlaying ? 'Pausar' : 'Tocar'}
           style={{
-            width: 34,
-            height: 34,
+            width: 44,
+            height: 44,
             borderRadius: 999,
             borderWidth: 1,
             borderColor: T.bd,
+            backgroundColor: T.surfWarm,
             alignItems: 'center',
             justifyContent: 'center',
+            flexShrink: 0,
           }}
         >
           <Icon
             d={isPlaying ? ICONS.pause : ICONS.playFill}
-            size={14}
+            size={15}
             color={T.t1}
             sw={2.2}
             filled={!isPlaying}

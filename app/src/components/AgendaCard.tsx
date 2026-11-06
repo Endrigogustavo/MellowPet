@@ -1,5 +1,6 @@
 import * as Calendar from 'expo-calendar';
 import React, { useCallback, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 import { nextBreak } from '../insights/integrations';
 import { scheduleOnce } from '../notifications/notifications';
@@ -37,6 +38,7 @@ export function AgendaCard() {
   }, []);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     Calendar.getCalendarPermissionsAsync()
       .then((p) => (p.granted ? load() : setPhase('ask')))
       .catch(() => setPhase('ask'));
