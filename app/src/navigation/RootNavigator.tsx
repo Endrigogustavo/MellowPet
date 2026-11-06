@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, BackHandler, View } from 'react-native';
+import { Animated, BackHandler, Platform, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { CoachOverlay } from '../components/CoachOverlay';
+import { DevStressToggle } from '../components/DevStressToggle';
 import { DockInsetProvider } from '../components/DockInset';
 import { NowPlayingBar } from '../components/NowPlayingBar';
 import { TabBar } from '../components/TabBar';
@@ -126,11 +127,18 @@ export function RootNavigator() {
   const onSplash = screen === 'splash';
 
   // Troca de tela até aqui era um corte seco (componente inteiro trocado no
-  // mesmo frame). O fade não reanima a tela em si, só suaviza a entrada.
+  // mesmo frame). O fade não reanima a tela em si, só suaviza a entrada após a primeira pintura.
   const fade = useRef(new Animated.Value(1)).current;
+  const prevScreen = useRef<Screen>(screen);
   useEffect(() => {
-    fade.setValue(0);
-    Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }).start();
+    if (prevScreen.current === screen) return;
+    prevScreen.current = screen;
+    fade.setValue(0.88);
+    Animated.timing(fade, {
+      toValue: 1,
+      duration: 160,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
   }, [screen, fade]);
 
   return (
@@ -141,6 +149,7 @@ export function RootNavigator() {
         <Animated.View style={{ flex: 1, opacity: fade }}>
           <Current />
         </Animated.View>
+        {!onSplash && !signedOut ? <DevStressToggle /> : null}
         {showTabs ? <NowPlayingBar /> : null}
         {showTabs ? <TabBar /> : null}
         {showCoach ? <CoachOverlay /> : null}

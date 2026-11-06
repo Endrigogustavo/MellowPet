@@ -74,7 +74,7 @@ export function reportHtml(input: ReportInput): string {
   const rows = s.emotions
     .map(([e, n]) => `<tr><td>${escapeHtml(LABEL[e] ?? e)}</td><td>${n}</td><td>${pct(n, s.total)}</td></tr>`)
     .join('');
-  const tags = s.tags.map(([t, n]) => `<li>${escapeHtml(t)} — ${n}×</li>`).join('');
+  const tags = s.tags.map(([t, n]) => `<li>${escapeHtml(t)} · ${n}×</li>`).join('');
   const notes = input.includeNotes
     ? input.checkins
         .filter((c) => c.note.trim())
@@ -82,10 +82,10 @@ export function reportHtml(input: ReportInput): string {
         .join('')
     : '';
   return `<!doctype html><html><head><meta charset="utf-8"><style>
-body{font-family:sans-serif;color:#241730;padding:28px;font-size:13px}
-h1{color:#5B4BDB;font-size:22px;margin:0}h2{font-size:15px;margin-top:22px;color:#5B4BDB}
-table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #ddd;padding:6px;text-align:left}
-.muted{color:#777;font-size:11px}
+body{font-family:sans-serif;color:#2B1E30;padding:28px;font-size:13px;background:#FAF6F2}
+h1{color:#684878;font-size:22px;margin:0;text-wrap:balance}h2{font-size:15px;margin-top:22px;color:#684878;text-wrap:balance}
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #E6DFD7;padding:6px;text-align:left}
+.muted{color:#745F7C;font-size:11px}
 </style></head><body>
 <h1>Relatório MellowPet</h1>
 <p class="muted">${escapeHtml(input.name)} · últimos ${input.days} dias · gerado em ${input.generatedAt.toLocaleDateString('pt-BR')}</p>
@@ -96,6 +96,6 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #ddd;pad
 <table><tr><th>Emoção</th><th>Vezes</th><th>%</th></tr>${rows || '<tr><td colspan="3">Sem check-ins no período.</td></tr>'}</table>
 ${tags ? `<h2>Contextos mais marcados</h2><ul>${tags}</ul>` : ''}
 ${notes ? `<h2>Anotações (compartilhadas pela pessoa)</h2><ul>${notes}</ul>` : ''}
-<p class="muted" style="margin-top:28px">Autorrelato registrado no app MellowPet. Não é diagnóstico nem avaliação clínica — serve como apoio à conversa com o profissional.</p>
+<p class="muted" style="margin-top:28px">Autorrelato registrado no app MellowPet. Não é diagnóstico nem avaliação clínica: serve como apoio à conversa com o profissional.</p>
 </body></html>`;
 }
