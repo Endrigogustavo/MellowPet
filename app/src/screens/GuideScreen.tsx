@@ -55,13 +55,16 @@ export function GuideScreen() {
               actions.set((s) => ({ screen: 'home', coach: 0, navSeq: s.navSeq + 1 }))
             }
             style={{
+              minHeight: 44,
               paddingVertical: 11,
-              paddingHorizontal: 16,
+              paddingHorizontal: 18,
               borderRadius: 999,
+              alignItems: 'center',
+              justifyContent: 'center',
               backgroundColor: T.pri,
             }}
           >
-            <Txt s={12.5} w={800} c="#fff">
+            <Txt s={13} w={800} c={T.onPri}>
               Iniciar
             </Txt>
           </Touchable>

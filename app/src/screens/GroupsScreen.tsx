@@ -7,12 +7,11 @@ import { Bar, Card, PrimaryButton, ScreenTitle, Touchable, Txt } from '../compon
 import { EMOTIONS, type EmotionKey } from '../data/emotions';
 import { useApp, useTheme } from '../state/AppContext';
 import { supabase } from '../supabase/client';
-import { DANGER } from '../theme/palette';
 
 /**
  * Modo escola/clínica. Participante: entra por código, sai quando quiser.
- * Coordenador: cria o grupo e vê só a distribuição agregada — e só com 5+
- * pessoas com leituras (a RPC garante; aqui só explicamos).
+ * Coordenador: cria o grupo e vê só a distribuição agregada, apenas com 5+
+ * pessoas com leituras.
  */
 type Group = { id: string; name: string; code: string; owner_id: string };
 /** Faixa de pessoas (não o número exato) e a fração de cada emoção, já arredondada. */
@@ -103,14 +102,13 @@ export function GroupsScreen() {
 
   return (
     <ScreenScroll>
-      <ScreenTitle label="GRUPOS" title={'Escola, clínica\nou equipe'} />
+      <ScreenTitle label="Grupos" title={'Escola, clínica\nou equipe'} />
       <Section top={0}>
-        <Txt s={12.5} lh={1.55} c={T.t2}>
-          Quem coordena vê só o clima geral do grupo — nunca o de uma pessoa — e só quando há pelo menos 5 pessoas com
-          leituras. Você pode sair a qualquer momento.
+        <Txt s={13} lh={1.55} c={T.t2}>
+          Quem coordena vê apenas o clima agregado do grupo (nunca o de uma pessoa isolada) e somente quando há pelo menos 5 participantes com leituras. Você pode sair quando quiser.
         </Txt>
         {error ? (
-          <Txt s={12} lh={1.45} c={DANGER} style={{ marginTop: 8 }}>
+          <Txt s={12.5} lh={1.45} c={T.danger} style={{ marginTop: 8 }}>
             {error}
           </Txt>
         ) : null}
@@ -118,9 +116,14 @@ export function GroupsScreen() {
 
       {groups.length === 0 ? (
         <Section>
-          <Txt s={12.5} lh={1.5} c={T.t3}>
-            Você ainda não participa de nenhum grupo. Entre com o código que recebeu ou crie um, se for coordenar.
-          </Txt>
+          <Card variant="warm" radius={22} padding={18}>
+            <Txt s={13.5} w={800} c={T.t1}>
+              Nenhum grupo ativo por enquanto
+            </Txt>
+            <Txt s={12.5} lh={1.5} c={T.t2} style={{ marginTop: 4 }}>
+              Entre com o código de 8 caracteres que você recebeu ou crie um grupo abaixo se for coordenar.
+            </Txt>
+          </Card>
         </Section>
       ) : null}
       {groups.map((g) => {
@@ -129,38 +132,48 @@ export function GroupsScreen() {
         return (
           <Section key={g.id}>
             <Card radius={22} padding={16}>
-              <Txt s={14} w={800} c={T.t1}>
+              <Txt s={14.5} w={800} c={T.t1}>
                 {g.name}
               </Txt>
-              <Txt s={11.5} c={T.t3}>
-                {mine ? `Você coordena · código ${g.code}` : 'Você participa'}
+              <Txt s={12} c={T.t3} style={{ marginTop: 2 }}>
+                {mine ? `Coordenação sua (${g.code})` : 'Participante'}
               </Txt>
               {mine ? (
                 <>
-                  <PrimaryButton label="Ver clima dos últimos 7 dias" onPress={() => view(g).catch(() => undefined)} style={{ marginTop: 10 }} />
+                  <PrimaryButton label="Ver clima dos últimos 7 dias" onPress={() => view(g).catch(() => undefined)} style={{ marginTop: 12 }} />
                   {s === 'few' ? (
                     <Txt s={12} lh={1.45} c={T.t3} style={{ marginTop: 8 }}>
-                      Menos de 5 pessoas com leituras (contam só membros com 7+ dias no grupo) — por privacidade, nada é mostrado.
+                      Menos de 5 pessoas com leituras recentes (contam membros com 7+ dias no grupo). Por privacidade, os dados ficam ocultos.
                     </Txt>
                   ) : s ? (
-                    <View style={{ gap: 6, marginTop: 10 }}>
+                    <View style={{ gap: 8, marginTop: 12 }}>
                       <Txt s={11.5} c={T.t3}>
-                        Faixa de {s[0].members_band} pessoas com leituras · valores arredondados
+                        Faixa de {s[0].members_band} pessoas com leituras (valores arredondados)
                       </Txt>
                       {s.map((r) => (
-                        <View key={r.emotion}>
-                          <Txt s={12} c={T.t2}>
-                            {EMOTIONS[r.emotion as EmotionKey]?.label ?? r.emotion} · {Math.round(r.share * 100)}%
+                        <View key={r.emotion} style={{ gap: 4 }}>
+                          <Txt s={12.5} c={T.t2}>
+                            {EMOTIONS[r.emotion as EmotionKey]?.label ?? r.emotion}: {Math.round(r.share * 100)}%
                           </Txt>
-                          <Bar pct={r.share * 100} color={T.pri} height={5} />
+                          <Bar pct={r.share * 100} color={T.pri} height={6} />
                         </View>
                       ))}
                     </View>
                   ) : null}
                 </>
               ) : (
-                <Touchable onPress={() => leave(g)} accessibilityLabel={`Sair de ${g.name}`} style={{ marginTop: 10 }}>
-                  <Txt s={12.5} w={800} c={DANGER}>
+                <Touchable
+                  onPress={() => leave(g)}
+                  accessibilityLabel={`Sair de ${g.name}`}
+                  style={{
+                    marginTop: 8,
+                    minHeight: 44,
+                    justifyContent: 'center',
+                    alignSelf: 'flex-start',
+                    paddingRight: 12,
+                  }}
+                >
+                  <Txt s={13} w={800} c={T.danger}>
                     Sair do grupo
                   </Txt>
                 </Touchable>

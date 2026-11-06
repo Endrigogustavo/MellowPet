@@ -8,6 +8,7 @@ import { PrimaryButton, Txt, Touchable } from '../components/ui';
 import { ICONS } from '../data/content';
 import { EMOTIONS } from '../data/emotions';
 import { useApp, useTheme } from '../state/AppContext';
+import { DARK, LIGHT, hexA } from '../theme/palette';
 import { isMellowVisionAvailable } from '../../modules/mellow-vision';
 import { VISION_FLAGS } from '../vision/featureFlags';
 import { VISION_EVENT_UPLOAD_ENABLED } from '../vision/eventQueue';
@@ -35,16 +36,16 @@ export function VisionScreen() {
           <View style={[styles.icon, { backgroundColor: T.priL }]}>
             <Icon d={CAMERA_PATH} size={32} color={T.pri} />
           </View>
-          <Txt s={24} w={900} c={T.t1} style={styles.center}>
+          <Txt s={26} w={800} c={T.t1} ls={-0.6} style={styles.center}>
             Leitura visual
           </Txt>
-          <Txt s={14} lh={1.6} c={T.t2} style={styles.center}>
+          <Txt s={14.5} lh={1.6} c={T.t2} style={styles.center}>
             {NATIVE_PIPELINE_AVAILABLE
-              ? 'Com a câmera permitida, o Mellow reage à sua expressão em qualquer tela do app, não só aqui. O processamento é local; nenhuma imagem é enviada ou armazenada.'
+              ? 'Com a câmera permitida, o Mellow reage à sua expressão em qualquer tela do app. O processamento é local; nenhuma imagem é enviada ou armazenada.'
               : 'A câmera fica visível e ativa somente nesta tela. O processamento será local; nenhuma imagem será enviada ou armazenada.'}
           </Txt>
           {permission?.canAskAgain === false ? (
-            <Txt s={12.5} lh={1.5} c={T.t3} style={styles.center}>
+            <Txt s={13} lh={1.5} c={T.t3} style={styles.center}>
               A permissão foi bloqueada. Você pode reativá-la nos ajustes do aparelho e continuar
               usando todo o restante do MellowPet sem câmera.
             </Txt>
@@ -62,65 +63,65 @@ export function VisionScreen() {
   }
 
   return (
-    <View style={[styles.cameraRoot, { backgroundColor: NATIVE_PIPELINE_AVAILABLE ? 'transparent' : '#16131A' }]}>
+    <View style={[styles.cameraRoot, { backgroundColor: NATIVE_PIPELINE_AVAILABLE ? 'transparent' : DARK.bg }]}>
       {NATIVE_PIPELINE_AVAILABLE ? null : <CameraView style={StyleSheet.absoluteFill} facing="front" mirror />}
       <SafeAreaView style={styles.overlay} pointerEvents="box-none">
         <View style={styles.header}>
           <Touchable
             onPress={() => actions.back() || actions.goTab('home')}
-            style={styles.closeButton}
+            style={[styles.closeButton, { backgroundColor: hexA(DARK.bg, 0.62) }]}
             accessibilityLabel="Voltar"
           >
-            <Icon d={ICONS.close} size={20} color="#FFFFFF" sw={2.2} />
+            <Icon d={ICONS.close} size={20} color={LIGHT.surf} sw={2.2} />
           </Touchable>
-          <View style={styles.activePill}>
-            <View style={styles.activeDot} />
-            <Txt s={12} w={900} c="#FFFFFF">
-              CÂMERA ATIVA
+          <View style={[styles.activePill, { backgroundColor: hexA(DARK.bg, 0.62) }]}>
+            <View style={[styles.activeDot, { backgroundColor: DARK.danger }]} />
+            <Txt s={12} w={800} c={LIGHT.surf}>
+              Câmera ativa
             </Txt>
           </View>
         </View>
 
-        <View style={styles.bottomCard}>
-          <Txt s={16} w={900} c="#FFFFFF">
+        <View style={[styles.bottomCard, { backgroundColor: hexA(DARK.bg, 0.84) }]}>
+          <Txt s={16} w={800} c={LIGHT.surf}>
             {calibration.active ? 'Calibrando rosto em repouso' : 'Leitura local em andamento'}
           </Txt>
-          <Txt s={12.5} lh={1.5} c="rgba(255,255,255,0.82)" style={{ marginTop: 4 }}>
+          <Txt s={13} lh={1.5} c={DARK.t2} style={{ marginTop: 4 }}>
             {NATIVE_PIPELINE_AVAILABLE
               ? calibration.active
                 ? `Mantenha uma expressão confortável e frontal. ${calibration.accepted}/${calibration.required} amostras aceitas.`
-                : 'O motor analisa sinais faciais no aparelho, o tempo todo enquanto o app está aberto. Frames não são armazenados nem enviados.'
+                : 'O motor analisa sinais faciais no aparelho enquanto o app está aberto. Frames nunca são armazenados nem enviados.'
               : isMellowVisionAvailable
-                ? 'A leitura local foi pausada pela configuração de rollout; a câmera mostra apenas a prévia.'
+                ? 'A leitura local foi pausada pela configuração; a câmera mostra apenas a prévia.'
                 : 'Este build não contém o módulo nativo. Gere um development build para ativar a análise.'}
           </Txt>
           {state.visionNativeError ? (
-            <Txt s={11.5} lh={1.45} c="#FFD1D1" style={{ marginTop: 8 }}>
+            <Txt s={12} lh={1.45} c={DARK.danger} style={{ marginTop: 8 }}>
               {state.visionNativeError}
             </Txt>
           ) : null}
           {!state.visionNativeError && state.visionQualityHint && !calibration.active ? (
-            <Txt s={11.5} lh={1.45} c="#FFE8AF" style={{ marginTop: 8 }}>
+            <Txt s={12} lh={1.45} c={DARK.warn} style={{ marginTop: 8 }}>
               {state.visionQualityHint}
             </Txt>
           ) : null}
           {state.visionThermalLimited ? (
-            <Txt s={11.5} lh={1.45} c="#FFE8AF" style={{ marginTop: 8 }}>
+            <Txt s={12} lh={1.45} c={DARK.warn} style={{ marginTop: 8 }}>
               Cadência reduzida temporariamente para proteger o aparelho.
             </Txt>
           ) : null}
           {NATIVE_PIPELINE_AVAILABLE && state.signalStatus === 'ready' ? (
             <View style={styles.readingRow}>
-              <Txt s={12.5} w={900} c="#FFFFFF">
+              <Txt s={13} w={800} c={LIGHT.surf}>
                 {EMOTIONS[state.observedExpression].label}
               </Txt>
-              <Txt s={11.5} w={800} c="rgba(255,255,255,0.76)">
+              <Txt s={12} w={700} c={DARK.t2}>
                 {Math.round(state.signalConfidence * 100)}% de confiança do sinal
               </Txt>
             </View>
           ) : null}
           {NATIVE_PIPELINE_AVAILABLE && state.signalStatus === 'ready' && state.secondaryEmotions.length > 0 ? (
-            <Txt s={11.5} w={700} c="rgba(255,255,255,0.66)" style={{ marginTop: 2 }}>
+            <Txt s={11.5} w={700} c={DARK.t3} style={{ marginTop: 2 }}>
               + {state.secondaryEmotions
                 .map((entry) => `${EMOTIONS[entry.expression].label} (${Math.round(entry.confidence * 100)}%)`)
                 .join(' + ')}{' '}
@@ -130,28 +131,26 @@ export function VisionScreen() {
           {NATIVE_PIPELINE_AVAILABLE && state.heart ? (
             <View style={styles.readingRow} accessibilityLiveRegion="polite">
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Icon d={ICONS.heart} size={14} color="#FF8FA3" sw={2} />
-                <Txt s={12.5} w={900} c="#FFFFFF">
+                <Icon d={ICONS.heart} size={14} color={DARK.danger} sw={2} />
+                <Txt s={12.5} w={800} c={LIGHT.surf}>
                   {state.heart.bpm !== null ? `${state.heart.bpm} bpm` : 'medindo o batimento…'}
                 </Txt>
               </View>
-              <Txt s={11} w={700} c="rgba(255,255,255,0.66)">
+              <Txt s={11} w={700} c={DARK.t3}>
                 {state.heart.bpm !== null
-                  ? 'estimativa pela cor da pele · não é medição médica'
+                  ? 'estimativa pela cor da pele (uso informativo)'
                   : state.heart.progress < 1
-                    ? `fique parado com boa luz · ${Math.round(state.heart.progress * 100)}%`
+                    ? `fique parado com boa luz (${Math.round(state.heart.progress * 100)}%)`
                     : 'sinal fraco: mais luz no rosto ajuda'}
               </Txt>
             </View>
           ) : null}
-          {/* Painel de depuração temporário — pontuação bruta de cada classe,
-              pra calibrar o motor contra expressões reais. */}
           {NATIVE_PIPELINE_AVAILABLE && state.visionScores ? (
             <View style={styles.debugScores}>
               {Object.entries(state.visionScores)
                 .sort((a, b) => b[1] - a[1])
                 .map(([key, score]) => (
-                  <Txt key={key} s={11} w={700} c="rgba(255,255,255,0.7)">
+                  <Txt key={key} s={11} w={700} c={DARK.t2}>
                     {key}: {Math.round(score * 100)}%
                   </Txt>
                 ))}
@@ -162,27 +161,36 @@ export function VisionScreen() {
           VISION_FLAGS.feedbackEnabled &&
           VISION_EVENT_UPLOAD_ENABLED ? (
             <View style={styles.feedbackBlock}>
-              <Txt s={11.5} w={800} c="rgba(255,255,255,0.82)">
+              <Txt s={12} w={800} c={DARK.t1}>
                 Essa leitura combinou com o que você percebeu?
               </Txt>
               {sessionFeedback ? (
-                <Txt s={11.5} w={800} c="#B9F6D3">
+                <Txt s={12} w={800} c={DARK.ok}>
                   Anotado. A leitura se ajusta ao seu rosto aos poucos, só neste aparelho.
                 </Txt>
               ) : (
                 <View style={styles.feedbackButtons}>
-                  <Touchable onPress={() => submitFeedback('yes')} style={styles.feedbackButton}>
-                    <Txt s={11.5} w={900} c="#FFFFFF">
+                  <Touchable
+                    onPress={() => submitFeedback('yes')}
+                    style={[styles.feedbackButton, { backgroundColor: hexA(LIGHT.surf, 0.16) }]}
+                  >
+                    <Txt s={12.5} w={800} c={LIGHT.surf}>
                       Sim
                     </Txt>
                   </Touchable>
-                  <Touchable onPress={() => submitFeedback('no')} style={styles.feedbackButton}>
-                    <Txt s={11.5} w={900} c="#FFFFFF">
+                  <Touchable
+                    onPress={() => submitFeedback('no')}
+                    style={[styles.feedbackButton, { backgroundColor: hexA(LIGHT.surf, 0.16) }]}
+                  >
+                    <Txt s={12.5} w={800} c={LIGHT.surf}>
                       Não
                     </Txt>
                   </Touchable>
-                  <Touchable onPress={() => submitFeedback('unsure')} style={styles.feedbackButton}>
-                    <Txt s={11.5} w={900} c="#FFFFFF">
+                  <Touchable
+                    onPress={() => submitFeedback('unsure')}
+                    style={[styles.feedbackButton, { backgroundColor: hexA(LIGHT.surf, 0.16) }]}
+                  >
+                    <Txt s={12.5} w={800} c={LIGHT.surf}>
                       Não sei
                     </Txt>
                   </Touchable>
@@ -191,18 +199,21 @@ export function VisionScreen() {
             </View>
           ) : null}
           {NATIVE_PIPELINE_AVAILABLE && !calibration.active ? (
-            <Touchable onPress={beginCalibration} style={styles.calibrationButton}>
-              <Txt s={12} w={900} c="#FFFFFF">
+            <Touchable
+              onPress={beginCalibration}
+              style={[styles.calibrationButton, { backgroundColor: hexA(LIGHT.surf, 0.16) }]}
+            >
+              <Txt s={12.5} w={800} c={LIGHT.surf}>
                 {calibration.complete ? 'Recalibrar leitura' : 'Calibrar rosto em repouso'}
               </Txt>
             </Touchable>
           ) : null}
           <View style={styles.privacyRow}>
-            <Icon d={LOCK_PATH} size={15} color="#B9F6D3" sw={2} />
-            <Txt s={11.5} w={800} c="#B9F6D3">
-              Leitura contínua no app • processamento no aparelho
-              {VISION_EVENT_UPLOAD_ENABLED ? ' • somente métricas agregadas na fila' : ''}
-              {state.visionLatencyMs === null ? '' : ` • p95 ${Math.round(state.visionLatencyMs)} ms`}
+            <Icon d={LOCK_PATH} size={15} color={DARK.ok} sw={2} />
+            <Txt s={11.5} w={700} c={DARK.ok} style={{ flex: 1 }}>
+              Leitura contínua no aparelho
+              {VISION_EVENT_UPLOAD_ENABLED ? ', somente métricas agregadas' : ''}
+              {state.visionLatencyMs === null ? '' : ` (${Math.round(state.visionLatencyMs)} ms)`}
             </Txt>
           </View>
         </View>
@@ -228,7 +239,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   center: { textAlign: 'center' },
-  secondaryButton: { alignSelf: 'center', paddingHorizontal: 18, paddingVertical: 12 },
+  secondaryButton: {
+    alignSelf: 'center',
+    minHeight: 48,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cameraRoot: { flex: 1 },
   overlay: { flex: 1, justifyContent: 'space-between', padding: 18 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -236,7 +254,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -244,25 +261,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    minHeight: 38,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.45)',
   },
-  activeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF6262' },
+  activeDot: { width: 8, height: 8, borderRadius: 4 },
   bottomCard: {
     borderRadius: 22,
-    padding: 17,
-    backgroundColor: 'rgba(25,20,30,0.78)',
+    padding: 18,
   },
   privacyRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 },
   calibrationButton: {
     alignSelf: 'flex-start',
     marginTop: 12,
-    paddingHorizontal: 13,
-    paddingVertical: 9,
+    minHeight: 44,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   readingRow: {
     flexDirection: 'row',
@@ -280,9 +298,12 @@ const styles = StyleSheet.create({
   feedbackBlock: { marginTop: 11, gap: 8 },
   feedbackButtons: { flexDirection: 'row', gap: 8 },
   feedbackButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 44,
+    minWidth: 56,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

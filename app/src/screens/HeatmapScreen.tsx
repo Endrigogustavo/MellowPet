@@ -23,8 +23,9 @@ import {
 } from '../checkins/checkinInsights';
 import { ICONS } from '../data/content';
 import { EMOTIONS, FACE_ICON, type EmotionKey } from '../data/emotions';
+import { buildWorstCaseCheckins } from '../dev/worstCaseData';
 import { useApp, useTheme } from '../state/AppContext';
-import { DANGER, OK, hexA } from '../theme/palette';
+import { emotionInk, hexA } from '../theme/palette';
 
 /** Quanto histórico carregar de uma vez. Três meses cobre a navegação sem
  * uma chamada por mês; mais que isso é peso sem uso. */
@@ -63,11 +64,14 @@ function DayCell({
   isToday: boolean;
   onPress: () => void;
 }) {
-  const { T } = useTheme();
+  const { T, isDark } = useTheme();
   const color = mood ? EMOTIONS[mood.emotion].c : null;
-  // Leitura só da câmera fica mais clara: é inferência, não declaração.
-  const bg = color ? hexA(color, mood!.source === 'checkin' ? 0.85 : 0.4) : T.bg;
-  const fg = color && mood!.source === 'checkin' ? '#fff' : T.t2;
+  const ink = mood ? emotionInk(mood.emotion, isDark) : T.t2;
+  // Leitura declarada (check-in) tem preenchimento mais presente e borda sutil da emoção.
+  const bg = color
+    ? hexA(color, mood!.source === 'checkin' ? (isDark ? 0.28 : 0.34) : isDark ? 0.12 : 0.16)
+    : T.surfWarm;
+  const fg = mood && mood.source === 'checkin' ? ink : T.t2;
   return (
     <Touchable
       onPress={onPress}
@@ -79,8 +83,8 @@ function DayCell({
         backgroundColor: bg,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: selected ? 2 : isToday ? 1.5 : 0,
-        borderColor: selected ? T.t1 : T.pri,
+        borderWidth: selected ? 2 : isToday ? 1.5 : mood?.source === 'checkin' ? 1 : 0,
+        borderColor: selected ? T.t1 : isToday ? T.pri : color ? hexA(color, 0.7) : 'transparent',
       }}
     >
       <Txt s={12} w={800} c={fg}>
@@ -92,14 +96,14 @@ function DayCell({
 
 export function HeatmapScreen() {
   const { state, actions } = useApp();
-  const { T } = useTheme();
+  const { T, isDark } = useTheme();
 
   const today = new Date();
   const [cursor, setCursor] = useState({ y: today.getFullYear(), m: today.getMonth() });
   const [selected, setSelected] = useState<string | null>(dayKey(today));
 
-  const [checkins, setCheckins] = useState<Checkin[]>([]);
-  const [detected, setDetected] = useState<DetectedRow[]>([]);
+  const [rawCheckins, setCheckins] = useState<Checkin[]>([]);
+  const [rawDetected, setDetected] = useState<DetectedRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -118,6 +122,17 @@ export function HeatmapScreen() {
   }, [state.userId]);
 
   useEffect(load, [load]);
+
+  const checkins = useMemo<Checkin[]>(() => {
+    if (state.stressMode === 'empty') return [];
+    if (state.stressMode === 'extreme') return buildWorstCaseCheckins();
+    return rawCheckins;
+  }, [rawCheckins, state.stressMode]);
+
+  const detected = useMemo(() => {
+    if (state.stressMode === 'empty') return [];
+    return rawDetected;
+  }, [rawDetected, state.stressMode]);
 
   const moods = useMemo(() => dailyMoods(checkins, detected), [checkins, detected]);
   const agreement = useMemo(() => perceptionAgreement(checkins), [checkins]);
@@ -144,12 +159,12 @@ export function HeatmapScreen() {
 
   return (
     <ScreenScroll>
-      <ScreenTitle label="MAPA EMOCIONAL" title={'Seu mês\nem cores'} />
+      <ScreenTitle label="Mapa emocional" title={'Seu mês\nem cores'} />
 
       {error ? (
         <Section top={0}>
-          <Card radius={20} padding={16} style={{ backgroundColor: hexA(DANGER, 0.08) }}>
-            <Txt s={12.5} lh={1.5} c={DANGER}>
+          <Card radius={20} padding={16} style={{ backgroundColor: hexA(T.danger, 0.1) }}>
+            <Txt s={12.5} lh={1.5} c={T.danger}>
               {error}
             </Txt>
             <PrimaryButton label="Tentar de novo" onPress={load} style={{ marginTop: 12 }} />
@@ -165,23 +180,41 @@ export function HeatmapScreen() {
               onPress={() => shift(-1)}
               disabled={!canGoBack}
               accessibilityLabel="Mês anterior"
-              style={{ padding: 6, opacity: canGoBack ? 1 : 0.3 }}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 999,
+                backgroundColor: T.surfWarm,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: canGoBack ? 1 : 0.35,
+              }}
             >
               <Icon d={ICONS.chevron} size={16} color={T.t1} sw={2.2} rotate={180} />
             </Touchable>
             <View style={{ alignItems: 'center' }}>
-              <Txt s={14} w={800} c={T.t1}>
+              <Txt s={15} w={800} c={T.t1}>
                 {MONTHS[cursor.m]} {cursor.y}
               </Txt>
-              <Txt s={11} c={T.t3} style={{ marginTop: 2 }}>
-                {loading ? 'carregando…' : `${daysWithData} ${daysWithData === 1 ? 'dia' : 'dias'} com registro`}
+              <Txt s={11.5} c={T.t3} style={{ marginTop: 2 }}>
+                {loading && state.stressMode === 'off'
+                  ? 'carregando…'
+                  : `${daysWithData} ${daysWithData === 1 ? 'dia' : 'dias'} com registro`}
               </Txt>
             </View>
             <Touchable
               onPress={() => shift(1)}
               disabled={!canGoForward}
               accessibilityLabel="Próximo mês"
-              style={{ padding: 6, opacity: canGoForward ? 1 : 0.3 }}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 999,
+                backgroundColor: T.surfWarm,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: canGoForward ? 1 : 0.35,
+              }}
             >
               <Icon d={ICONS.chevron} size={16} color={T.t1} sw={2.2} />
             </Touchable>
@@ -190,14 +223,14 @@ export function HeatmapScreen() {
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 16 }}>
             {WEEKDAYS.map((w, i) => (
               <View key={i} style={{ width: cell, alignItems: 'center' }}>
-                <Txt s={10} w={800} c={T.t3}>
+                <Txt s={11} w={700} c={T.t3}>
                   {w}
                 </Txt>
               </View>
             ))}
           </View>
 
-          {loading ? (
+          {loading && state.stressMode === 'off' ? (
             <ActivityIndicator color={T.pri} style={{ marginVertical: 40 }} />
           ) : (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
@@ -224,14 +257,14 @@ export function HeatmapScreen() {
             {LEGEND.map((k) => (
               <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                 <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: EMOTIONS[k].c }} />
-                <Txt s={10.5} c={T.t3}>
+                <Txt s={11} c={T.t2}>
                   {EMOTIONS[k].label}
                 </Txt>
               </View>
             ))}
           </View>
-          <Txt s={10.5} lh={1.45} c={T.t3} style={{ marginTop: 8 }}>
-            Cor cheia: você disse. Cor clara: só a câmera viu.
+          <Txt s={11} lh={1.45} c={T.t3} style={{ marginTop: 8 }}>
+            Com borda e tom mais vivo: você registrou. Mais suave: só a câmera observou.
           </Txt>
         </Card>
       </Section>
@@ -240,13 +273,13 @@ export function HeatmapScreen() {
       {selected && (selectedMood || selectedCheckins.length > 0) ? (
         <Section>
           <Card radius={22} padding={18}>
-            <Txt s={10.5} w={800} c={T.t3} ls={1.6}>
-              {selected.split('-').reverse().slice(0, 2).join('/')}
+            <Txt s={12} w={700} c={T.t3}>
+              Dia {selected.split('-').reverse().slice(0, 2).join('/')}
             </Txt>
             {selectedCheckins.length === 0 && selectedMood ? (
               <Txt s={13} lh={1.5} c={T.t2} style={{ marginTop: 8 }}>
                 Nenhum check-in nesse dia. A câmera leu principalmente{' '}
-                <Txt s={13} w={800} c={EMOTIONS[selectedMood.emotion].c}>
+                <Txt s={13} w={800} c={emotionInk(selectedMood.emotion, isDark)}>
                   {emotionLabel(selectedMood.emotion)}
                 </Txt>{' '}
                 em {selectedMood.count} {selectedMood.count === 1 ? 'leitura' : 'leituras'}.
@@ -258,22 +291,28 @@ export function HeatmapScreen() {
                   const d = new Date(c.createdAt);
                   return (
                     <View key={c.id} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                      <Icon d={[FACE_ICON[c.emotion], 'M9 9.5h.01', 'M15 9.5h.01']} size={22} color={e.c} sw={1.9} circle />
-                      <View style={{ flex: 1 }}>
-                        <Txt s={12.5} w={800} c={T.t1}>
+                      <Icon
+                        d={[FACE_ICON[c.emotion], 'M9 9.5h.01', 'M15 9.5h.01']}
+                        size={22}
+                        color={emotionInk(c.emotion, isDark)}
+                        sw={1.9}
+                        circle
+                      />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Txt s={13} w={800} c={T.t1}>
                           {e.label}{' '}
-                          <Txt s={11} c={T.t3}>
+                          <Txt s={11.5} c={T.t3}>
                             {String(d.getHours()).padStart(2, '0')}:{String(d.getMinutes()).padStart(2, '0')}
                           </Txt>
                         </Txt>
                         {c.note ? (
-                          <Txt s={12} lh={1.45} c={T.t2} style={{ marginTop: 2 }}>
+                          <Txt s={12.5} lh={1.45} c={T.t2} style={{ marginTop: 2 }}>
                             {c.note}
                           </Txt>
                         ) : null}
                         {c.tags.length > 0 ? (
-                          <Txt s={10.5} c={T.t3} style={{ marginTop: 3 }}>
-                            {c.tags.map((t) => CHECKIN_TAGS.find(([k]) => k === t)?.[1] ?? t).join(' · ')}
+                          <Txt s={11} c={T.t3} style={{ marginTop: 3 }}>
+                            {c.tags.map((t) => CHECKIN_TAGS.find(([k]) => k === t)?.[1] ?? t).join(', ')}
                           </Txt>
                         ) : null}
                       </View>
@@ -286,32 +325,35 @@ export function HeatmapScreen() {
         </Section>
       ) : null}
 
-      {empty ? (
+      {empty && (state.stressMode !== 'off' || !loading) ? (
         <Section>
-          <Card radius={22} padding={18} style={{ alignItems: 'center', gap: 8 }}>
-            <Txt s={13} lh={1.5} c={T.t2} style={{ textAlign: 'center' }}>
-              O mapa se pinta com os seus check-ins. Comece pelo primeiro.
+          <Card variant="warm" radius={22} padding={20} style={{ alignItems: 'center', gap: 10 }}>
+            <Txt s={14} w={800} c={T.t1} center>
+              Seu mapa vai ganhando cor aos poucos
             </Txt>
-            <PrimaryButton label="Fazer check-in" onPress={() => actions.go('checkin')} />
+            <Txt s={12.5} lh={1.5} c={T.t2} center>
+              Cada check-in preenche um dia do mês e ajuda a enxergar seus ritmos com calma.
+            </Txt>
+            <PrimaryButton label="Fazer check-in" onPress={() => actions.go('checkin')} style={{ alignSelf: 'stretch' }} />
           </Card>
         </Section>
       ) : null}
 
       {/* autopercepção × detecção */}
       <Section top={24}>
-        <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 8 }}>
-          Você × a câmera
+        <Txt s={14} w={800} c={T.t1} style={{ marginBottom: 8 }}>
+          Você e a câmera
         </Txt>
         <Card radius={22} padding={18}>
           {agreement.rate == null ? (
             <Txt s={12.5} lh={1.5} c={T.t3}>
-              Precisa de pelo menos {MIN_SAMPLES} check-ins feitos com a câmera lendo para comparar. Até agora:{' '}
+              São necessários pelo menos {MIN_SAMPLES} check-ins feitos com a câmera ativa para comparar. Até agora:{' '}
               {agreement.compared}.
             </Txt>
           ) : (
             <>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-                <Txt s={30} w={800} c={agreement.rate >= 60 ? OK : T.pri}>
+                <Txt s={30} w={800} c={agreement.rate >= 60 ? T.ok : T.pri}>
                   {agreement.rate}%
                 </Txt>
                 <Txt s={12.5} c={T.t2} style={{ flex: 1 }}>
@@ -319,30 +361,30 @@ export function HeatmapScreen() {
                 </Txt>
               </View>
               <View style={{ marginTop: 10 }}>
-                <Bar pct={agreement.rate} color={agreement.rate >= 60 ? OK : T.pri} height={6} />
+                <Bar pct={agreement.rate} color={agreement.rate >= 60 ? T.ok : T.pri} height={6} />
               </View>
               {agreement.mismatches.length > 0 ? (
                 <View style={{ marginTop: 12, gap: 6 }}>
-                  <Txt s={10.5} w={800} c={T.t3} ls={1.4}>
-                    QUANDO DIVERGE
+                  <Txt s={12} w={700} c={T.t3}>
+                    Quando diverge
                   </Txt>
                   {agreement.mismatches.map((m) => (
                     <Txt key={`${m.said}${m.seen}`} s={12.5} lh={1.45} c={T.t2}>
                       Você disse{' '}
-                      <Txt s={12.5} w={800} c={EMOTIONS[m.said].c}>
+                      <Txt s={12.5} w={800} c={emotionInk(m.said, isDark)}>
                         {emotionLabel(m.said)}
                       </Txt>
                       , a câmera leu{' '}
-                      <Txt s={12.5} w={800} c={EMOTIONS[m.seen].c}>
+                      <Txt s={12.5} w={800} c={emotionInk(m.seen, isDark)}>
                         {emotionLabel(m.seen)}
                       </Txt>{' '}
-                      · {m.count}×
+                      ({m.count}x)
                     </Txt>
                   ))}
                 </View>
               ) : null}
-              <Txt s={11} lh={1.45} c={T.t3} style={{ marginTop: 12 }}>
-                O rosto mostra uma parte; o que você sente é a outra. Divergir não é erro de ninguém.
+              <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 12 }}>
+                O rosto mostra uma parte; o que você sente é a outra. Divergir faz parte.
               </Txt>
             </>
           )}
@@ -351,7 +393,7 @@ export function HeatmapScreen() {
 
       {/* gatilhos */}
       <Section top={20}>
-        <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 8 }}>
+        <Txt s={14} w={800} c={T.t1} style={{ marginBottom: 8 }}>
           Contextos e sentimentos
         </Txt>
         <Card radius={22} padding={18}>
@@ -367,26 +409,26 @@ export function HeatmapScreen() {
                     <Txt s={13} w={800} c={T.t1}>
                       {t.label}
                     </Txt>
-                    <Txt s={11} c={T.t3}>
+                    <Txt s={11.5} c={T.t3}>
                       {t.total} {t.total === 1 ? 'vez' : 'vezes'}
                     </Txt>
                   </View>
-                  <Txt s={12} lh={1.45} c={T.t2} style={{ marginTop: 2 }}>
+                  <Txt s={12.5} lh={1.45} c={T.t2} style={{ marginTop: 2 }}>
                     {t.top.share}% das vezes veio com{' '}
-                    <Txt s={12} w={800} c={EMOTIONS[t.top.emotion].c}>
+                    <Txt s={12.5} w={800} c={emotionInk(t.top.emotion, isDark)}>
                       {emotionLabel(t.top.emotion)}
                     </Txt>
                   </Txt>
                   <View style={{ marginTop: 6 }}>
-                    <Bar pct={t.negativeShare} color={t.negativeShare >= 50 ? DANGER : OK} height={5} />
+                    <Bar pct={t.negativeShare} color={t.negativeShare >= 50 ? T.danger : T.ok} height={5} />
                   </View>
-                  <Txt s={10.5} c={T.t3} style={{ marginTop: 3 }}>
+                  <Txt s={11} c={T.t3} style={{ marginTop: 3 }}>
                     {t.negativeShare}% de sentimentos difíceis
                   </Txt>
                 </View>
               ))}
-              <Txt s={11} lh={1.45} c={T.t3}>
-                Isto mostra coincidência, não causa. Serve para olhar com mais atenção, não para concluir.
+              <Txt s={11.5} lh={1.45} c={T.t3}>
+                Isto aponta coincidência, útil para observar com calma antes de tirar conclusões.
               </Txt>
             </View>
           )}
@@ -395,7 +437,7 @@ export function HeatmapScreen() {
 
       {/* sono */}
       <Section top={20} style={{ marginBottom: 8 }}>
-        <Txt s={13.5} w={800} c={T.t1} style={{ marginBottom: 8 }}>
+        <Txt s={14} w={800} c={T.t1} style={{ marginBottom: 8 }}>
           Sono e humor
         </Txt>
         <Card radius={22} padding={18}>
@@ -404,22 +446,22 @@ export function HeatmapScreen() {
               Responda “como você dormiu?” nos check-ins. Com {MIN_SAMPLES} noites boas e {MIN_SAMPLES} ruins, dá para comparar.
             </Txt>
           ) : (
-            <View style={{ flexDirection: 'row', gap: 14 }}>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
               {(
                 [
-                  ['Dormiu bem', sleep.good, OK],
-                  ['Dormiu mal', sleep.bad, DANGER],
+                  ['Dormiu bem', sleep.good, T.ok],
+                  ['Dormiu mal', sleep.bad, T.danger],
                 ] as const
               ).map(([label, s, color]) => (
-                <View key={label} style={{ flex: 1, padding: 14, borderRadius: 16, backgroundColor: hexA(color, 0.08) }}>
-                  <Txt s={11} w={800} c={T.t3}>
+                <View key={label} style={{ flex: 1, padding: 14, borderRadius: 16, backgroundColor: hexA(color, 0.1) }}>
+                  <Txt s={11.5} w={800} c={T.t2}>
                     {label}
                   </Txt>
                   <Txt s={26} w={800} c={color} style={{ marginTop: 4 }}>
                     {s.negativeShare}%
                   </Txt>
-                  <Txt s={11} lh={1.4} c={T.t2}>
-                    de sentimentos difíceis no dia · {s.n} {s.n === 1 ? 'noite' : 'noites'}
+                  <Txt s={11.5} lh={1.4} c={T.t2}>
+                    de sentimentos difíceis ({s.n} {s.n === 1 ? 'noite' : 'noites'})
                   </Txt>
                 </View>
               ))}

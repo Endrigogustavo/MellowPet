@@ -36,14 +36,14 @@ export function PlansScreen() {
                 {best ? (
                   <View
                     style={{
-                      paddingVertical: 3,
-                      paddingHorizontal: 9,
+                      paddingVertical: 4,
+                      paddingHorizontal: 10,
                       borderRadius: 999,
                       backgroundColor: T.pri,
                     }}
                   >
-                    <Txt s={9.5} w={800} c="#fff" ls={0.6}>
-                      MAIS ESCOLHIDO
+                    <Txt s={11} w={800} c={T.onPri}>
+                      Mais escolhido
                     </Txt>
                   </View>
                 ) : null}
