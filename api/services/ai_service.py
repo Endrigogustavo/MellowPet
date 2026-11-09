@@ -343,8 +343,9 @@ class AIChatService:
         for provider in self._providers:
             try:
                 text = provider.complete(system, messages, max_tokens)
-                if text:
-                    return text, provider.name
+                # Só espaços conta como vazio: cai para o próximo provedor.
+                if text and text.strip():
+                    return text.strip(), provider.name
                 logger.warning("Provedor %s devolveu resposta vazia", provider.name)
             except Exception as exc:
                 # Cota estourada, rede fora, chave revogada: cai para o proximo.

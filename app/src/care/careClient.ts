@@ -113,14 +113,23 @@ export async function acceptInvite(inviteCode: string, _userId: string): Promise
   if (!code) throw new Error('Informe o código de convite.');
 
   const { data, error } = await supabase.rpc('accept_invite', { code });
+  return acceptResult(data, error);
+}
+
+export { normalizedInviteCode };
+
+/**
+ * Traduz a resposta de accept_invite / accept_invite_with_consent (mesmo
+ * formato) em vínculo ou em erro com mensagem clara.
+ */
+export function acceptResult(
+  data: unknown,
+  error: { code?: string; message?: string } | null
+): CaregiverLink {
+  const body = (data && typeof data === 'object' ? data : {}) as { error?: unknown; code?: unknown };
   const rpcError =
     error ??
-    (data && typeof data === 'object' && 'error' in data && typeof (data as { error?: unknown }).error === 'string'
-      ? {
-          code: typeof (data as { code?: unknown }).code === 'string' ? (data as { code: string }).code : '',
-          message: (data as { error: string }).error,
-        }
-      : null);
+    (typeof body.error === 'string' ? { code: typeof body.code === 'string' ? body.code : '', message: body.error } : null);
   if (rpcError) {
     if (rpcError.code === '54000' || hasErrorMessage(rpcError, 'too_many_attempts')) {
       throw new Error('Muitas tentativas. Aguarde um pouco antes de tentar outro código.');

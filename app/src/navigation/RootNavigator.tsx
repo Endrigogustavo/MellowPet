@@ -46,6 +46,14 @@ import { CrisisPlanScreen } from '../screens/CrisisPlanScreen';
 import { SosScreen } from '../screens/SosScreen';
 import { GroupsScreen } from '../screens/GroupsScreen';
 import { CareMirrorScreen } from '../screens/CareMirrorScreen';
+import { canAccess, homeFor, isTabRoot } from './navModel';
+import { stepBackCareSignup } from './flowBack';
+import { CareHistoryScreen } from '../screens/CareHistoryScreen';
+import { CareNotesScreen } from '../screens/CareNotesScreen';
+import { CareAlertRulesScreen } from '../screens/CareAlertRulesScreen';
+import { CareNotifyScreen } from '../screens/CareNotifyScreen';
+import { CaredCareScreen } from '../screens/CaredCareScreen';
+import { AcceptInviteScreen } from '../screens/AcceptInviteScreen';
 
 const SCREENS: Record<Screen, React.ComponentType> = {
   splash: SplashScreen,
@@ -78,6 +86,12 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   careguide: CareGuideScreen,
   agenda: AgendaScreen,
   caretools: CareToolsScreen,
+  carehistory: CareHistoryScreen,
+  carenotes: CareNotesScreen,
+  carealertrules: CareAlertRulesScreen,
+  carenotify: CareNotifyScreen,
+  caredcare: CaredCareScreen,
+  acceptinvite: AcceptInviteScreen,
   chat: ChatScreen,
   guide: GuideScreen,
   plans: PlansScreen,
@@ -90,9 +104,6 @@ function DashboardEntry() {
   return state.role === 'care' ? <CareDataScreen /> : <DashboardScreen />;
 }
 
-/** Únicas telas acessíveis sem sessão. */
-const PUBLIC_SCREENS: Screen[] = ['splash', 'login'];
-
 /** Telas em que a barra de abas fica escondida. */
 const NO_TABS: Screen[] = ['splash', 'onboarding', 'chat', 'login', 'caresignup', 'vision', 'spotifyplayer'];
 
@@ -100,30 +111,49 @@ export function RootNavigator() {
   const { state, actions } = useApp();
   const { T, isDark } = useTheme();
 
-  const home: Screen = state.role === 'care' ? 'care' : 'home';
-  // Guarda de rota: sem sessão só existem a abertura e o login. Antes o
-  // "voltar" do login (ou um link de widget) abria a Home com userId nulo.
   const signedOut = !state.userId;
-  const screen: Screen = signedOut && !PUBLIC_SCREENS.includes(state.screen) ? 'login' : state.screen;
-  const atRoot = screen === home || screen === 'splash' || signedOut;
+  const nav = { authed: !signedOut, role: state.role };
+  const home = homeFor(state.role, !signedOut);
+  // Guarda de rota por sessão e perfil: sem sessão só existem a abertura e o
+  // login; com sessão, tela de outro perfil cai na inicial deste. O reducer
+  // já barra a navegação; isto cobre o que escapar (troca de conta, estado
+  // antigo).
+  const screen: Screen = canAccess(state.screen, nav) ? state.screen : home;
+  const showCoach = state.coach < COACH.length && screen === 'home';
 
-  // Botão físico de voltar no Android: cai para a tela inicial do perfil;
-  // sem sessão (ou já na inicial), sai do app.
+  // Botão físico de voltar no Android. Sem sessão, na abertura ou na tela
+  // inicial do perfil, sai do app (padrão do Android). Nas outras abas, vai
+  // para a inicial. Nas demais telas, a anterior que o perfil pode abrir.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (signedOut) return false;
-      // Primeiro a tela anterior de verdade; sem histórico, a inicial; nela, sai.
-      if (actions.back()) return true;
-      if (atRoot) return false;
-      actions.goTab(home);
-      return true;
+      if (signedOut || screen === 'splash') return false;
+      // Tour aberto: o voltar fecha o tour, não a Home embaixo dele.
+      if (showCoach) {
+        actions.set({ coach: COACH.length });
+        return true;
+      }
+      // Fluxos de entrada fazem o mesmo que o "Voltar" da própria tela.
+      if (screen === 'onboarding') {
+        if (state.onb === 0) return false;
+        actions.set((s) => ({ onb: Math.max(0, s.onb - 1) }));
+        return true;
+      }
+      if (screen === 'caresignup') {
+        stepBackCareSignup(state.careStep, actions);
+        return true;
+      }
+      if (screen === home) return false;
+      if (isTabRoot(screen, state.role)) {
+        actions.goTab(home);
+        return true;
+      }
+      return actions.back();
     });
     return () => sub.remove();
-  }, [atRoot, home, actions, signedOut]);
+  }, [screen, home, actions, signedOut, showCoach, state.onb, state.careStep, state.role]);
 
   const Current = SCREENS[screen];
   const showTabs = !NO_TABS.includes(screen) && !signedOut;
-  const showCoach = state.coach < COACH.length && screen === 'home';
   const onSplash = screen === 'splash';
 
   // Troca de tela até aqui era um corte seco (componente inteiro trocado no
@@ -150,7 +180,8 @@ export function RootNavigator() {
           <Current />
         </Animated.View>
         {!onSplash && !signedOut ? <DevStressToggle /> : null}
-        {showTabs ? <NowPlayingBar /> : null}
+        {/* O mini-player leva ao player e à Música, telas só do usuário. */}
+        {showTabs && state.role === 'user' ? <NowPlayingBar /> : null}
         {showTabs ? <TabBar /> : null}
         {showCoach ? <CoachOverlay /> : null}
       </View>

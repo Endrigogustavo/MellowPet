@@ -33,7 +33,7 @@ export function GrowthCeremony({ stage, onDone }: { stage: PetStage; onDone: () 
       accessibilityLabel={`${state.petName} agora é ${STAGE_LABEL[stage]}`}
     >
       <Card radius={24} padding={20} style={{ alignItems: 'center' }}>
-        <Txt s={10.5} w={800} c={T.pri} ls={1.6}>
+        <Txt s={11} w={800} c={T.pri} ls={1.6}>
           EVOLUÇÃO
         </Txt>
         <Animated.View

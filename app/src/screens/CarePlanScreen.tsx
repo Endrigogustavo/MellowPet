@@ -1,22 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
-import {
-  createCareTeamMember,
-  createPrivateNote,
-  fetchCarePlan,
-  listCareTeam,
-  listPrivateNotes,
-  saveCarePlan,
-  type CaregiverLink,
-} from '../care/careClient';
+import { createCareTeamMember, fetchCarePlan, listCareTeam, saveCarePlan, type CaregiverLink } from '../care/careClient';
+import { isPaused } from '../care/presenceClient';
 import { useCareResource } from '../care/useCareResource';
-import { CareGate, ErrorCard, LoadingCard, useCurrentCareLink } from '../components/CareStates';
+import {
+  ActionMessage,
+  CareGate,
+  CareLinkButton,
+  CarePillButton,
+  EmptyCard,
+  ErrorCard,
+  LoadingCard,
+  useCurrentCareLink,
+} from '../components/CareStates';
 import { Field } from '../components/Field';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Card, PrimaryButton, ScreenTitle, Touchable, Txt } from '../components/ui';
+import { Card, PrimaryButton, ScreenTitle, Txt } from '../components/ui';
 import { useApp, useTheme } from '../state/AppContext';
-import { DANGER, OK } from '../theme/palette';
 
 const normalizeText = (value: string) => value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR');
 
@@ -49,43 +50,50 @@ export function CarePlanScreen() {
       <CareGate care={care} emptyText="Conecte uma pessoa para criar um plano.">
         {/* key: trocar de pessoa monta um formulário NOVO — nada do plano de
             uma pessoa fica nos campos da outra. */}
-        {(current) => <PlanForm key={current.id} link={current} />}
+        {(current, name) => <PlanForm key={current.id} link={current} name={name} />}
       </CareGate>
     </ScreenScroll>
   );
 }
 
-function PlanForm({ link }: { link: CaregiverLink }) {
-  const { state } = useApp();
+function PlanForm({ link, name }: { link: CaregiverLink; name: string }) {
+  const { state, actions } = useApp();
   const { T } = useTheme();
   const cared = link.cared_user_id;
-  const loaded = useCareResource(cared && state.userId ? cared : null, async () => {
-    const [plan, team, notes] = await Promise.all([
-      fetchCarePlan(cared!),
-      listCareTeam(cared!),
-      listPrivateNotes(state.userId!, cared!),
-    ]);
-    return { plan, team, notes };
+  const paused = isPaused(link);
+  const loaded = useCareResource(cared && state.userId && !paused ? cared : null, async () => {
+    const [plan, team] = await Promise.all([fetchCarePlan(cared!), listCareTeam(cared!)]);
+    return { plan, team };
   });
   const [title, setTitle] = useState('Plano de cuidado');
   const [signs, setSigns] = useState('');
   const [steps, setSteps] = useState('');
-  const [note, setNote] = useState('');
   const [memberName, setMemberName] = useState('');
   const [memberRole, setMemberRole] = useState('');
-  const [message, setMessage] = useState<Message | null>(null);
-  const [saving, setSaving] = useState<'plan' | 'note' | 'member' | null>(null);
+  const [planMsg, setPlanMsg] = useState<Message | null>(null);
+  const [teamMsg, setTeamMsg] = useState<Message | null>(null);
+  const [saving, setSaving] = useState<'plan' | 'member' | null>(null);
 
-  // Preenche o formulário uma vez por carregamento bem-sucedido.
+  // C4: preenche o formulário UMA vez. Atualizar a equipe depois não pode
+  // sobrescrever o que está sendo editado no plano.
+  const filled = useRef(false);
   const plan = loaded.data?.plan ?? null;
   useEffect(() => {
-    if (!loaded.data) return;
+    if (!loaded.data || filled.current) return;
+    filled.current = true;
     setTitle(plan?.title ?? 'Plano de cuidado');
     setSigns(plan?.warning_signs.join('\n') ?? '');
     setSteps(plan?.steps.join('\n') ?? '');
   }, [loaded.data, plan]);
 
-  if (loaded.error) {
+  if (paused) {
+    return (
+      <Section top={0}>
+        <EmptyCard title="Plano indisponível na pausa" text={`${name} pausou o compartilhamento. O plano volta a aparecer quando ela retomar.`} />
+      </Section>
+    );
+  }
+  if (loaded.error && !loaded.data) {
     return (
       <Section top={0}>
         <ErrorCard title="Não foi possível carregar o plano" error={loaded.error} onRetry={loaded.refresh} />
@@ -99,104 +107,96 @@ function PlanForm({ link }: { link: CaregiverLink }) {
       </Section>
     );
   }
-  const { team, notes } = loaded.data;
+  const { team } = loaded.data;
   const userId = state.userId;
 
-  const run = async (kind: 'plan' | 'note' | 'member', job: () => Promise<string>) => {
+  const save = async () => {
     if (saving) return;
-    setSaving(kind);
+    const warningSigns = listFromLines(signs);
+    const nextSteps = listFromLines(steps);
+    if (!warningSigns.items.length && !nextSteps.items.length) {
+      setPlanMsg({ text: 'Inclua ao menos um sinal de atenção ou um próximo passo.', tone: 'error' });
+      return;
+    }
+    setSaving('plan');
+    setPlanMsg(null);
     try {
-      setMessage({ text: await job(), tone: 'ok' });
-      await loaded.refresh();
+      const patch = {
+        title: title.trim() || 'Plano de cuidado',
+        warning_signs: warningSigns.items,
+        steps: nextSteps.items,
+        // O plano foi lido com sucesso antes: os contatos existentes são preservados.
+        emergency_contacts: plan?.emergency_contacts ?? [],
+      };
+      await saveCarePlan(cared, userId, patch);
+      // Atualiza só o plano em memória — sem recarregar nem mexer nos campos.
+      loaded.setData((prev) =>
+        prev
+          ? { ...prev, plan: { id: prev.plan?.id ?? '', cared_user_id: cared, ...patch, updated_at: new Date().toISOString() } }
+          : prev
+      );
+      const ignored = warningSigns.ignoredDuplicates + nextSteps.ignoredDuplicates;
+      setPlanMsg({
+        text: ignored
+          ? `Plano salvo. ${ignored} linha${ignored === 1 ? '' : 's'} repetida${ignored === 1 ? '' : 's'} foi removida.`
+          : 'Plano salvo. Combine as mudanças com a pessoa acompanhada.',
+        tone: 'ok',
+      });
     } catch (reason) {
-      setMessage({ text: reason instanceof Error ? reason.message : 'Não foi possível salvar.', tone: 'error' });
+      setPlanMsg({ text: reason instanceof Error ? reason.message : 'Não foi possível salvar.', tone: 'error' });
     } finally {
       setSaving(null);
     }
   };
 
-  const save = () => {
-    const warningSigns = listFromLines(signs);
-    const nextSteps = listFromLines(steps);
-    if (!warningSigns.items.length && !nextSteps.items.length) {
-      setMessage({ text: 'Inclua ao menos um sinal de atenção ou um próximo passo.', tone: 'error' });
-      return;
-    }
-    run('plan', async () => {
-      await saveCarePlan(cared, userId, {
-        title: title.trim() || 'Plano de cuidado',
-        warning_signs: warningSigns.items,
-        steps: nextSteps.items,
-        // O plano foi lido com sucesso antes (senão nem chegaríamos aqui):
-        // os contatos de emergência existentes são preservados.
-        emergency_contacts: plan?.emergency_contacts ?? [],
-      });
-      const ignored = warningSigns.ignoredDuplicates + nextSteps.ignoredDuplicates;
-      return ignored
-        ? `Plano salvo. ${ignored} linha${ignored === 1 ? '' : 's'} repetida${ignored === 1 ? '' : 's'} foi removida.`
-        : 'Plano salvo. Combine as mudanças com a pessoa acompanhada.';
-    });
-  };
-
-  const addNote = () => {
-    const body = note.trim();
-    if (!body) {
-      setMessage({ text: 'Escreva a nota primeiro.', tone: 'error' });
-      return;
-    }
-    setNote('');
-    run('note', async () => {
-      await createPrivateNote(userId, cared, body);
-      return 'Nota privada guardada.';
-    });
-  };
-
-  const addMember = () => {
-    const name = memberName.trim();
+  const addMember = async () => {
+    if (saving) return;
+    const memberN = memberName.trim();
     const role = memberRole.trim();
-    if (!name || !role) {
-      setMessage({ text: 'Preencha o nome e a função.', tone: 'error' });
+    if (!memberN || !role) {
+      setTeamMsg({ text: 'Preencha o nome e a função.', tone: 'error' });
       return;
     }
-    if (team.some((m) => normalizeText(m.name) === normalizeText(name) && normalizeText(m.role) === normalizeText(role))) {
-      setMessage({ text: 'Essa pessoa já está na equipe com essa mesma função.', tone: 'error' });
+    if (team.some((m) => normalizeText(m.name) === normalizeText(memberN) && normalizeText(m.role) === normalizeText(role))) {
+      setTeamMsg({ text: 'Essa pessoa já está na equipe com essa mesma função.', tone: 'error' });
       return;
     }
-    setMemberName('');
-    setMemberRole('');
-    run('member', async () => {
-      await createCareTeamMember(cared, userId, { name, role, contact: null, can_receive_alerts: false });
-      return 'Pessoa adicionada à equipe de cuidado.';
-    });
+    setSaving('member');
+    setTeamMsg(null);
+    try {
+      await createCareTeamMember(cared, userId, { name: memberN, role, contact: null, can_receive_alerts: false });
+      setMemberName(''); // só limpa depois de salvar
+      setMemberRole('');
+      setTeamMsg({ text: 'Pessoa adicionada à equipe de cuidado.', tone: 'ok' });
+      // Recarrega só a equipe; o formulário do plano fica intacto.
+      listCareTeam(cared)
+        .then((next) => loaded.setData((prev) => (prev ? { ...prev, team: next } : prev)))
+        .catch(() => undefined);
+    } catch (reason) {
+      setTeamMsg({ text: reason instanceof Error ? reason.message : 'Não foi possível adicionar.', tone: 'error' });
+    } finally {
+      setSaving(null);
+    }
   };
 
   return (
     <>
-      {message ? (
-        <Section top={0}>
-          <Card radius={18} padding={14} style={{ borderColor: message.tone === 'ok' ? OK : DANGER }}>
-            <Txt s={12.5} c={message.tone === 'ok' ? OK : DANGER} accessibilityLiveRegion="polite">
-              {message.text}
-            </Txt>
-          </Card>
-        </Section>
-      ) : null}
-
-      <Section top={message ? 10 : 0}>
+      <Section top={0}>
         <Card radius={24} padding={18}>
           <Txt s={11.5} w={800} c={T.pri}>
             CONTEÚDO COMPARTILHADO
           </Txt>
           <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 4 }}>
-            O plano fica disponível para a pessoa acompanhada. Evite incluir informações que não tenham sido combinadas.
+            {name} vê este plano em “Do meu cuidador”. Evite incluir informações que não tenham sido combinadas.
           </Txt>
-          <Field label="Nome do plano" value={title} onChangeText={(t) => setTitle(t.slice(0, 80))} maxLength={80} />
+          <Field label="Nome do plano" value={title} onChangeText={(t) => setTitle(t.slice(0, 80))} maxLength={80} containerStyle={{ marginTop: 12 }} />
           <Field
             label="Sinais que pedem uma conversa (um por linha)"
             value={signs}
             onChangeText={setSigns}
             multiline
             maxLength={1500}
+            containerStyle={{ marginTop: 12 }}
             style={{ minHeight: 86, textAlignVertical: 'top' }}
           />
           <Field
@@ -205,14 +205,11 @@ function PlanForm({ link }: { link: CaregiverLink }) {
             onChangeText={setSteps}
             multiline
             maxLength={1500}
+            containerStyle={{ marginTop: 12 }}
             style={{ minHeight: 100, textAlignVertical: 'top' }}
           />
-          <PrimaryButton
-            label={saving === 'plan' ? 'Salvando…' : 'Salvar plano combinado'}
-            disabled={saving !== null}
-            onPress={save}
-            style={{ marginTop: 14 }}
-          />
+          <PrimaryButton label={saving === 'plan' ? 'Salvando…' : 'Salvar plano combinado'} disabled={saving !== null} onPress={save} style={{ marginTop: 14 }} />
+          <ActionMessage message={planMsg} onClose={() => setPlanMsg(null)} />
         </Card>
       </Section>
 
@@ -245,13 +242,15 @@ function PlanForm({ link }: { link: CaregiverLink }) {
               ))
             )}
           </View>
-          <Field label="Nome" value={memberName} onChangeText={setMemberName} maxLength={60} style={{ marginTop: 10 }} />
-          <Field label="Função ou vínculo" value={memberRole} onChangeText={setMemberRole} maxLength={60} />
-          <Touchable onPress={addMember} disabled={saving !== null} accessibilityRole="button" style={{ marginTop: 10 }}>
-            <Txt s={12.5} w={800} c={T.pri}>
-              {saving === 'member' ? 'Adicionando…' : 'Adicionar à equipe'}
-            </Txt>
-          </Touchable>
+          <Field label="Nome" value={memberName} onChangeText={setMemberName} maxLength={60} containerStyle={{ marginTop: 10 }} />
+          <Field label="Função ou vínculo" value={memberRole} onChangeText={setMemberRole} maxLength={60} containerStyle={{ marginTop: 12 }} />
+          <CarePillButton
+            label={saving === 'member' ? 'Adicionando…' : 'Adicionar à equipe'}
+            onPress={addMember}
+            disabled={saving !== null}
+            style={{ alignSelf: 'flex-start', marginTop: 12 }}
+          />
+          <ActionMessage message={teamMsg} onClose={() => setTeamMsg(null)} />
         </Card>
       </Section>
 
@@ -261,36 +260,12 @@ function PlanForm({ link }: { link: CaregiverLink }) {
             PRIVADO DO CUIDADOR
           </Txt>
           <Txt s={14.5} w={800} c={T.t1} style={{ marginTop: 4 }}>
-            Notas privadas
+            Anotações
           </Txt>
           <Txt s={11.5} lh={1.45} c={T.t3} style={{ marginTop: 4 }}>
-            Estas notas são só suas: a pessoa acompanhada não as vê.
+            Suas notas sobre {name}, organizadas por dia. Só você vê.
           </Txt>
-          <Field
-            label="Nova nota"
-            value={note}
-            onChangeText={setNote}
-            multiline
-            maxLength={1000}
-            style={{ minHeight: 78, textAlignVertical: 'top', marginTop: 12 }}
-          />
-          <Touchable onPress={addNote} disabled={saving !== null} accessibilityRole="button" style={{ marginTop: 10 }}>
-            <Txt s={12.5} w={800} c={T.pri}>
-              {saving === 'note' ? 'Guardando…' : 'Guardar nota privada'}
-            </Txt>
-          </Touchable>
-          <View style={{ gap: 9, marginTop: 13 }}>
-            {notes.slice(0, 4).map((item) => (
-              <View key={item.id} style={{ borderTopWidth: 1, borderTopColor: T.bdL, paddingTop: 10 }}>
-                <Txt s={12.5} c={T.t2}>
-                  {item.body}
-                </Txt>
-                <Txt s={10.5} c={T.t3} style={{ marginTop: 3 }}>
-                  {new Date(item.created_at).toLocaleString('pt-BR')}
-                </Txt>
-              </View>
-            ))}
-          </View>
+          <CareLinkButton label="Abrir anotações" onPress={() => actions.go('carenotes')} style={{ marginTop: 4 }} />
         </Card>
       </Section>
 

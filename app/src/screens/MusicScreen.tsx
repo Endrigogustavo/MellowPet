@@ -213,7 +213,7 @@ export function MusicScreen() {
                     flexShrink: 0,
                   }}
                 >
-                  <Txt s={9.5} w={800} c={spotify.profile.product === 'premium' ? '#1DB954' : T.t3}>
+                  <Txt s={11} w={800} c={spotify.profile.product === 'premium' ? '#1DB954' : T.t3}>
                     {spotify.profile.product === 'premium' ? 'Premium' : 'Free'}
                   </Txt>
                 </View>
@@ -589,7 +589,7 @@ export function MusicScreen() {
                   <Txt s={11} c={T.t3} numberOfLines={1}>
                     {spotify.nowPlaying?.artistName ?? ''}
                   </Txt>
-                  <Txt s={10.5} c={T.t3} style={{ marginTop: 4 }}>
+                  <Txt s={11} c={T.t3} style={{ marginTop: 4 }}>
                     Tocando no Spotify
                   </Txt>
                 </View>
@@ -627,7 +627,7 @@ export function MusicScreen() {
                       </View>
                     );
                   })}
-                  <Txt s={10.5} c={T.t3} style={{ marginTop: 2 }}>
+                  <Txt s={11} c={T.t3} style={{ marginTop: 2 }}>
                     Chopin · gravações da Musopen em domínio público
                   </Txt>
                 </View>
@@ -665,6 +665,7 @@ export function MusicScreen() {
                   </Txt>
                 </View>
                 <Toggle
+                  label={`${when}: tocar ${then}`}
                   on={!!state.rules[key]}
                   onPress={() =>
                     actions.set((s) => ({ rules: { ...s.rules, [key]: !s.rules[key] } }))

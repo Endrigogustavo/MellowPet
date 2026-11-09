@@ -8,15 +8,22 @@ sempre a mensagem fixa com o CVV — nunca texto gerado.
 
 Deliberadamente sensível: falso positivo mostra um número de apoio a mais;
 falso negativo pode custar muito mais.
+
+Os padrões cobrem a 1ª pessoa (quem conversa com o Mellow) e a 3ª pessoa
+(o cuidador contando sobre outra pessoa: "ele falou em se matar", "ela não
+quer mais viver", "anda se cortando"). O texto é normalizado sem acento antes,
+então os padrões são escritos sem acento.
 """
 import re
 import unicodedata
 
 _PATTERNS = [
-    r"\b(me matar|se matar|me mato|suicid|tirar (a )?minha (propria )?vida|acabar com (a )?minha vida)",
+    # ── 1ª pessoa ──
+    r"\b(me matar|me mato|suicid|tirar (a )?minha (propria )?vida|acabar com (a )?minha vida)",
     r"\b(quero|vou|penso em|pensando em) morrer\b",
     # "queria morrer", "quero muito morrer", "tenho vontade de morrer",
-    # "eu desejo morrer", "só queria sumir e morrer".
+    # "eu desejo morrer", "só queria sumir e morrer". Também cobre a 3ª
+    # pessoa "ele quer morrer", "disse que queria morrer".
     r"\b(quer\w*|desej\w*|vontade de|pens\w* em)( muito| tanto| so)? morrer\b",
     r"\bsumir e morrer\b",
     r"\bnao (quero|aguento) mais (viver|existir)\b",
@@ -24,6 +31,26 @@ _PATTERNS = [
     r"\bseria melhor (se eu )?(nao existisse|morrer|sumir)",
     r"\bninguem (ia|iria) sentir (a )?minha falta\b",
     r"\b(overdose|tomar todos os remedios)\b",
+    # ── 3ª pessoa (o cuidador fala de alguém) ──
+    # "se matar", "se mata", "se matou", "ameaçou se matar". Ficam de fora as
+    # expressões do dia a dia "se matando de trabalhar", "se mata de rir".
+    r"\bse (matar|mata|mato|matou|matando|matasse)\b(?! de (rir|trabalhar|estudar|correr))",
+    r"\bse (enforcar|enforcou|enforcando|envenenar|envenenou)\b",
+    # "anda se cortando", "se corta", "quer se machucar", "tentou se ferir".
+    # "se machucou"/"se cortou" sozinhos ficam de fora: em geral é acidente.
+    r"\bse (cortar|corta|cortando|cortava)\b",
+    r"\bse (machucando|ferindo)\b",
+    r"\b(quer|queria|vai|pensa em|pensou em|tentou|tenta|ameacou|ameaca|falou em|fala em) se (machucar|ferir|cortar)\b",
+    r"\bnao (quer|queria|aguenta|aguentava) mais (viver|existir)\b",
+    r"\bnao (ve|vejo|via) (mais )?sentido (em viver|na vida)\b",
+    r"\bfal\w* (em|de|sobre) morrer\b",
+    r"\b(tirar|acabar com|por fim (a|na)) (a )?(propria|sua) vida\b",
+    r"\btirar a (propria )?vida\b",
+    r"\bninguem (ia|iria|vai) sentir (a )?(minha falta|sua falta|falta del[ae])\b",
+    r"\bseria melhor se (ele|ela) (nao existisse|morresse|sumisse)\b",
+    r"\b(tomou|tomar|tomando|engoliu) (todos os|todas as|um monte de|varios|varias|muitos|muitas) (remedios|comprimidos|pilulas|calmantes)\b",
+    r"\b(pular|pulou|se jogar|se jogou) (da|de uma|do|de um) (ponte|janela|predio|sacada|viaduto|varanda)\b",
+    r"\bcarta de despedida\b",
 ]
 _COMPILED = [re.compile(p) for p in _PATTERNS]
 

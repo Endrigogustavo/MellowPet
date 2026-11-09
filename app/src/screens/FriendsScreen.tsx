@@ -90,7 +90,7 @@ export function FriendsScreen() {
                 <Txt s={12.5} w={800} c={T.t1} numberOfLines={1} style={{ marginTop: 6, maxWidth: '100%' }}>
                   {g.friend.petName}
                 </Txt>
-                <Txt s={10.5} c={T.t3} numberOfLines={1}>
+                <Txt s={11} c={T.t3} numberOfLines={1}>
                   {STAGE_LABEL[g.friend.stage]} ({g.times}x)
                 </Txt>
               </Card>

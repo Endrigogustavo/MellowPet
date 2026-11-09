@@ -45,6 +45,34 @@ export function parseDeviceLocalDateTime(value: string): LocalDateTimeResult {
   return { timeZone, iso: date.toISOString() };
 }
 
+/** Data padrão do seletor: daqui a `days` dias às `hour`:00 (horário local). */
+export function defaultSlot(days = 1, hour = 18, now = new Date()): Date {
+  const date = new Date(now);
+  date.setDate(date.getDate() + days);
+  date.setHours(hour, 0, 0, 0);
+  return date;
+}
+
+/** Troca só o dia de `base` (mantém a hora escolhida). */
+export function withDate(base: Date, picked: Date): Date {
+  const next = new Date(base);
+  next.setFullYear(picked.getFullYear(), picked.getMonth(), picked.getDate());
+  return next;
+}
+
+/** Troca só a hora de `base` (mantém o dia escolhido). */
+export function withTime(base: Date, picked: Date): Date {
+  const next = new Date(base);
+  next.setHours(picked.getHours(), picked.getMinutes(), 0, 0);
+  return next;
+}
+
+/** Erro para mostrar no campo quando o horário escolhido já passou. */
+export function futureError(date: Date, now = Date.now()): string | null {
+  if (Number.isNaN(date.getTime())) return 'Escolha uma data válida.';
+  return date.getTime() < now - 60_000 ? 'Escolha um horário no futuro.' : null;
+}
+
 export function validateDateRange(startsAt: string, endsAt?: string | null): string | null {
   if (!endsAt) return null;
   const start = new Date(startsAt);

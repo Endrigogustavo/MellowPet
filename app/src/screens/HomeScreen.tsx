@@ -6,7 +6,7 @@ import { Icon } from '../components/Icon';
 import { MellowMark } from '../components/PetFace';
 import { PetStage } from '../components/PetStage';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
-import { Bar, Card, Enter, PrimaryButton, Touchable, Txt } from '../components/ui';
+import { Bar, Card, Enter, LinkButton, PrimaryButton, Touchable, Txt } from '../components/ui';
 import { FACE_ICON, INTENSITY } from '../data/emotions';
 import { ICONS } from '../data/content';
 import { bumpProfileStats, levelFromXp } from '../profile/profileClient';
@@ -106,7 +106,7 @@ function CareAction({
         {label}
       </Txt>
       {sub ? (
-        <Txt s={10.5} c={T.t3} numberOfLines={1}>
+        <Txt numberOfLines={1} adjustsFontSizeToFit s={11} c={T.t3}>
           {sub}
         </Txt>
       ) : null}
@@ -291,7 +291,9 @@ export function HomeScreen() {
             hapticTap();
             actions.set((s) => ({ focus: !s.focus, breathing: false }));
           }}
-          accessibilityState={{ selected: state.focus }}
+          accessibilityRole="switch"
+          accessibilityLabel="Modo foco"
+          accessibilityState={{ checked: state.focus }}
           style={modePill(state.focus)}
         >
           <Icon d={ICONS.focus} size={17} color={state.focus ? T.pri : T.t2} circle />
@@ -308,7 +310,9 @@ export function HomeScreen() {
             }
             actions.set((s) => ({ breathing: !s.breathing, breathTick: 0, focus: false }));
           }}
-          accessibilityState={{ selected: state.breathing }}
+          accessibilityRole="switch"
+          accessibilityLabel="Respiração guiada"
+          accessibilityState={{ checked: state.breathing }}
           style={modePill(state.breathing)}
         >
           <Icon d={ICONS.heart} size={17} color={state.breathing ? T.pri : T.t2} />
@@ -326,15 +330,15 @@ export function HomeScreen() {
             <Txt s={12.5} lh={1.45} c={T.t2} accessibilityLiveRegion="polite">
               {state.inviteNotice}
             </Txt>
-            <Touchable
-              onPress={() => actions.set({ inviteNotice: null })}
-              accessibilityRole="button"
-              style={{ marginTop: 6, minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}
-            >
-              <Txt s={12.5} w={800} c={T.pri}>
-                Entendi
-              </Txt>
-            </Touchable>
+            <LinkButton
+              label={state.pairCode.trim() ? 'Ver o convite' : 'Entendi'}
+              onPress={() => {
+                const hasInvite = state.pairCode.trim().length > 0;
+                actions.set({ inviteNotice: null });
+                if (hasInvite) actions.go('acceptinvite');
+              }}
+              style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
+            />
           </Card>
         </Section>
       ) : null}
@@ -362,15 +366,7 @@ export function HomeScreen() {
                 }}
                 style={{ flex: 1 }}
               />
-              <Touchable
-                onPress={() => actions.set({ unlockEvent: null })}
-                accessibilityLabel="Depois"
-                style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' }}
-              >
-                <Txt s={12.5} w={800} c={T.t3}>
-                  Depois
-                </Txt>
-              </Touchable>
+              <LinkButton label="Depois" color={T.t2} onPress={() => actions.set({ unlockEvent: null })} />
             </View>
           </Card>
         </Section>
@@ -436,7 +432,7 @@ export function HomeScreen() {
       {state.feedback !== null ? (
         <Section top={12}>
           <View style={{ padding: 13, paddingHorizontal: 16, borderRadius: 18, backgroundColor: emoLight }}>
-            <Txt s={12.5} lh={1.5} c={T.t2}>
+            <Txt s={12.5} lh={1.5} c={T.t2} accessibilityLiveRegion="polite">
               {state.feedback === 'yes'
                 ? 'Obrigado. A leitura reforça um pouco o que acertou no seu rosto.'
                 : state.feedback === 'no'

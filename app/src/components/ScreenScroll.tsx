@@ -2,6 +2,7 @@ import React from 'react';
 import { ScrollView, type StyleProp, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useKeyboardAwareScroll } from '../hooks/useKeyboardAwareScroll';
 import { useApp } from '../state/AppContext';
 import { useDockInset } from './DockInset';
 import { Enter } from './ui';
@@ -9,6 +10,8 @@ import { Enter } from './ui';
 /**
  * Corpo rolável padrão das telas com barra de abas.
  * Respeita safe areas reais (topo e home indicator) e reserva folga para o dock.
+ * O campo focado fica acima do teclado nas duas plataformas
+ * (veja `useKeyboardAwareScroll`).
  */
 export function ScreenScroll({
   children,
@@ -20,16 +23,19 @@ export function ScreenScroll({
   const { state } = useApp();
   const insets = useSafeAreaInsets();
   const dock = useDockInset();
+  const kb = useKeyboardAwareScroll();
 
   return (
     <ScrollView
+      ref={kb.ref}
+      {...kb.scrollProps}
       style={{ flex: 1 }}
       contentContainerStyle={{
         paddingTop: insets.top + 16,
-        paddingBottom: Math.max(insets.bottom, 12) + 108 + (dock.height > 0 ? dock.height + 12 : 0),
+        paddingBottom:
+          Math.max(insets.bottom, 12) + 108 + (dock.height > 0 ? dock.height + 12 : 0) + kb.bottomPadding,
       }}
       showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
     >
       <Enter seq={state.navSeq} style={style}>
         {children}

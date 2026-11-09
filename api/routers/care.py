@@ -5,10 +5,12 @@ Recebe a pergunta do cuidador e SÓ o resumo agregado que o próprio app já
 mostra (índice, sinal mais frequente, tendência). Nunca eventos individuais,
 textos de check-in ou conversa da pessoa acompanhada.
 """
-from typing import Literal, Optional
+import re
+from datetime import date, timedelta
+from typing import Annotated, Literal, Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from services.ai_service import ai_chat_service
 from services.crisis import detect_crisis
@@ -16,7 +18,10 @@ from utils.auth import ai_user
 
 router = APIRouter()
 
-KnownEmotion = Literal["happy", "sad", "angry", "neutral", "surprised", "disgusted", "fearful"]
+# "unknown" é um valor válido do app (câmera sem leitura clara) e pode ser o
+# mais frequente da distribuição de care_dashboard_summary; recusar dava 422 e
+# o copiloto caía calado nas respostas prontas.
+KnownEmotion = Literal["happy", "sad", "angry", "neutral", "surprised", "disgusted", "fearful", "unknown"]
 
 CARE_SYSTEM = """Você é o copiloto de cuidado do MellowPet. Ajuda quem cuida de alguém (pai, mãe,
 parceiro, amigo) a puxar conversas respeitosas e a cuidar de si.
@@ -87,7 +92,9 @@ def describe(summary: Optional[CareSummary]) -> str:
     parts = [f"{summary.events} leituras"]
     if summary.score is not None:
         parts.append(f"índice de sinais {summary.score}/100 (abaixo de 40 pede atenção)")
-    if summary.top_emotion:
+    if summary.top_emotion == "unknown":
+        parts.append("sinal mais frequente: sem leitura clara (a câmera não reconheceu bem o rosto)")
+    elif summary.top_emotion:
         parts.append(f"sinal mais frequente: {summary.top_emotion}")
     parts.append(f"{round(summary.difficult_share * 100)}% de sinais difíceis")
     if summary.relationship:
@@ -105,6 +112,135 @@ async def care_chat(request: CareChatRequest, _user: Optional[str] = Depends(ai_
     system = CARE_SYSTEM.format(period=period, summary=describe(request.summary))
     messages = [m.model_dump() for m in request.history[-8:]] + [{"role": "user", "content": request.message}]
     text, provider = await ai_chat_service._complete_async(system, messages, max_tokens=500)
-    if not text:
+    # strip ANTES de testar: só espaços virava response="" e o app mostrava um
+    # balão vazio (ele só troca null pelas respostas prontas).
+    clean = (text or "").strip()
+    if not clean:
         return {"response": None, "provider": "fallback"}
-    return {"response": text.strip(), "provider": provider}
+    return {"response": clean, "provider": provider}
+
+
+# ── Resumo semanal (POST /care/weekly) ──────────────────────────────────────
+# Recebe só os agregados diários que o app já mostra. Nada de leituras
+# individuais, nomes ou textos da pessoa. Sem IA → text null, e o app usa o
+# resumo por regras. O texto é guardado no aparelho, não no banco.
+
+WEEKLY_SYSTEM = """Você escreve o resumo semanal do MellowPet para quem cuida de alguém.
+
+Regras:
+1. Português do Brasil, tom calmo e acolhedor, de 3 a 5 frases em texto corrido.
+   Sem emojis, sem listas, sem títulos, sem markdown.
+2. Os números são contagens agregadas de leituras de expressão facial, NÃO o que a pessoa
+   sente. Fale em "sinais" e "leituras"; nunca diga que a pessoa "está" triste, ansiosa ou
+   deprimida.
+3. Nada de diagnóstico, nome de transtorno, remédio, previsão ou nota. Não sugira vigiar,
+   checar o celular, cobrar explicações nem comparar com outras pessoas.
+4. Poucas leituras dizem pouco: com volume baixo, diga isso em vez de tirar conclusões.
+5. Se houver alertas em aberto, mencione com calma que vale olhar no app, sem alarme.
+6. Termine com uma sugestão gentil e concreta de contato (uma pergunta aberta, um convite
+   simples) e, se fizer sentido, lembre quem cuida de também cuidar de si.
+"""
+
+# Relação é texto curto escrito pelo cuidador ("mãe", "meu avô"): só letras,
+# espaço, hífen e apóstrofo — nada que pareça instrução para o modelo.
+_RELATIONSHIP_RE = re.compile(r"^[A-Za-zÀ-ÖØ-öø-ÿ' -]+$")
+_WEEKDAYS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
+# Emojis e pictogramas: o prompt pede sem emojis, e a saída é limpa de novo.
+_EMOJI_RE = re.compile(
+    "[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0000FE0F\U0000200D\U00002B00-\U00002BFF\U0001F1E6-\U0001F1FF]"
+)
+
+Count = Annotated[int, Field(ge=0, le=100_000)]
+
+
+class DayIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    day: date
+    total: Count
+    pleasant: Count
+    neutral: Count
+    difficult: Count
+
+    @model_validator(mode="after")
+    def _parts_fit_total(self) -> "DayIn":
+        # "unknown" não entra em nenhum dos três, então a soma pode ser menor.
+        if self.pleasant + self.neutral + self.difficult > self.total:
+            raise ValueError("pleasant + neutral + difficult must not exceed total")
+        return self
+
+
+class WeeklySummaryIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    week_start: date
+    days: list[DayIn] = Field(default_factory=list, max_length=7)
+    open_alerts: int = Field(default=0, ge=0, le=10_000)
+    relationship: Optional[str] = Field(default=None, max_length=40)
+
+    @field_validator("relationship")
+    @classmethod
+    def _short_relationship(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        clean = " ".join(value.split())
+        if not clean:
+            return None
+        if not _RELATIONSHIP_RE.match(clean):
+            raise ValueError("relationship must contain only letters")
+        return clean
+
+    @model_validator(mode="after")
+    def _days_inside_week(self) -> "WeeklySummaryIn":
+        end = self.week_start + timedelta(days=6)
+        seen: set[date] = set()
+        for d in self.days:
+            if not (self.week_start <= d.day <= end):
+                raise ValueError("day outside the week")
+            if d.day in seen:
+                raise ValueError("duplicated day")
+            seen.add(d.day)
+        return self
+
+
+def describe_week(payload: WeeklySummaryIn) -> str:
+    end = payload.week_start + timedelta(days=6)
+    lines = [f"Semana de {payload.week_start:%d/%m} a {end:%d/%m}."]
+    if payload.relationship:
+        lines.append(f"Relação de quem cuida com a pessoa: {payload.relationship}.")
+    for d in sorted(payload.days, key=lambda x: x.day):
+        if d.total == 0:
+            lines.append(f"{_WEEKDAYS[d.day.weekday()]} {d.day:%d/%m}: sem leituras.")
+        else:
+            lines.append(
+                f"{_WEEKDAYS[d.day.weekday()]} {d.day:%d/%m}: {d.total} leituras "
+                f"(agradáveis {d.pleasant}, neutras {d.neutral}, difíceis {d.difficult})."
+            )
+    total = sum(d.total for d in payload.days)
+    difficult = sum(d.difficult for d in payload.days)
+    days_with_data = sum(1 for d in payload.days if d.total > 0)
+    lines.append(
+        f"Total: {total} leituras em {days_with_data} de 7 dias; "
+        f"{round(difficult / total * 100) if total else 0}% de sinais difíceis."
+    )
+    lines.append(f"Alertas em aberto: {payload.open_alerts}.")
+    return "\n".join(lines)
+
+
+def clean_weekly_text(text: Optional[str]) -> Optional[str]:
+    clean = _EMOJI_RE.sub("", text or "")
+    clean = re.sub(r"[ \t]+", " ", clean).strip()
+    return clean or None
+
+
+@router.post("/weekly", summary="Weekly caregiver summary from daily aggregates only")
+async def care_weekly(request: WeeklySummaryIn, _user: Optional[str] = Depends(ai_user)):
+    # Sem leitura nenhuma não há o que resumir: não gasta IA, o app usa as regras.
+    if not ai_chat_service.available or not any(d.total for d in request.days):
+        return {"text": None, "provider": "fallback"}
+    messages = [{"role": "user", "content": describe_week(request)}]
+    text, provider = await ai_chat_service._complete_async(WEEKLY_SYSTEM, messages, max_tokens=400)
+    clean = clean_weekly_text(text)
+    if not clean:
+        return {"text": None, "provider": "fallback"}
+    return {"text": clean, "provider": provider}

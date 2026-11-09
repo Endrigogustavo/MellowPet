@@ -202,13 +202,23 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+def security_headers() -> dict[str, str]:
+    """Headers defensivos padrão. Usado pelo middleware e pelo handler de 500,
+    que roda no ServerErrorMiddleware, por fora de todos os add_middleware."""
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "no-referrer",
+    }
+    if settings.is_production:
+        headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return headers
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Headers defensivos padrao nas respostas."""
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault("Referrer-Policy", "no-referrer")
-        if settings.is_production:
-            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        for name, value in security_headers().items():
+            response.headers.setdefault(name, value)
         return response

@@ -118,7 +118,7 @@ export function LullabyScreen() {
 
       <Section>
         {game.asleep ? (
-          <PrimaryButton label="Voltar para o início" onPress={() => actions.go('home')} />
+          <PrimaryButton label="Voltar para o início" onPress={() => actions.goTab('home')} />
         ) : (
           <Txt s={12} lh={1.5} c={T.t3} center>
             Leva cerca de um minuto de rosto relaxado. Tudo é lido no aparelho; nada é gravado.

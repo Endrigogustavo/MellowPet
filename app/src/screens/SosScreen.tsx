@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
-import { Linking, View } from 'react-native';
+import { ActivityIndicator, Linking, View, type ViewStyle } from 'react-native';
 
 import { Icon } from '../components/Icon';
 import { ScreenScroll, Section } from '../components/ScreenScroll';
@@ -9,6 +9,9 @@ import { ICONS } from '../data/content';
 import { phoneDigits, sosText, whatsappLink } from '../integrations/sos';
 import { cachedContacts, fetchSettings, type EmergencyContact } from '../settings/settingsClient';
 import { useApp, useTheme } from '../state/AppContext';
+
+/** Onde a mensagem de falha aparece: junto do bloco que a gerou. */
+type NoticeArea = 'emergency' | 'network';
 
 /**
  * Pedido de ajuda: tudo o que importa num toque, sem conversa no meio.
@@ -19,23 +22,43 @@ export function SosScreen() {
   const { state, actions } = useApp();
   const { T } = useTheme();
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
+  // Sem isto a tela dizia "nenhum contato" antes de o cache responder.
+  const [contactsLoading, setContactsLoading] = useState(true);
   const [withLocation, setWithLocation] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ text: string; area: NoticeArea } | null>(null);
 
   useEffect(() => {
     if (!state.userId) return;
     const userId = state.userId;
-    cachedContacts(userId).then((local) => setContacts((cur) => (cur.length ? cur : local)));
-    fetchSettings(userId)
-      .then((s) => setContacts(s.emergency_contacts ?? []))
+    let alive = true;
+    cachedContacts(userId)
+      .then((local) => {
+        if (!alive) return;
+        setContacts((cur) => (cur.length ? cur : local));
+        if (local.length) setContactsLoading(false);
+      })
       .catch(() => undefined);
+    fetchSettings(userId)
+      .then((s) => {
+        if (alive) setContacts(s.emergency_contacts ?? []);
+      })
+      // Sem servidor fica a cópia do aparelho; CVV e SAMU seguem funcionando.
+      .catch(() => undefined)
+      .finally(() => {
+        if (alive) setContactsLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, [state.userId]);
 
-  const open = (url: string, what: string) =>
-    Linking.openURL(url).catch(() => setNotice(`Não consegui abrir ${what} neste celular. Tente ligar direto.`));
-  const call = (number: string) => open(`tel:${number}`, 'o telefone');
+  const open = (url: string, what: string, area: NoticeArea = 'network') =>
+    Linking.openURL(url).catch(() =>
+      setNotice({ text: `Não consegui abrir ${what} neste celular. Tente ligar direto.`, area })
+    );
+  const call = (number: string, area: NoticeArea = 'network') => open(`tel:${number}`, 'o telefone', area);
 
   const whatsapp = async (c: EmergencyContact) => {
     setBusy(c.contact);
@@ -55,12 +78,38 @@ export function SosScreen() {
     } finally {
       setBusy(null);
     }
-    if (withLocation && !coords) setNotice('Sem acesso à localização: a mensagem vai sem ela.');
+    if (withLocation && !coords) {
+      setNotice({ text: 'Sem acesso à localização: a mensagem vai sem ela.', area: 'network' });
+    }
     const link = whatsappLink(c.contact, sosText(coords));
     if (link) open(link, 'o WhatsApp');
   };
 
   const phones = contacts.filter((c) => phoneDigits(c.contact));
+
+  // "Ligar" e "SMS" lado a lado com 48 px: é a tela de crise.
+  const sideButton: ViewStyle = {
+    flex: 1,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+    backgroundColor: T.priL,
+  };
+
+  const noticeFor = (area: NoticeArea) =>
+    notice?.area === area ? (
+      <Txt
+        s={12}
+        lh={1.45}
+        c={T.danger}
+        style={{ marginTop: 10 }}
+        accessibilityRole="alert"
+        accessibilityLiveRegion="assertive"
+      >
+        {notice.text}
+      </Txt>
+    ) : null;
 
   return (
     <ScreenScroll>
@@ -68,12 +117,12 @@ export function SosScreen() {
 
       <Section top={0}>
         <Card radius={24} padding={18}>
-          <PrimaryButton label="Ligar para o CVV · 188" onPress={() => call('188')} />
+          <PrimaryButton label="Ligar para o CVV · 188" onPress={() => call('188', 'emergency')} />
           <Txt s={12} lh={1.45} c={T.t3} center style={{ marginTop: 8 }}>
             Gratuito, 24 horas, sigiloso. Também por chat em cvv.org.br.
           </Txt>
           <Touchable
-            onPress={() => call('192')}
+            onPress={() => call('192', 'emergency')}
             accessibilityLabel="Ligar para o SAMU 192"
             style={{
               marginTop: 14,
@@ -90,6 +139,7 @@ export function SosScreen() {
               Perigo agora? SAMU · 192
             </Txt>
           </Touchable>
+          {noticeFor('emergency')}
         </Card>
       </Section>
 
@@ -98,16 +148,28 @@ export function SosScreen() {
           <Txt s={13.5} w={800} c={T.t1}>
             Chamar minha rede
           </Txt>
-          {phones.length === 0 ? (
+          {phones.length === 0 && contactsLoading ? (
+            <View
+              accessible
+              accessibilityLabel="Carregando seus contatos"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}
+            >
+              <ActivityIndicator size="small" color={T.pri} />
+              <Txt s={12.5} c={T.t3}>
+                Carregando seus contatos…
+              </Txt>
+            </View>
+          ) : phones.length === 0 ? (
             <View style={{ marginTop: 8, gap: 12 }}>
               <Txt s={12.5} lh={1.5} c={T.t2}>
-                Você ainda não cadastrou contatos de confiança com telefone.
+                Nenhum contato com telefone ainda. Quem você adicionar aparece aqui, pronto
+                para ligar ou mandar mensagem.
               </Txt>
               <Touchable
                 onPress={() => actions.go('settings')}
-                accessibilityLabel="Abrir Ajustes para adicionar contatos de emergência"
+                accessibilityLabel="Adicionar contato de emergência em Ajustes"
                 style={{
-                  minHeight: 46,
+                  minHeight: 48,
                   paddingHorizontal: 16,
                   borderRadius: 16,
                   backgroundColor: T.surfWarm,
@@ -136,32 +198,34 @@ export function SosScreen() {
               </View>
               <View style={{ gap: 10, marginTop: 10 }}>
                 {phones.map((c) => (
-                  <View key={c.contact} style={{ gap: 6 }}>
+                  <View key={c.contact} style={{ gap: 8 }}>
                     <PrimaryButton
-                      label={busy === c.contact ? 'Pegando localização…' : `WhatsApp para ${c.name}`}
-                      disabled={busy !== null}
+                      label={`WhatsApp para ${c.name}`}
+                      loading={busy === c.contact}
+                      disabled={busy !== null && busy !== c.contact}
                       onPress={() => {
                         whatsapp(c).catch(() => undefined);
                       }}
                     />
-                    <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'center' }}>
+                    {/* Sem WhatsApp ou sem internet: ligar e SMS sempre funcionam. */}
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
                       <Touchable
                         onPress={() => call(phoneDigits(c.contact)!)}
-                        accessibilityRole="button"
                         accessibilityLabel={`Ligar para ${c.name}`}
-                        style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}
+                        style={sideButton}
                       >
-                        <Txt s={12.5} w={800} c={T.pri}>
+                        <Txt s={13.5} w={800} c={T.pri}>
                           Ligar
                         </Txt>
                       </Touchable>
                       <Touchable
-                        onPress={() => open(`sms:${phoneDigits(c.contact)}?body=${encodeURIComponent(sosText())}`, 'as mensagens')}
-                        accessibilityRole="button"
+                        onPress={() =>
+                          open(`sms:${phoneDigits(c.contact)}?body=${encodeURIComponent(sosText())}`, 'as mensagens')
+                        }
                         accessibilityLabel={`Mandar SMS para ${c.name}`}
-                        style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}
+                        style={sideButton}
                       >
-                        <Txt s={12.5} w={800} c={T.pri}>
+                        <Txt s={13.5} w={800} c={T.pri}>
                           SMS
                         </Txt>
                       </Touchable>
@@ -169,11 +233,7 @@ export function SosScreen() {
                   </View>
                 ))}
               </View>
-              {notice ? (
-                <Txt s={12} lh={1.45} c={T.danger} style={{ marginTop: 10 }} accessibilityRole="alert">
-                  {notice}
-                </Txt>
-              ) : null}
+              {noticeFor('network')}
             </>
           )}
         </Card>

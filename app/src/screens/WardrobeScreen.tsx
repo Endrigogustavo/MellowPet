@@ -92,7 +92,7 @@ export function WardrobeScreen() {
                   {!unlocked ? (
                     <View style={{ alignSelf: 'stretch', marginTop: 8 }}>
                       <Bar pct={(Math.min(done, goal) / goal) * 100} color={T.pri} height={5} />
-                      <Txt s={10.5} c={T.t3} center style={{ marginTop: 4 }}>
+                      <Txt numberOfLines={1} adjustsFontSizeToFit s={11} c={T.t3} center style={{ marginTop: 4 }}>
                         {Math.min(done, goal)} de {goal}
                       </Txt>
                     </View>

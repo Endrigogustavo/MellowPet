@@ -82,7 +82,16 @@ export function TabBar() {
             }}
           >
             <Icon d={TAB_ICONS[key]} size={20} color={on ? T.pri : T.t3} sw={on ? 2.1 : 1.8} />
-            <Txt s={11} w={on ? 800 : 600} c={on ? T.pri : T.t3} numberOfLines={1}>
+            {/* Uma linha só: "Ferramentas" encolhe em vez de quebrar no meio da palavra. */}
+            <Txt
+              s={11}
+              w={on ? 800 : 600}
+              c={on ? T.pri : T.t3}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+              maxFontSizeMultiplier={1.2}
+            >
               {label}
             </Txt>
           </Touchable>

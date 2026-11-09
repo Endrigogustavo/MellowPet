@@ -230,7 +230,7 @@ export function PlaylistDetailScreen() {
               {error ?? 'Essa playlist não existe mais.'}
             </Txt>
             <Touchable
-              onPress={() => actions.go('music')}
+              onPress={() => actions.replace('music')}
               style={{
                 marginTop: 14,
                 minHeight: 46,
@@ -292,7 +292,7 @@ export function PlaylistDetailScreen() {
               backgroundColor: playlist.tracks.length === 0 ? T.bd : T.pri,
             }}
           >
-            <Txt s={13} w={800} c={playlist.tracks.length === 0 ? T.t3 : '#fff'}>
+            <Txt s={13} w={800} c={playlist.tracks.length === 0 ? T.t3 : T.onPri}>
               Tocar
             </Txt>
           </Touchable>
@@ -556,7 +556,7 @@ export function PlaylistDetailScreen() {
               <Touchable
                 onPress={() =>
                   deleteUserPlaylist(playlist.id)
-                    .then(() => actions.go('music'))
+                    .then(() => actions.replace('music'))
                     .catch((e) =>
                       setError(e instanceof Error ? e.message : 'Não foi possível apagar.')
                     )
@@ -587,7 +587,7 @@ export function PlaylistDetailScreen() {
         )}
 
         <Touchable
-          onPress={() => actions.go('music')}
+          onPress={() => actions.back()}
           style={{ alignSelf: 'center', paddingHorizontal: 18, paddingVertical: 10 }}
         >
           <Txt s={13.5} w={700} c={T.t3}>

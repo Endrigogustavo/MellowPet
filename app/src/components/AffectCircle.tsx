@@ -42,7 +42,7 @@ export function AffectCircle({ affect, size = 168 }: { affect: Affect; size?: nu
       <Txt s={13} w={800} c={T.t1} style={{ marginTop: 4 }}>
         {AFFECT_TEXT[affect.label]}
       </Txt>
-      <Txt s={10.5} c={T.t3} style={{ marginTop: 2 }}>
+      <Txt s={11} c={T.t3} style={{ marginTop: 2 }}>
         estimado pelo rosto, não pelo que você sente
       </Txt>
     </View>

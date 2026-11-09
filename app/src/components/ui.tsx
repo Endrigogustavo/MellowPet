@@ -1,12 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
+  ActivityIndicator,
   Animated,
   Easing,
+  type Insets,
+  type LayoutChangeEvent,
   Platform,
   Pressable,
   type PressableProps,
   type StyleProp,
+  StyleSheet,
   Text,
   type TextProps,
   type TextStyle,
@@ -16,6 +20,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { showsBackButton } from '../navigation/navModel';
 import { useApp, useTheme } from '../state/AppContext';
 import { hapticTap } from '../theme/haptics';
 import { LIGHT } from '../theme/palette';
@@ -102,9 +107,6 @@ export function Eyebrow({ children, ls = 0 }: { children: React.ReactNode; ls?: 
   );
 }
 
-/** Telas de aba: nelas não há "voltar" (a barra de baixo já leva às outras). */
-const TAB_ROOTS = ['home', 'tools', 'routine', 'music', 'dashboard', 'care', 'carealerts', 'agenda', 'caretools'];
-
 /** Cabeçalho de tela: botão voltar >= 44×44px + subtítulo opcional + título humano. */
 export function ScreenTitle({
   label,
@@ -117,7 +119,10 @@ export function ScreenTitle({
 }) {
   const { T } = useTheme();
   const { state, actions } = useApp();
-  const canGoBack = Boolean(onBack) || (state.history.length > 0 && !TAB_ROOTS.includes(state.screen));
+  // Abas do perfil atual não têm "voltar" (a barra de baixo já leva às
+  // outras). Fora delas sempre há: sem histórico, volta para a inicial do
+  // perfil — igual ao voltar físico.
+  const canGoBack = Boolean(onBack) || showsBackButton(state.screen, state.role);
   return (
     <View style={{ paddingHorizontal: 20, paddingBottom: 18 }}>
       {canGoBack ? (
@@ -222,43 +227,134 @@ const WEB_PRESSABLE_STYLE =
       } as unknown as ViewStyle)
     : null;
 
-/** Botão genérico com micro-resposta tátil (escala 0.975 + opacidade sutil). */
+/** Área mínima de toque recomendada (WCAG 2.5.5 / Material / HIG). */
+export const MIN_TOUCH = 44;
+
+/** Folga que falta para um eixo de `size` dp chegar a {@link MIN_TOUCH}. */
+function slopFor(size: number): number {
+  return size > 0 && size < MIN_TOUCH ? Math.ceil((MIN_TOUCH - size) / 2) : 0;
+}
+
+type TouchableProps = PressableProps & { style?: StyleProp<ViewStyle>; scaleOnPress?: boolean };
+
+/**
+ * Botão genérico com micro-resposta tátil (escala 0.975 + opacidade sutil).
+ *
+ * - Papel `button` por padrão (passe `accessibilityRole` para trocar).
+ * - `disabled` vai para `accessibilityState`, junto com o estado que vier.
+ * - Sem `hitSlop` explícito, mede o próprio tamanho e estende a área de toque
+ *   até 44×44 sem mexer no layout.
+ * - A opacidade do `style` (ex.: item apagado) é multiplicada pelo feedback de
+ *   toque em vez de anulá-lo.
+ */
 export function Touchable({
   style,
   scaleOnPress = true,
-  accessibilityRole,
+  accessibilityRole = 'button',
+  accessibilityState,
+  disabled,
+  hitSlop,
+  onLayout,
   ...rest
-}: PressableProps & { style?: StyleProp<ViewStyle>; scaleOnPress?: boolean }) {
+}: TouchableProps) {
   const reduced = useReducedMotion();
+  const [slop, setSlop] = useState<Insets | undefined>(undefined);
+  const flat = StyleSheet.flatten(style) as ViewStyle | undefined;
+  const baseOpacity = typeof flat?.opacity === 'number' ? flat.opacity : 1;
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    onLayout?.(e);
+    if (hitSlop !== undefined) return;
+    const { width, height } = e.nativeEvent.layout;
+    const h = slopFor(width);
+    const v = slopFor(height);
+    setSlop((prev) => {
+      if (prev && prev.left === h && prev.top === v) return prev;
+      return h || v ? { left: h, right: h, top: v, bottom: v } : undefined;
+    });
+  };
+
   return (
     <Pressable
-      accessibilityRole={accessibilityRole ?? (rest.onPress ? 'button' : undefined)}
       {...rest}
-      style={({ pressed }) => [
-        WEB_PRESSABLE_STYLE,
-        {
-          opacity: pressed && !rest.disabled ? 0.86 : 1,
-          ...(scaleOnPress && !reduced
-            ? { transform: [{ scale: pressed && !rest.disabled ? 0.975 : 1 }] }
-            : null),
-        },
-        style as ViewStyle,
-      ]}
+      disabled={disabled}
+      accessibilityRole={accessibilityRole}
+      accessibilityState={{ disabled: !!disabled, ...accessibilityState }}
+      hitSlop={hitSlop ?? slop}
+      onLayout={handleLayout}
+      style={({ pressed }) => {
+        const down = pressed && !disabled;
+        return [
+          WEB_PRESSABLE_STYLE,
+          scaleOnPress && !reduced ? { transform: [{ scale: down ? 0.975 : 1 }] } : null,
+          style,
+          { opacity: baseOpacity * (down ? 0.86 : 1) },
+        ];
+      }}
     />
+  );
+}
+
+/**
+ * Ação só de texto ("Tentar novamente", "Remover", "Depois"…) com altura mínima
+ * de 44 px. Use no lugar de um `Touchable` com `Txt` solto.
+ */
+export function LinkButton({
+  label,
+  onPress,
+  color,
+  size = 12.5,
+  disabled,
+  accessibilityLabel,
+  accessibilityHint,
+  style,
+}: {
+  label: string;
+  onPress: () => void;
+  color?: string;
+  size?: number;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { T } = useTheme();
+  return (
+    <Touchable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={accessibilityHint}
+      style={[
+        { minHeight: MIN_TOUCH, justifyContent: 'center', paddingHorizontal: 8, opacity: disabled ? 0.5 : 1 },
+        style,
+      ]}
+    >
+      <Txt s={size} w={800} c={color ?? T.pri}>
+        {label}
+      </Txt>
+    </Touchable>
   );
 }
 
 /* ── Controles ──────────────────────────────────────────────────────────── */
 
-/** Interruptor acessível (alvo de toque >= 44×44px, transição 180ms). */
+/**
+ * Interruptor 50×29 do design. `label` é o que o leitor de tela anuncia
+ * ("Lembrete de Água, interruptor, ligado").
+ */
 export function Toggle({
   on,
   onPress,
   label,
+  hint,
+  disabled,
 }: {
   on: boolean;
   onPress: () => void;
   label?: string;
+  hint?: string;
+  disabled?: boolean;
 }) {
   const { T } = useTheme();
   const reduced = useReducedMotion();
@@ -283,9 +379,11 @@ export function Toggle({
         hapticTap();
         onPress();
       }}
+      disabled={disabled}
       accessibilityRole="switch"
       accessibilityState={{ checked: on }}
       accessibilityLabel={label}
+      accessibilityHint={hint}
       hitSlop={8}
       style={{ minHeight: 44, minWidth: 50, justifyContent: 'center' }}
     >
@@ -303,7 +401,8 @@ export function Toggle({
             width: 23,
             height: 23,
             borderRadius: 999,
-            backgroundColor: LIGHT.surf,
+            // Ligado, a bolinha fica sobre `pri`: usa `onPri` (branco some no lilás escuro).
+            backgroundColor: on ? T.onPri : LIGHT.surf,
             shadowColor: T.shadow,
             shadowOpacity: 0.18,
             shadowRadius: 3,
@@ -351,7 +450,7 @@ export function ToggleRow({
           {sub}
         </Txt>
       </View>
-      <Toggle on={on} onPress={onPress} label={label} />
+      <Toggle on={on} onPress={onPress} label={label} hint={sub} />
     </View>
   );
 }
@@ -489,7 +588,8 @@ export function Segmented({
                 : null),
             }}
           >
-            <Txt s={13} w={700} c={on ? T.t1 : T.t3} numberOfLines={1}>
+            {/* t2: o t3 sobre o trilho `bdL` fica abaixo de 4,5:1 no claro. */}
+            <Txt s={13} w={700} c={on ? T.t1 : T.t2} numberOfLines={1}>
               {label}
             </Txt>
           </Touchable>
@@ -504,24 +604,30 @@ export function PrimaryButton({
   label,
   onPress,
   disabled,
+  loading,
+  accessibilityHint,
   style,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  /** Mostra um indicador no lugar do rótulo, trava o toque e anuncia "ocupado". */
+  loading?: boolean;
+  accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
 }) {
   const { T } = useTheme();
+  const off = disabled || loading;
   return (
     <Touchable
       onPress={() => {
         hapticTap();
         onPress();
       }}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(disabled) }}
+      disabled={off}
       accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ busy: !!loading }}
       style={[
         {
           minHeight: 52,
@@ -535,9 +641,13 @@ export function PrimaryButton({
         style,
       ]}
     >
-      <Txt s={15} w={800} c={disabled ? T.t3 : T.onPri} numberOfLines={1}>
-        {label}
-      </Txt>
+      {loading ? (
+        <ActivityIndicator color={T.onPri} />
+      ) : (
+        <Txt s={15} w={800} c={disabled ? T.t3 : T.onPri} numberOfLines={1}>
+          {label}
+        </Txt>
+      )}
     </Touchable>
   );
 }

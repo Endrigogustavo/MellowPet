@@ -31,6 +31,7 @@ export type Palette = {
   t3: string;
   pri: string;
   priL: string;
+  /** Texto e ícone sobre fundo `pri` (botão principal, chip cheio, bolha do usuário). */
   onPri: string;
   tabBg: string;
   splashBg: string;

@@ -118,8 +118,44 @@ export function CareToolsScreen() {
       </Section>
 
       <Section top={12}>
+        <View style={{ borderRadius: 20, padding: 6, paddingHorizontal: 15, backgroundColor: T.surf, borderWidth: 1, borderColor: T.bd }}>
+          {(
+            [
+              ['Histórico por dia, semana e mês', 'carehistory'],
+              ['Anotações por dia', 'carenotes'],
+              ['Regras de alerta', 'carealertrules'],
+              ['Notificações e silêncio noturno', 'carenotify'],
+            ] as const
+          ).map(([label, target], index) => (
+            <Touchable
+              key={target}
+              onPress={() => actions.go(target)}
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              style={{
+                minHeight: 48,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderTopWidth: index ? 1 : 0,
+                borderTopColor: T.bdL,
+              }}
+            >
+              <Txt s={13.5} w={700} c={T.t1}>
+                {label}
+              </Txt>
+              <Txt s={16} w={800} c={T.t3}>
+                ›
+              </Txt>
+            </Touchable>
+          ))}
+        </View>
+      </Section>
+
+      <Section top={12}>
         <Touchable
           onPress={() => actions.go('careguide')}
+          accessibilityRole="button"
           style={{ borderRadius: 20, padding: 15, backgroundColor: T.priL, flexDirection: 'row', gap: 12, alignItems: 'center' }}
         >
           <Icon d={ICONS.help} size={20} color={T.pri} />
@@ -129,14 +165,6 @@ export function CareToolsScreen() {
           </View>
         </Touchable>
       </Section>
-
-      {notice ? (
-        <Section top={0}>
-          <View style={{ padding: 14, borderRadius: 18, backgroundColor: T.priL }}>
-            <Txt s={12.5} lh={1.5} c={T.t2}>{notice}</Txt>
-          </View>
-        </Section>
-      ) : null}
 
       {/* código de convite */}
       <Section top={12}>
@@ -191,6 +219,11 @@ export function CareToolsScreen() {
                 </Txt>
               </Touchable>
             </View>
+          ) : null}
+          {notice ? (
+            <Txt s={12.5} lh={1.5} c={T.t2} style={{ marginTop: 10 }} accessibilityLiveRegion="polite">
+              {notice}
+            </Txt>
           ) : null}
           {inviteError ? (
             <View style={{ marginTop: 12, gap: 9 }}>

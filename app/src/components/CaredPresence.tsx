@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, View } from 'react-native';
+import { Animated, Linking, View } from 'react-native';
 
 import { listLinks, type CaregiverLink } from '../care/careClient';
 import {
@@ -15,7 +15,7 @@ import {
 } from '../care/presenceClient';
 import { stageForDays } from '../pet/growth';
 import { useApp, useTheme } from '../state/AppContext';
-import { DANGER, OK } from '../theme/palette';
+import { DANGER, hexA } from '../theme/palette';
 import { PetFace } from './PetFace';
 import { Card, PrimaryButton, Touchable, Txt } from './ui';
 
@@ -29,19 +29,34 @@ export function NeedYouCard() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ text: string; ok: boolean } | null>(null);
+  const [sending, setSending] = useState<Urgency | null>(null);
 
   if (!state.linked || state.role === 'care') return null;
 
   const ask = (urgency: Urgency) => {
     if (!state.userId || busy) return;
     setBusy(true);
+    setSending(urgency);
     requestContact(state.userId, urgency)
       .then(() => {
-        setResult({ text: 'Pedido enviado. Seu cuidador vai saber que você quer conversar.', ok: true });
+        // Honesto (C2): o pedido fica no painel dele; o aviso no celular depende
+        // das notificações dele estarem ligadas.
+        setResult({
+          text: 'Pedido enviado. Ele aparece no painel do seu cuidador assim que ele abrir o app — e como aviso no celular, se as notificações dele estiverem ligadas.',
+          ok: true,
+        });
         setOpen(false);
       })
-      .catch((e: Error) => setResult({ text: e.message, ok: false }))
-      .finally(() => setBusy(false));
+      .catch((e: Error) =>
+        setResult({
+          text: `${e.message} Se precisar de alguém agora, ligue direto para seu cuidador ou para o CVV (188).`,
+          ok: false,
+        })
+      )
+      .finally(() => {
+        setBusy(false);
+        setSending(null);
+      });
   };
 
   return (
@@ -71,12 +86,14 @@ export function NeedYouCard() {
                   paddingVertical: 10,
                   paddingHorizontal: 15,
                   borderRadius: 999,
-                  backgroundColor: u === 'agora' ? 'rgba(229,72,77,.14)' : T.priL,
-                  opacity: busy ? 0.5 : 1,
+                  minHeight: 44,
+                  justifyContent: 'center',
+                  backgroundColor: u === 'agora' ? hexA(DANGER, 0.14) : T.priL,
+                  opacity: busy && sending !== u ? 0.5 : 1,
                 }}
               >
                 <Txt s={13} w={800} c={u === 'agora' ? DANGER : T.pri}>
-                  {URGENCY_LABEL[u]}
+                  {sending === u ? 'Enviando…' : URGENCY_LABEL[u]}
                 </Txt>
               </Touchable>
             ))}
@@ -89,9 +106,29 @@ export function NeedYouCard() {
         </>
       )}
       {result ? (
-        <Txt s={12} lh={1.45} c={result.ok ? OK : DANGER} style={{ marginTop: 10 }} accessibilityLiveRegion="polite">
-          {result.text}
-        </Txt>
+        <View style={{ marginTop: 10 }}>
+          <Txt
+            s={12}
+            lh={1.45}
+            c={result.ok ? T.t1 : DANGER}
+            accessibilityRole={result.ok ? 'text' : 'alert'}
+            accessibilityLiveRegion="polite"
+          >
+            {result.text}
+          </Txt>
+          {!result.ok ? (
+            <Touchable
+              onPress={() => Linking.openURL('tel:188').catch(() => undefined)}
+              accessibilityRole="button"
+              accessibilityLabel="Ligar para o CVV, 188"
+              style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}
+            >
+              <Txt s={12.5} w={800} c={T.pri}>
+                Ligar para o CVV (188)
+              </Txt>
+            </Touchable>
+          ) : null}
+        </View>
       ) : null}
     </Card>
   );

@@ -455,7 +455,7 @@ export function CheckinScreen() {
                         <Txt s={15} w={800} c={on ? T.onPri : T.t1}>
                           {v}
                         </Txt>
-                        <Txt s={9.5} w={700} c={on ? T.onPri : T.t3} style={{ marginTop: 2 }} numberOfLines={1}>
+                        <Txt numberOfLines={1} adjustsFontSizeToFit s={11} w={700} c={on ? T.onPri : T.t3} style={{ marginTop: 2 }}>
                           {label}
                         </Txt>
                       </Touchable>
@@ -523,15 +523,24 @@ export function CheckinScreen() {
 
           <Section>
             {error ? (
-              <Txt s={12.5} lh={1.5} c={T.danger} style={{ marginBottom: 10 }}>
+              <Txt
+                s={12.5}
+                lh={1.5}
+                c={T.danger}
+                style={{ marginBottom: 10 }}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+              >
                 {error}
               </Txt>
             ) : null}
-            {saving ? (
-              <ActivityIndicator color={T.pri} />
-            ) : (
-              <PrimaryButton label="Registrar" onPress={save} disabled={!emotion} />
-            )}
+            <PrimaryButton
+              label="Registrar"
+              onPress={save}
+              loading={saving}
+              disabled={!emotion}
+              accessibilityHint={!emotion ? 'Escolha antes como você se sente' : undefined}
+            />
             {!emotion ? (
               <Txt s={12} c={T.t3} style={{ marginTop: 8, textAlign: 'center' }}>
                 Escolha como se sente para registrar.
@@ -548,7 +557,7 @@ export function CheckinScreen() {
             Últimos 7 dias{displayRecent.length > 0 ? ` · ${displayRecent.length}` : ''}
           </Txt>
           <Touchable
-            onPress={() => actions.go('heatmap')}
+            onPress={() => actions.replace('heatmap')}
             accessibilityLabel="Abrir mapa emocional"
             style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 }}
           >
@@ -558,7 +567,14 @@ export function CheckinScreen() {
           </Touchable>
         </View>
         {recentError && state.stressMode === 'off' ? (
-          <Txt s={12} lh={1.45} c={T.danger} style={{ marginTop: 6 }}>
+          <Txt
+            s={12}
+            lh={1.45}
+            c={T.danger}
+            style={{ marginTop: 6 }}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
             {recentError}
           </Txt>
         ) : null}

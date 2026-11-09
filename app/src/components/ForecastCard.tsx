@@ -60,7 +60,7 @@ export function ForecastCard() {
               </Txt>
             </View>
           ))}
-          <Txt s={10.5} c={T.t3} style={{ marginTop: 2 }}>
+          <Txt s={11} c={T.t3} style={{ marginTop: 2 }}>
             É o seu padrão das últimas semanas, não um destino.
           </Txt>
         </View>

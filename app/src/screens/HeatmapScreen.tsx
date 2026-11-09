@@ -223,7 +223,7 @@ export function HeatmapScreen() {
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 16 }}>
             {WEEKDAYS.map((w, i) => (
               <View key={i} style={{ width: cell, alignItems: 'center' }}>
-                <Txt s={11} w={700} c={T.t3}>
+                <Txt numberOfLines={1} adjustsFontSizeToFit s={11} w={700} c={T.t3}>
                   {w}
                 </Txt>
               </View>

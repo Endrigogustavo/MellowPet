@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { Animated, Easing, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 
@@ -8,6 +8,7 @@ import { Icon } from '../components/Icon';
 import { PrimaryButton, Segmented, Touchable, Txt, useReducedMotion } from '../components/ui';
 import { ICONS } from '../data/content';
 import { EMOTIONS } from '../data/emotions';
+import { useKeyboardAwareScroll } from '../hooks/useKeyboardAwareScroll';
 import { HEAD } from '../data/pets';
 import { checkPassword, confirmError } from '../auth/passwordRules';
 import { useApp, useTheme } from '../state/AppContext';
@@ -121,6 +122,7 @@ export function LoginScreen() {
   const { state, actions } = useApp();
   const { T } = useTheme();
   const insets = useSafeAreaInsets();
+  const kb = useKeyboardAwareScroll();
 
   const signup = state.signup;
   const showPairing = signup && state.signupRole === 'user';
@@ -201,19 +203,17 @@ export function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: T.bg }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={{ flex: 1, backgroundColor: T.bg }}>
       <ScrollView
+        ref={kb.ref}
+        {...kb.scrollProps}
         contentContainerStyle={{
           flexGrow: 1,
           paddingTop: insets.top + 20,
-          paddingBottom: Math.max(insets.bottom, 16) + 16,
+          paddingBottom: Math.max(insets.bottom, 16) + 16 + kb.bottomPadding,
           paddingHorizontal: 22,
         }}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
       >
         <Rise delay={0}>
           <View
@@ -392,8 +392,9 @@ export function LoginScreen() {
           </View>
 
           <PrimaryButton
-            label={state.authLoading ? 'Aguarde…' : signup ? 'Criar conta' : 'Entrar'}
-            disabled={state.authLoading || !canSubmit}
+            label={signup ? 'Criar conta' : 'Entrar'}
+            loading={state.authLoading}
+            disabled={!canSubmit}
             onPress={actions.submitAuth}
           />
           {__DEV__ ? (
@@ -441,6 +442,6 @@ export function LoginScreen() {
           ) : null}
         </Rise>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }

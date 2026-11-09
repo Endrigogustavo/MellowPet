@@ -50,6 +50,10 @@ export function Field({
       <View style={{ justifyContent: 'center' }}>
         <TextInput
           placeholderTextColor={T.t3}
+          // O rótulo visual não fica ligado ao input no leitor de tela; sem
+          // isto ele lê só o placeholder (ou nada, com o campo preenchido).
+          accessibilityLabel={label ?? rest.placeholder}
+          accessibilityHint={error || hint || undefined}
           {...rest}
           // Depois do spread: o olho controla a máscara sem gerenciamento externo.
           secureTextEntry={revealable ? !revealed : rest.secureTextEntry}
@@ -105,7 +109,11 @@ export function Field({
       </View>
 
       {error ? (
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 7 }}>
+        <View
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 7 }}
+        >
           <Icon d={ICONS.alert} size={13} color={T.danger} circle sw={1.9} />
           <Txt s={12} lh={1.45} c={T.danger} style={{ flex: 1 }}>
             {error}

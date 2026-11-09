@@ -8,6 +8,7 @@ import { Field } from '../components/Field';
 import { Icon } from '../components/Icon';
 import { Chip, PrimaryButton, Touchable, Txt } from '../components/ui';
 import { CARE_RELS, ICONS } from '../data/content';
+import { stepBackCareSignup } from '../navigation/flowBack';
 import { useApp, useTheme } from '../state/AppContext';
 
 const TITLES = ['Quem você cuida?', 'Acesso do cuidador', 'Convide a pessoa'];
@@ -94,13 +95,9 @@ export function CareSignupScreen() {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Touchable
-            onPress={() =>
-              // A conta já existe neste ponto: voltar ao login sem sair deixava
-              // a sessão aberta por baixo. No passo 0, voltar é sair de verdade.
-              step === 0
-                ? actions.logout().catch(() => undefined)
-                : actions.set((s) => ({ careStep: s.careStep - 1 }))
-            }
+            // A conta já existe neste ponto: no passo 0, voltar é sair dela
+            // (com confirmação). Mesma regra do voltar físico (RootNavigator).
+            onPress={() => stepBackCareSignup(step, actions)}
             accessibilityLabel="Voltar"
             style={{
               width: 36,
@@ -115,7 +112,7 @@ export function CareSignupScreen() {
           >
             <Icon d={ICONS.back} size={16} color={T.t1} sw={2.2} />
           </Touchable>
-          <Txt s={10.5} w={800} c={T.t3} ls={1.6}>
+          <Txt s={11} w={800} c={T.t3} ls={1.6}>
             CONTA DE CUIDADOR · {step + 1} de 3
           </Txt>
         </View>
@@ -268,7 +265,7 @@ export function CareSignupScreen() {
                   backgroundColor: state.invited ? T.bg : inviteCode ? T.pri : T.bd,
                 }}
               >
-                <Txt s={14} w={800} c={state.invited ? T.t2 : '#fff'}>
+                <Txt s={14} w={800} c={state.invited ? T.t2 : T.onPri}>
                   {state.invited ? 'Convite marcado como enviado' : 'Marquei que enviei'}
                 </Txt>
               </Touchable>

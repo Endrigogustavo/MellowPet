@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Platform, ScrollView, TextInput, View } from 'react-native';
+import { Alert, Animated, Easing, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '../components/Icon';
@@ -178,7 +178,13 @@ export function ChatScreen() {
         </View>
 
         <Touchable
-          onPress={() => actions.set({ messages: [] })}
+          onPress={() => {
+            if (state.messages.length === 0) return;
+            Alert.alert('Limpar a conversa?', 'As mensagens desta conversa somem deste aparelho.', [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Limpar', style: 'destructive', onPress: () => actions.set({ messages: [] }) },
+            ]);
+          }}
           accessibilityLabel="Limpar conversa"
           style={{
             width: 44,
@@ -248,6 +254,8 @@ export function ChatScreen() {
           return (
             <View
               key={i}
+              // A última resposta do Mellow é anunciada ao leitor de tela.
+              accessibilityLiveRegion={bot && i === state.messages.length - 1 ? 'polite' : 'none'}
               style={{
                 flexDirection: bot ? 'row' : 'row-reverse',
                 gap: 8,
@@ -291,11 +299,11 @@ export function ChatScreen() {
                   {m.content}
                 </Txt>
                 {bot && m.source === 'device' ? (
-                  <Txt s={10.5} w={700} c={T.t3} style={{ marginTop: 5 }}>
+                  <Txt s={11} w={700} c={T.t3} style={{ marginTop: 5 }}>
                     No aparelho · nada foi enviado
                   </Txt>
                 ) : bot && m.source === 'server' ? (
-                  <Txt s={10.5} w={700} c={T.t3} style={{ marginTop: 5 }}>
+                  <Txt s={11} w={700} c={T.t3} style={{ marginTop: 5 }}>
                     Nuvem
                   </Txt>
                 ) : null}
@@ -345,7 +353,10 @@ export function ChatScreen() {
         })}
 
         {state.typing ? (
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', paddingLeft: 38 }}>
+          <View
+            accessibilityLiveRegion="polite"
+            style={{ flexDirection: 'row', gap: 8, alignItems: 'center', paddingLeft: 38 }}
+          >
             <View style={{ flexDirection: 'row', gap: 4 }}>
               <Dot delay={0} color={T.t3} />
               <Dot delay={160} color={T.t3} />
@@ -383,6 +394,7 @@ export function ChatScreen() {
             value={state.chatInput}
             onChangeText={(chatInput) => actions.set({ chatInput })}
             onSubmitEditing={send}
+            accessibilityLabel="Mensagem"
             placeholder={isCare ? CARE_CHAT_PLACEHOLDER : 'Como você está agora?'}
             placeholderTextColor={T.t3}
             returnKeyType="send"

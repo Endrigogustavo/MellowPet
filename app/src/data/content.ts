@@ -493,8 +493,8 @@ export const GUIDE: [string, string, string, string][] = [
     'M9 18V5l10-2v13M9 18a2.6 2.6 0 11-5.2 0A2.6 2.6 0 019 18z',
   ],
   [
-    'Modo cuidador',
-    'Em Ajustes › Conexões você entra no painel de quem acompanha alguém.',
+    'Seu cuidador',
+    'Em Ajustes › Conexões você cola o código de convite de quem vai te acompanhar e vê o que essa pessoa enxerga.',
     'settings',
     'M16 18v-1.5a3 3 0 00-3-3H7a3 3 0 00-3 3V18M10 5.5a3 3 0 100 6 3 3 0 000-6',
   ],
@@ -503,7 +503,7 @@ export const GUIDE: [string, string, string, string][] = [
 export const COACH: [string, string][] = [
   ['Comece aqui', 'Toque no Mellow para fazer carinho — ele reage ao seu humor.'],
   ['Cuide dele', 'Comida, brincadeira e descanso sobem o nível do seu bichinho.'],
-  ['Explore as abas', 'Ferramentas, Música e Cuidado ficam na barra de baixo.'],
+  ['Explore as abas', 'Ferramentas, Rotina, Música e Bem-estar ficam na barra de baixo.'],
 ];
 
 /** [id, nome, subtítulo, cor, ícone] */

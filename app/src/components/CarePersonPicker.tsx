@@ -25,7 +25,7 @@ export function CarePersonPicker({ links }: { links: CaregiverLink[] }) {
 
   return (
     <View accessibilityLabel="Pessoa acompanhada" style={{ marginHorizontal: 20, marginBottom: 14 }}>
-      <Txt s={10.5} w={800} c={T.t3} ls={1.2}>
+      <Txt s={11} w={800} c={T.t3} ls={1.2}>
         PESSOA ACOMPANHADA
       </Txt>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
