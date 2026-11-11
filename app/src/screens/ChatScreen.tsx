@@ -165,7 +165,13 @@ export function ChatScreen() {
             flexShrink: 0,
           }}
         >
-          <MellowMark size={24} color={isCare ? T.pri : emoInk} faceColor={T.surf} smile={false} />
+          <MellowMark
+            size={28}
+            color={isCare ? T.pri : emoInk}
+            faceColor={T.surf}
+            smile={false}
+            petType={isCare ? undefined : state.petType}
+          />
         </View>
 
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -274,7 +280,13 @@ export function ChatScreen() {
                     flexShrink: 0,
                   }}
                 >
-                  <MellowMark size={19} color={isCare ? T.pri : emoInk} faceColor={T.surf} smile={false} />
+                  <MellowMark
+                    size={22}
+                    color={isCare ? T.pri : emoInk}
+                    faceColor={T.surf}
+                    smile={false}
+                    petType={isCare ? undefined : state.petType}
+                  />
                 </View>
               ) : null}
               <View

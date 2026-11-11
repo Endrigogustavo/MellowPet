@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { localDream } from '../src/pet/dream.ts';
+import { PET_SPECS, PET_TYPES } from '../src/data/pets.ts';
 import {
   EMPTY_HABITS,
   dismissRitual,
@@ -102,4 +103,15 @@ test('ninar: rosto calmo enche, tensão esvazia, sem rosto pausa', () => {
   for (let t = 0; t < 40; t++) s = lullabyStep(s, calm, 1000);
   assert.equal(s.asleep, true);
   assert.equal(lullabyStep(s, tense, 1000), s);
+});
+
+test('12 pets: cada espécie tem anatomia e paleta próprias', () => {
+  assert.equal(PET_TYPES.length, 12);
+  for (const [key, label, baseColor] of PET_TYPES) {
+    const spec = PET_SPECS[key];
+    assert.ok(spec, `spec ausente para ${key}`);
+    assert.equal(spec.name, label);
+    assert.equal(spec.colors.body, baseColor);
+    assert.match(spec.colors.dark, /^#[0-9A-Fa-f]{6}$/);
+  }
 });

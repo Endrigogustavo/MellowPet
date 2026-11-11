@@ -236,20 +236,20 @@ export function SettingsScreen() {
                   accessibilityState={{ selected: on }}
                   style={{
                     width: '31%',
-                    minHeight: 74,
+                    minHeight: 84,
                     borderRadius: 18,
-                    paddingVertical: 12,
+                    paddingVertical: 10,
                     paddingHorizontal: 4,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 5,
+                    gap: 4,
                     backgroundColor: on ? T.priL : T.surfWarm,
                     borderWidth: on ? 1.5 : 1,
                     borderColor: on ? T.pri : T.bdL,
                   }}
                 >
                   <PetFace
-                    size={34}
+                    size={46}
                     petType={id}
                     body={isDark ? mix(color, LIGHT.surf, 0.14) : color}
                     line={T.sealLine}
