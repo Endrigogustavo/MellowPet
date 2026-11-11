@@ -205,41 +205,43 @@ export const ORDER: EmotionKey[] = [
   'fearful',
 ];
 
-/** Olhos do bichinho — dois traços SVG por emoção. */
+/** Olhos do bichinho — dois traços SVG por emoção (centrados em cx=35 e cx=65, cy=50). */
 export const EYES: Record<EmotionKey, [string, string]> = {
-  happy: ['M 30 51 q 7 -9 14 0', 'M 56 51 q 7 -9 14 0'],
-  neutral: ['M 30 51 q 7 -7 14 0', 'M 56 51 q 7 -7 14 0'],
-  sad: ['M 30 49 q 7 8 14 0', 'M 56 49 q 7 8 14 0'],
-  angry: ['M 30 46 L 44 52', 'M 70 46 L 56 52'],
-  fearful: ['M 30 50 q 7 -4 14 0', 'M 56 50 q 7 -4 14 0'],
-  unknown: ['M 30 51 q 7 -3 14 0', 'M 56 51 q 7 -3 14 0'],
+  happy: ['M 29 51 q 6 -8 12 0', 'M 59 51 q 6 -8 12 0'],
+  neutral: ['M 29 50.5 q 6 -6.5 12 0', 'M 59 50.5 q 6 -6.5 12 0'],
+  sad: ['M 29 49 q 6 7 12 0', 'M 59 49 q 6 7 12 0'],
+  angry: ['M 29 46.5 L 41 51.5', 'M 71 46.5 L 59 51.5'],
+  fearful: ['M 29 50 q 6 -4 12 0', 'M 59 50 q 6 -4 12 0'],
+  unknown: ['M 29 50.5 q 6 -3 12 0', 'M 59 50.5 q 6 -3 12 0'],
   surprised: [
-    'M 30 51 a 7 7 0 1 0 14 0 a 7 7 0 1 0 -14 0',
-    'M 56 51 a 7 7 0 1 0 14 0 a 7 7 0 1 0 -14 0',
+    'M 29 50 a 6 6 0 1 0 12 0 a 6 6 0 1 0 -12 0',
+    'M 59 50 a 6 6 0 1 0 12 0 a 6 6 0 1 0 -12 0',
   ],
-  disgusted: ['M 30 52 q 7 -5 14 0', 'M 56 50 q 7 -3 14 0'],
+  disgusted: ['M 29 51 q 6 -4.5 12 0', 'M 59 49.5 q 6 -3 12 0'],
 };
 
+/** Boca expressiva e polida abaixo do nariz (y = 66..73, largura equilibrada x = 42.5..57.5). */
 export const MOUTH: Record<EmotionKey, string> = {
-  happy: 'M 40 70 q 10 10 20 0',
-  neutral: 'M 41 70.5 q 9 4 18 0',
-  sad: 'M 41 77 q 9 -7 18 0',
-  angry: 'M 41 77 q 9 -6 18 0',
-  fearful: 'M 41 73 q 4.5 -5 9 0 q 4.5 5 9 0',
-  unknown: 'M 42 72h16',
-  surprised: 'M 50 73 a 4.6 5.6 0 1 0 0.1 0',
-  disgusted: 'M 41 75 q 9 -4 18 0',
+  happy: 'M 42 66.5 Q 50 73.8 58 66.5',
+  neutral: 'M 43 67 Q 50 71.2 57 67',
+  sad: 'M 43 71.8 Q 50 67.2 57 71.8',
+  angry: 'M 43 71.5 Q 50 67.5 57 71.5',
+  fearful: 'M 42.5 69.5 Q 46.2 66.5 50 69.5 Q 53.8 72.5 57.5 69.5',
+  unknown: 'M 44 68.8 Q 50 70.2 56 68.8',
+  surprised: 'M 50 66.8 a 3.2 3.8 0 1 0 0.1 0',
+  disgusted: 'M 43 70.8 Q 50 67.2 57 69.8',
 };
 
+/** Sobrancelhas suaves e expressivas acima dos olhos (y = 35..41). */
 export const BROWS: Record<EmotionKey, [string, string]> = {
   happy: ['', ''],
   neutral: ['', ''],
-  sad: ['M 29 46 q 7 -5 13 -7', 'M 71 46 q -7 -5 -13 -7'],
-  angry: ['M 28 39 L 43 47', 'M 72 39 L 57 47'],
-  fearful: ['M 29 44 q 7 -4 13 -3', 'M 71 44 q -7 -4 -13 -3'],
+  sad: ['M 28.5 41.5 Q 35 39.5 41 36.5', 'M 71.5 41.5 Q 65 39.5 59 36.5'],
+  angry: ['M 28.5 36.5 L 41 41.5', 'M 71.5 36.5 L 59 41.5'],
+  fearful: ['M 28.5 40.5 Q 35 37.5 41 38', 'M 71.5 40.5 Q 65 37.5 59 38'],
   unknown: ['', ''],
-  surprised: ['M 28 38 q 7 -4 14 0', 'M 72 38 q -7 -4 -14 0'],
-  disgusted: ['M 28 40 q 7 2 14 3', 'M 71 45 q -6 -4 -12 -5'],
+  surprised: ['M 28.5 38 Q 35 33.8 41.5 38', 'M 71.5 38 Q 65 33.8 58.5 38'],
+  disgusted: ['M 28.5 38.5 Q 35 40.2 41 40.8', 'M 71.5 40.5 Q 65 37.5 59 38'],
 };
 
 /** Boca do ícone de 24×24 usado nos cartões (`faceIcon`). */

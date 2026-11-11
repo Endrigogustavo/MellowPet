@@ -26,7 +26,7 @@ import {
   WORST_CASE_SHORT_PET_NAME,
   type StressMode,
 } from '../dev/worstCaseData';
-import { PET_BODY } from '../data/pets';
+import { PET_BODY, PET_SPECS } from '../data/pets';
 import { createDemoSnapshot, nextDemoExpression } from '../vision/demoSource';
 import { VISION_MODE, type SignalStatus, type VisionMode } from '../vision/contracts';
 import type { CalibrationState } from '../vision/expressionEngine';
@@ -1647,9 +1647,9 @@ export function useTheme(): Theme {
     const isDark = state.theme === 'dark';
     const T = isDark ? DARK : LIGHT;
     const emo = EMOTIONS[state.observedExpression];
-    const isSeal = state.petType === 'seal';
+    const spec = PET_SPECS[state.petType] ?? PET_SPECS.seal;
     const base = PET_BODY[state.petType];
-    const body = isSeal ? T.sealBody : isDark ? mix(base, '#FFFFFF', 0.14) : base;
+    const body = isDark ? mix(base, '#FFFFFF', 0.1) : base;
 
     return {
       T,
@@ -1662,10 +1662,10 @@ export function useTheme(): Theme {
       emoInk: emotionInk(state.observedExpression, isDark),
       pet: {
         body,
-        belly: isSeal ? T.sealBelly : mix(body, '#000000', 0.1),
-        line: isSeal ? T.sealLine : '#2E2A33',
-        whisker: isSeal ? T.sealWhisker : hexA('#6B6470', 0.75),
-        blush: 0.55,
+        belly: spec.colors.belly,
+        line: spec.colors.dark,
+        whisker: isDark ? hexA('#8A7F96', 0.78) : hexA('#6E5D78', 0.72),
+        blush: 0.65,
       },
     };
   }, [state.theme, state.observedExpression, state.density, state.petType]);

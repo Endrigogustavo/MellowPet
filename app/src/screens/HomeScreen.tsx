@@ -240,7 +240,7 @@ export function HomeScreen() {
               flexShrink: 0,
             }}
           >
-            <MellowMark size={26} color={T.pri} faceColor={T.surf} />
+            <MellowMark size={30} color={T.pri} faceColor={T.surf} petType={state.petType} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Txt s={22} w={800} c={T.t1} ls={-0.4} numberOfLines={1}>
